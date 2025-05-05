@@ -86,9 +86,6 @@ pub enum FlagIter<'a> {
     Short(&'a str),
 }
 impl<'a> FlagIter<'a> {
-    fn t() {
-    }
-
     /// Extract the value from a flag
     ///
     /// # Examples
