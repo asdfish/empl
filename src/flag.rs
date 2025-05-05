@@ -10,6 +10,14 @@ pub enum Flag<'a> {
     /// Flags that start with `--`
     Long(&'a str),
 }
+impl Display for Flag<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Short(flag) => write!(f, "-{}", flag),
+            Self::Long(flag) => write!(f, "--{}", flag),
+        }
+    }
+}
 /// The discriminant type of [Flag]
 #[derive(Clone, Copy, Debug, PartialEq)]
 enum FlagType {
