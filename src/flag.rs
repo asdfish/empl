@@ -174,6 +174,15 @@ impl<'a> TryFrom<&'a str> for Argument<'a> {
 ///         ] as &[_],
 ///     ),
 ///     (
+///         &["--help", "-lsh", "--", "--foo", "hello", "world"] as &[_],
+///         &[
+///             Flag::Long("help"),
+///             Flag::Short('l'),
+///             Flag::Short('s'),
+///             Flag::Short('h'),
+///         ] as &[_],
+///     ),
+///     (
 ///         &["-foo", "--bar"],
 ///         &[
 ///             Flag::Short('f'),
@@ -199,6 +208,7 @@ where
     I: Iterator<Item = Result<&'a str, E>>,
 {
     arg: Option<Argument<'a>>,
+    passed_separator: bool,
     src: I,
 }
 impl<'a, I, E> Arguments<'a, I, E>
@@ -206,7 +216,7 @@ where
     I: Iterator<Item = Result<&'a str, E>>,
 {
     pub const fn new(src: I) -> Self {
-        Self { arg: None, src }
+        Self { arg: None, passed_separator: false, src }
     }
 }
 
@@ -218,6 +228,7 @@ where
 
     fn next(&mut self) -> Option<Result<Flag<'a>, ArgumentsError<'a, E>>> {
         match &mut self.arg {
+            _ if self.passed_separator => None,
             Some(arg) => match arg.next() {
                 Some(arg) => Some(Ok(arg)),
                 None => {
@@ -228,7 +239,13 @@ where
             None => {
                 match self
                     .src
-                    .next()?
+                    .next()
+                    .filter(|arg| if matches!(arg, Ok("--")) {
+                        self.passed_separator = true;
+                        false
+                    } else {
+                        true
+                    })?
                     .map_err(ArgumentsError::Source)
                     .and_then(|arg| Argument::try_from(arg).map_err(ArgumentsError::NonFlag))
                 {
