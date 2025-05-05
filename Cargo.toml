@@ -4,7 +4,10 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+allocator-api2 = { version = "0.2.21", default-features = false }
 async-io = { version = "2.4.0", default-features = false }
 async_executors = { version = "0.7.0", default-features = false }
+bumpalo = { version = "3.17.0", default-features = false, features = ["allocator-api2", "collections"] }
 futures-channel = { version = "0.3.31", default-features = false }
+futures-io = { version = "0.3.31", default-features = false }
 nonempty-collections = { version = "0.3.0", default-features = false }
