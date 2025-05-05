@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    fmt::{self, Display, Formatter},
+    fmt::{self, Debug, Display, Formatter},
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -30,7 +30,7 @@ impl From<Flag<'_>> for FlagType {
 /// # Examples
 ///
 /// ```
-/// # use empl::argument::{Argument, NonFlagError};
+/// # use empl::flag::{Argument, NonFlagError};
 /// [
 ///     ("--", Err(NonFlagError("--"))),
 ///     ("-", Err(NonFlagError("-"))),
@@ -55,7 +55,7 @@ impl From<Flag<'_>> for FlagType {
 /// ```
 ///
 /// ```
-/// # use empl::argument::{Flag, Argument};
+/// # use empl::flag::{Flag, Argument};
 /// [
 ///     (
 ///         "-foo",
@@ -91,7 +91,7 @@ impl<'a> Argument<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use empl::argument::Argument;
+    /// # use empl::flag::Argument;
     /// [
     ///     ("--foo=bar", None, Some("bar")),
     ///     ("-foo=bar", Some(3), Some("bar")),
@@ -155,6 +155,110 @@ impl<'a> TryFrom<&'a str> for Argument<'a> {
         }
     }
 }
+
+/// [Iterator] for [Flag]s in argv.
+///
+/// # Examples
+///
+/// ```
+/// # use empl::flag::{Arguments, Flag};
+/// # use std::convert::Infallible;
+/// [
+///     (
+///         &["--help", "-lsh"] as &[_],
+///         &[
+///             Flag::Long("help"),
+///             Flag::Short('l'),
+///             Flag::Short('s'),
+///             Flag::Short('h'),
+///         ] as &[_],
+///     ),
+///     (
+///         &["-foo", "--bar"],
+///         &[
+///             Flag::Short('f'),
+///             Flag::Short('o'),
+///             Flag::Short('o'),
+///             Flag::Long("bar"),
+///         ],
+///     ),
+/// ]
+/// .into_iter()
+/// .for_each(|(l, r)| {
+///     assert_eq!(
+///         Arguments::new(l.iter().copied().map(Ok::<_, Infallible>))
+///             .collect::<Result<Vec<_>, _>>()
+///             .as_deref(),
+///         Ok(r)
+///     )
+/// })
+/// ```
+#[derive(Clone, Debug)]
+pub struct Arguments<'a, I, E>
+where
+    I: Iterator<Item = Result<&'a str, E>>,
+{
+    arg: Option<Argument<'a>>,
+    src: I,
+}
+impl<'a, I, E> Arguments<'a, I, E>
+where
+    I: Iterator<Item = Result<&'a str, E>>,
+{
+    pub const fn new(src: I) -> Self {
+        Self { arg: None, src }
+    }
+}
+
+impl<'a, I, E> Iterator for Arguments<'a, I, E>
+where
+    I: Iterator<Item = Result<&'a str, E>>,
+{
+    type Item = Result<Flag<'a>, ArgumentsError<'a, E>>;
+
+    fn next(&mut self) -> Option<Result<Flag<'a>, ArgumentsError<'a, E>>> {
+        match &mut self.arg {
+            Some(arg) => match arg.next() {
+                Some(arg) => Some(Ok(arg)),
+                None => {
+                    self.arg = None;
+                    self.next()
+                }
+            },
+            None => {
+                match self
+                    .src
+                    .next()?
+                    .map_err(ArgumentsError::Source)
+                    .and_then(|arg| Argument::try_from(arg).map_err(ArgumentsError::NonFlag))
+                {
+                    Ok(arg) => {
+                        self.arg = Some(arg);
+                        self.next()
+                    }
+                    Err(err) => Some(Err(err)),
+                }
+            }
+        }
+    }
+}
+#[derive(Clone, Debug, PartialEq)]
+pub enum ArgumentsError<'a, E> {
+    NonFlag(NonFlagError<'a>),
+    Source(E),
+}
+impl<E> Display for ArgumentsError<'_, E>
+where
+    E: Display,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::NonFlag(e) => Display::fmt(e, f),
+            Self::Source(e) => write!(f, "failed to source argument: {}", e),
+        }
+    }
+}
+impl<E> Error for ArgumentsError<'_, E> where E: Debug + Display {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct NonFlagError<'a>(pub &'a str);
