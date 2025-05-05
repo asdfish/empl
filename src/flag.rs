@@ -31,52 +31,54 @@ impl From<Flag<'_>> for FlagType {
 ///
 /// ```
 /// # use empl::flag::{Argument, NonFlagError};
-/// [
-///     ("--", Err(NonFlagError("--"))),
-///     ("-", Err(NonFlagError("-"))),
-///     ("-a", Ok(Argument::Short("a"))),
-///     (
-///         "--help",
-///         Ok(Argument::Long {
-///             flag: Some("help"),
-///             value: None,
-///         }),
-///     ),
-///     (
-///         "--foo=bar",
-///         Ok(Argument::Long {
-///             flag: Some("foo"),
-///             value: Some("bar"),
-///         }),
-///     ),
-/// ]
-/// .into_iter()
-/// .for_each(|(l, r)| assert_eq!(Argument::try_from(l), r))
+/// fn test_argument_try_from(
+///      input: &'static str,
+///      output: Result<Argument<'static>, NonFlagError<'static>>,
+/// ) {
+///     assert_eq!(Argument::try_from(input), output);
+/// }
+///
+/// test_argument_try_from("--", Err(NonFlagError("--")));
+/// test_argument_try_from("-", Err(NonFlagError("-")));
+/// test_argument_try_from("-a", Ok(Argument::Short("a")));
+/// test_argument_try_from(
+///     "--help",
+///     Ok(Argument::Long {
+///         flag: Some("help"),
+///         value: None,
+///     }),
+/// );
+/// test_argument_try_from(
+///     "--foo=bar",
+///     Ok(Argument::Long {
+///         flag: Some("foo"),
+///         value: Some("bar"),
+///     }),
+/// );
 /// ```
 ///
 /// ```
 /// # use empl::flag::{Flag, Argument};
-/// [
-///     (
-///         "-foo",
-///         &[Flag::Short('f'), Flag::Short('o'), Flag::Short('o')] as &[_],
-///     ),
-///     (
-///         "-foo=bar",
-///         &[Flag::Short('f'), Flag::Short('o'), Flag::Short('o')],
-///     ),
-///     ("--help", &[Flag::Long("help")]),
-/// ]
-/// .into_iter()
-/// .for_each(|(l, r)| {
+/// fn test_argument_collect(input: &'static str, output: &'static [Flag<'static>]) {
 ///     assert_eq!(
-///         Argument::try_from(l)
+///         Argument::try_from(input)
 ///             .map(Iterator::collect::<Vec<_>>)
 ///             .as_deref(),
-///         Ok(r)
+///         Ok(output)
 ///     )
-/// })
+/// }
+///
+/// test_argument_collect(
+///     "-foo",
+///     &[Flag::Short('f'), Flag::Short('o'), Flag::Short('o')],
+/// );
+/// test_argument_collect(
+///     "-foo=bar",
+///     &[Flag::Short('f'), Flag::Short('o'), Flag::Short('o')],
+/// );
+/// test_argument_collect("--help", &[Flag::Long("help")]);
 /// ```
+
 #[derive(Clone, Debug, PartialEq)]
 pub enum Argument<'a> {
     Long {
@@ -92,25 +94,23 @@ impl<'a> Argument<'a> {
     ///
     /// ```
     /// # use empl::flag::Argument;
-    /// [
-    ///     ("--foo=bar", None, Some("bar")),
-    ///     ("-foo=bar", Some(3), Some("bar")),
-    /// ]
-    /// .into_iter()
-    /// .for_each(|(flag, n, val)| {
-    ///     let mut flag = Argument::try_from(flag).unwrap();
-    ///     n.inspect(|n| {
-    ///         (0..*n).for_each(|_| {
-    ///             let _ = flag.next();
-    ///         });
+    /// fn test_argument_value(input: &'static str, steps: usize, output: Option<&'static str>) {
+    ///     let mut iter = Argument::try_from(input).unwrap();
+    ///     (0..steps).for_each(|_| {
+    ///         let _ = iter.next();
     ///     });
-    ///     assert_eq!(flag.value(), val);
-    /// })
+    ///     assert_eq!(iter.value(), output);
+    /// }
+    /// test_argument_value("--foo=bar", 0, Some("bar"));
+    /// test_argument_value("-foo=bar", 3, Some("bar"));
+    /// test_argument_value("-foo", 3, None);
     /// ```
     pub fn value(self) -> Option<&'a str> {
         match self {
             Self::Long { value, .. } => value,
-            Self::Short(short) => Some(short.strip_prefix('=').unwrap_or(short)),
+            Self::Short(short) => {
+                Some(short.strip_prefix('=').unwrap_or(short)).filter(|val| !val.is_empty())
+            }
         }
     }
 }
@@ -163,44 +163,42 @@ impl<'a> TryFrom<&'a str> for Argument<'a> {
 /// ```
 /// # use empl::flag::{Arguments, Flag};
 /// # use std::convert::Infallible;
-/// [
-///     (
-///         &["--help", "-lsh"] as &[_],
-///         &[
-///             Flag::Long("help"),
-///             Flag::Short('l'),
-///             Flag::Short('s'),
-///             Flag::Short('h'),
-///         ] as &[_],
-///     ),
-///     (
-///         &["--help", "-lsh", "--", "--foo", "hello", "world"] as &[_],
-///         &[
-///             Flag::Long("help"),
-///             Flag::Short('l'),
-///             Flag::Short('s'),
-///             Flag::Short('h'),
-///         ] as &[_],
-///     ),
-///     (
-///         &["-foo", "--bar"],
-///         &[
-///             Flag::Short('f'),
-///             Flag::Short('o'),
-///             Flag::Short('o'),
-///             Flag::Long("bar"),
-///         ],
-///     ),
-/// ]
-/// .into_iter()
-/// .for_each(|(l, r)| {
+/// fn test_arguments_collect(input: &'static [&'static str], output: &'static [Flag<'static>]) {
 ///     assert_eq!(
-///         Arguments::new(l.iter().copied().map(Ok::<_, Infallible>))
+///         Arguments::new(input.iter().copied().map(Ok::<_, Infallible>))
 ///             .collect::<Result<Vec<_>, _>>()
 ///             .as_deref(),
-///         Ok(r)
+///         Ok(output)
 ///     )
-/// })
+/// }
+///
+/// test_arguments_collect(
+///     &["--help", "-lsh"] as &[_],
+///     &[
+///         Flag::Long("help"),
+///         Flag::Short('l'),
+///         Flag::Short('s'),
+///         Flag::Short('h'),
+///     ] as &[_],
+/// );
+/// test_arguments_collect(
+///     &["--help", "-lsh", "--", "--foo", "hello", "world"] as &[_],
+///     &[
+///         Flag::Long("help"),
+///         Flag::Short('l'),
+///         Flag::Short('s'),
+///         Flag::Short('h'),
+///     ] as &[_],
+/// );
+/// test_arguments_collect(
+///     &["-foo", "--bar"],
+///     &[
+///         Flag::Short('f'),
+///         Flag::Short('o'),
+///         Flag::Short('o'),
+///         Flag::Long("bar"),
+///     ],
+/// );
 /// ```
 #[derive(Clone, Debug)]
 pub struct Arguments<'a, I, E>
@@ -247,7 +245,11 @@ where
             .take()
             .and_then(|arg| arg.value().map(Ok).or_else(|| self.src.next()))
             .or_else(|| self.src.next())
-            .filter(|arg| arg.as_ref().map(|arg| !arg.starts_with('-')).unwrap_or(true))
+            .filter(|arg| {
+                arg.as_ref()
+                    .map(|arg| !arg.starts_with('-'))
+                    .unwrap_or(true)
+            })
     }
 }
 
