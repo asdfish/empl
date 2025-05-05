@@ -30,32 +30,32 @@ impl From<Flag<'_>> for FlagType {
 /// # Examples
 ///
 /// ```
-/// # use empl::argument::{FlagIter, NonFlagError};
+/// # use empl::argument::{Argument, NonFlagError};
 /// [
 ///     ("--", Err(NonFlagError("--"))),
 ///     ("-", Err(NonFlagError("-"))),
-///     ("-a", Ok(FlagIter::Short("a"))),
+///     ("-a", Ok(Argument::Short("a"))),
 ///     (
 ///         "--help",
-///         Ok(FlagIter::Long {
+///         Ok(Argument::Long {
 ///             flag: Some("help"),
 ///             value: None,
 ///         }),
 ///     ),
 ///     (
 ///         "--foo=bar",
-///         Ok(FlagIter::Long {
+///         Ok(Argument::Long {
 ///             flag: Some("foo"),
 ///             value: Some("bar"),
 ///         }),
 ///     ),
 /// ]
 /// .into_iter()
-/// .for_each(|(l, r)| assert_eq!(FlagIter::try_from(l), r))
+/// .for_each(|(l, r)| assert_eq!(Argument::try_from(l), r))
 /// ```
 ///
 /// ```
-/// # use empl::argument::{Flag, FlagIter};
+/// # use empl::argument::{Flag, Argument};
 /// [
 ///     (
 ///         "-foo",
@@ -70,7 +70,7 @@ impl From<Flag<'_>> for FlagType {
 /// .into_iter()
 /// .for_each(|(l, r)| {
 ///     assert_eq!(
-///         FlagIter::try_from(l)
+///         Argument::try_from(l)
 ///             .map(Iterator::collect::<Vec<_>>)
 ///             .as_deref(),
 ///         Ok(r)
@@ -78,27 +78,27 @@ impl From<Flag<'_>> for FlagType {
 /// })
 /// ```
 #[derive(Clone, Debug, PartialEq)]
-pub enum FlagIter<'a> {
+pub enum Argument<'a> {
     Long {
         flag: Option<&'a str>,
         value: Option<&'a str>,
     },
     Short(&'a str),
 }
-impl<'a> FlagIter<'a> {
+impl<'a> Argument<'a> {
     /// Extract the value from a flag
     ///
     /// # Examples
     ///
     /// ```
-    /// # use empl::argument::FlagIter;
+    /// # use empl::argument::Argument;
     /// [
     ///     ("--foo=bar", None, Some("bar")),
     ///     ("-foo=bar", Some(3), Some("bar")),
     /// ]
     /// .into_iter()
     /// .for_each(|(flag, n, val)| {
-    ///     let mut flag = FlagIter::try_from(flag).unwrap();
+    ///     let mut flag = Argument::try_from(flag).unwrap();
     ///     n.inspect(|n| {
     ///         (0..*n).for_each(|_| {
     ///             let _ = flag.next();
@@ -114,7 +114,7 @@ impl<'a> FlagIter<'a> {
         }
     }
 }
-impl<'a> Iterator for FlagIter<'a> {
+impl<'a> Iterator for Argument<'a> {
     type Item = Flag<'a>;
 
     fn next(&mut self) -> Option<Flag<'a>> {
@@ -131,25 +131,25 @@ impl<'a> Iterator for FlagIter<'a> {
         }
     }
 }
-impl<'a> TryFrom<&'a str> for FlagIter<'a> {
+impl<'a> TryFrom<&'a str> for Argument<'a> {
     type Error = NonFlagError<'a>;
 
-    fn try_from(flag: &'a str) -> Result<FlagIter<'a>, NonFlagError<'a>> {
+    fn try_from(flag: &'a str) -> Result<Argument<'a>, NonFlagError<'a>> {
         if flag == "--" || flag.len() < 2 {
             Err(NonFlagError(flag))
         } else if let Some(flag) = flag.strip_prefix("--") {
             Ok(flag
                 .split_once('=')
-                .map(|(flag, value)| FlagIter::Long {
+                .map(|(flag, value)| Argument::Long {
                     flag: Some(flag),
                     value: Some(value),
                 })
-                .unwrap_or(FlagIter::Long {
+                .unwrap_or(Argument::Long {
                     flag: Some(flag),
                     value: None,
                 }))
         } else if let Some(flag) = flag.strip_prefix('-') {
-            Ok(FlagIter::Short(flag))
+            Ok(Argument::Short(flag))
         } else {
             Err(NonFlagError(flag))
         }
