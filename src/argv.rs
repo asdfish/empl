@@ -17,7 +17,7 @@ impl Argv {
     ///
     ///   - `argv` must be safe to read (can be null)
     ///   - `argc` must be accurate
-    pub unsafe fn new(argv: *const *const c_char, argc: c_int) -> Result<Self, ArgvError> {
+    pub unsafe fn new(argc: c_int, argv: *const *const c_char) -> Result<Self, ArgvError> {
         if argv.is_null() {
             return Err(ArgvError::Null);
         }
