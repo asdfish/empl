@@ -216,7 +216,38 @@ where
     I: Iterator<Item = Result<&'a str, E>>,
 {
     pub const fn new(src: I) -> Self {
-        Self { arg: None, passed_separator: false, src }
+        Self {
+            arg: None,
+            passed_separator: false,
+            src,
+        }
+    }
+
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::flag::Arguments;
+    /// # use std::convert::Infallible;
+    /// [
+    ///     (&["--foo", "bar"] as &[_], 1, Ok("bar")),
+    ///     (&["--foo=baz"], 1, Ok("baz")),
+    ///     (&["foo"], 0, Ok("foo"))
+    /// ]
+    /// .into_iter()
+    /// .for_each(|(i, s, o)| {
+    ///     let mut iter = Arguments::new(i.iter().copied().map(Ok::<_, Infallible>));
+    ///     (0..s).for_each(|_| {
+    ///         let _ = iter.next();
+    ///     });
+    ///     assert_eq!(iter.value(), Some(o));
+    /// })
+    /// ```
+    pub fn value(&mut self) -> Option<Result<&'a str, E>> {
+        self.arg
+            .take()
+            .and_then(|arg| arg.value().map(Ok).or_else(|| self.src.next()))
+            .or_else(|| self.src.next())
+            .filter(|arg| arg.as_ref().map(|arg| !arg.starts_with('-')).unwrap_or(true))
     }
 }
 
@@ -240,11 +271,13 @@ where
                 match self
                     .src
                     .next()
-                    .filter(|arg| if matches!(arg, Ok("--")) {
-                        self.passed_separator = true;
-                        false
-                    } else {
-                        true
+                    .filter(|arg| {
+                        if matches!(arg, Ok("--")) {
+                            self.passed_separator = true;
+                            false
+                        } else {
+                            true
+                        }
                     })?
                     .map_err(ArgumentsError::Source)
                     .and_then(|arg| Argument::try_from(arg).map_err(ArgumentsError::NonFlag))
