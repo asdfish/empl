@@ -4,4 +4,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-bumpalo = { version = "3.17.0", default-features = false, features = ["allocator-api2", "collections"] }
+async-executor = { version = "1.13.2", default-features = false }
+async-io = { version = "2.4.0", default-features = false }
+bumpalo = { version = "3.17.0", default-features = false, features = ["collections"] }
+crossterm = { version = "0.29.0", default-features = false }
+futures-lite = { version = "2.6.0", default-features = false, features = ["std"] }
+pin-project-lite = { version = "0.2.16", default-features = false }
