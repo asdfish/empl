@@ -1,17 +1,16 @@
 use {
-    async_io::{Async, IoSafe},
     bumpalo::{collections::String as BString, Bump},
     crossterm::Command,
-    futures_lite::AsyncWriteExt,
-    std::{fmt, future::Future, io, os::fd::AsFd},
+    std::{fmt, future::Future, io, marker::Unpin},
+    tokio::io::AsyncWriteExt,
 };
 
 pub trait CommandExt: Command + Sized {
-    fn execute<W>(&self, b: &Bump, out: W) -> impl Future<Output = Result<(), io::Error>>
+    fn execute<W>(&self, b: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
-        W: AsFd + IoSafe + io::Write,
+        W: AsyncWriteExt + Unpin,
     {
-        async {
+        async move {
             #[cfg(windows)]
             if !self.is_ansi_code_supported() {
                 return self.execute_winapi();
@@ -20,9 +19,8 @@ pub trait CommandExt: Command + Sized {
             let mut buf = BString::new_in(b);
             let _ = self.write_ansi(&mut buf);
 
-            let mut adapter = Async::new(out)?;
-            adapter.write(buf.as_bytes()).await?;
-            adapter.flush().await
+            out.write_all(buf.as_bytes()).await?;
+            out.flush().await
         }
     }
 

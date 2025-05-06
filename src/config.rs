@@ -13,7 +13,7 @@ pub type SelectedConfig = DefaultConfig;
 
 #[expect(dead_code)]
 const fn take_config<C: Config>() {}
-const _: () = take_config::<SelectedConfig>();
+const _: fn() = take_config::<SelectedConfig>;
 
 pub trait Config {
     fn get_playlists() -> Option<NEVec<(OsString, NEVec<PathBuf>)>>;

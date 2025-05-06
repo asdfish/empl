@@ -1,8 +1,6 @@
 #![cfg_attr(not(test), no_main)]
 
 use {
-    async_executor::LocalExecutor,
-    async_io::block_on,
     empl::{
         argv::{ArgError, Argv, ArgvError},
         flag::{Arguments, ArgumentsError, Flag},
@@ -44,22 +42,6 @@ Options:
                 flag => return Err(MainError::UnknownFlag(flag)),
             }
         }
-
-        let executor = LocalExecutor::new();
-        block_on(executor.run(async {
-            // use {
-            //     bumpalo::Bump,
-            //     crossterm::style::{Color, Print, SetForegroundColor, ResetColor},
-            //     empl::ext::command::CommandExt,
-            //     std::io::stdout,
-            // };
-
-            // let b = Bump::new();
-            // let _ = SetForegroundColor(Color::Red)
-            //     .then(Print("foo"))
-            //     .then(ResetColor)
-            //     .execute(&b, &mut stdout().lock()).await;
-        }));
 
         Ok(())
     })() {
