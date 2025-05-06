@@ -10,7 +10,7 @@ pub trait CommandExt: Command + Sized {
     where
         W: AsyncWriteExt + Unpin,
     {
-        async move {
+        async {
             #[cfg(windows)]
             if !self.is_ansi_code_supported() {
                 return self.execute_winapi();
@@ -29,6 +29,16 @@ pub trait CommandExt: Command + Sized {
         R: Command,
     {
         Then { l: self, r }
+    }
+
+    fn when<P>(self, predicate: P) -> When<Self, P>
+    where
+        P: Fn() -> bool,
+    {
+        When {
+            command: self,
+            predicate,
+        }
     }
 }
 impl<T> CommandExt for T where T: Command {}
@@ -61,5 +71,42 @@ where
     #[cfg(windows)]
     fn is_ansi_code_supported(&self) -> bool {
         self.l.is_ansi_code_supported() && self.r.is_ansi_code_supported()
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct When<T, P>
+where
+    T: Command,
+    P: Fn() -> bool,
+{
+    command: T,
+    predicate: P,
+}
+impl<T, P> Command for When<T, P>
+where
+    T: Command,
+    P: Fn() -> bool,
+{
+    fn write_ansi(&self, f: &mut impl fmt::Write) -> Result<(), fmt::Error> {
+        if (self.predicate)() {
+            self.command.write_ansi(f)
+        } else {
+            Ok(())
+        }
+    }
+
+    #[cfg(windows)]
+    fn execute_winapi(&self) -> Result<(), io::Error> {
+        if (self.predicate)() {
+            self.command.execute_winapi()
+        } else {
+            Ok(())
+        }
+    }
+
+    #[cfg(windows)]
+    fn is_ansi_code_supported(&self) -> bool {
+        self.command.is_ansi_code_supported()
     }
 }
