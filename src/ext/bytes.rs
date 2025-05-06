@@ -1,4 +1,7 @@
-use std::str;
+use std::{
+    fmt::{self, Display, Formatter, Write},
+    str,
+};
 
 pub trait BytesExt: AsRef<[u8]> {
     fn chars<'a>(&'a self) -> Chars<'a> {
@@ -10,6 +13,13 @@ impl<T> BytesExt for T where T: AsRef<[u8]> {}
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Chars<'a>(&'a [u8]);
+impl Display for Chars<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        self
+            .map(|ch| ch.unwrap_or(char::REPLACEMENT_CHARACTER))
+            .try_for_each(|ch| f.write_char(ch))
+    }
+}
 impl<'a> Iterator for Chars<'a> {
     type Item = Option<char>;
 
