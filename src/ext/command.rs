@@ -1,6 +1,7 @@
 use {
     bumpalo::{collections::String as BString, Bump},
     crossterm::Command,
+    either::Either,
     std::{future::Future, io, marker::Unpin},
     tokio::io::AsyncWriteExt,
 };
@@ -10,17 +11,15 @@ pub trait CommandExt: Command + Sized {
         Adapter(self)
     }
 }
-impl<T> CommandExt for T
-where T: Command {}
+impl<T> CommandExt for T where T: Command {}
 
-pub trait CommandChain {
-    fn execute<W>(&self, _: &Bump, _: &mut W) -> impl Future<Output = Result<(), io::Error>>
+pub trait CommandChain: Sized {
+    fn execute<W>(self, _: &Bump, _: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin;
 
     fn then<R>(self, r: R) -> Then<Self, R>
     where
-        Self: Sized,
         R: CommandChain,
     {
         Then { l: self, r }
@@ -35,7 +34,7 @@ impl<C> CommandChain for Adapter<C>
 where
     C: Command,
 {
-    fn execute<W>(&self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin,
     {
@@ -54,11 +53,59 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct CommandIter<I, T, M, C>(pub(super) I, pub(super) M)
+where
+    I: Iterator<Item = T>,
+    M: FnMut(T) -> C,
+    C: CommandChain;
+impl<I, T, M, C> CommandChain for CommandIter<I, T, M, C>
+where
+    I: Iterator<Item = T>,
+    M: FnMut(T) -> C,
+    C: CommandChain,
+{
+    fn execute<W>(
+        mut self,
+        alloc: &Bump,
+        out: &mut W,
+    ) -> impl Future<Output = Result<(), io::Error>>
+    where
+        W: AsyncWriteExt + Unpin,
+    {
+        async move {
+            while let Some(cmd) = self.0.next().map(&mut self.1) {
+                cmd.execute(alloc, out).await?;
+            }
+
+            Ok(())
+        }
+    }
+}
+
+impl<L, R> CommandChain for Either<L, R>
+where
+    L: CommandChain,
+    R: CommandChain,
+{
+    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    where
+        W: AsyncWriteExt + Unpin,
+    {
+        async move {
+            match self {
+                Self::Left(cmd) => cmd.execute(alloc, out).await,
+                Self::Right(cmd) => cmd.execute(alloc, out).await,
+            }
+        }
+    }
+}
+
 impl<T> CommandChain for Option<T>
 where
     T: CommandChain,
 {
-    fn execute<W>(&self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin,
     {
@@ -85,7 +132,7 @@ where
     L: CommandChain,
     R: CommandChain,
 {
-    fn execute<W>(&self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin,
     {

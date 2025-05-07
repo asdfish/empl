@@ -1,5 +1,16 @@
 use {
-    crate::{display::damage::Damage, ext::command::CommandChain},
+    crate::{
+        config::{Config, SelectedConfig},
+        ext::{
+            colors::ColorsExt,
+            command::{CommandChain, CommandExt},
+            iterator::IteratorExt,
+        },
+    },
+    crossterm::{
+        cursor::MoveTo,
+        style::SetColors,
+    },
     enum_iterator::Sequence,
     enum_map::{Enum, EnumMap},
     std::num::NonZeroU16,
@@ -51,7 +62,7 @@ impl DisplayState {
                     .unwrap_or_default();
 
                 NonZeroU16::new(width.get().saturating_sub(last_width)).map(|width| Row {
-                    x: usize::from(last_width),
+                    x: last_width,
                     width,
                 })
             }
@@ -59,13 +70,32 @@ impl DisplayState {
         }
     }
 
-    // pub fn render_menu<I, S>(&self, focus: Focus, items: I) -> impl CommandChain
-    // where
-    //     I: IntoIterator<Item = S>,
-    //     S: AsRef<str>,
-    // {
-    //     crossterm::style::ResetColor
-    // }
+    /// `items` should be *ALL* items in the menu
+    pub fn render_menu<I, S>(&self, focus: Focus, items: I) -> impl CommandChain
+    where
+        I: IntoIterator<Item = S>,
+        S: AsRef<str>,
+    {
+        self.row(focus).map(|Row { x, width }| {
+            items
+                .into_iter()
+                .enumerate()
+                .skip(self.offsets[focus])
+                .zip(0..)
+                .map_command(move |((index, _item), y)| {
+                    let mut colors = SelectedConfig::MENU_COLORS;
+                    if index == Marker::Cursor.get(focus, self) {
+                        colors.join(&SelectedConfig::CURSOR_COLORS);
+                    }
+                    if index == Marker::Selection.get(focus, self) {
+                        colors.join(&SelectedConfig::SELECTION_COLORS);
+                    }
+
+                    SetColors(colors).adapt()
+                        .then(MoveTo(x, y).adapt())
+                })
+        })
+    }
 
     pub fn visible(&self, focus: Focus, index: usize) -> bool {
         index >= self.offsets[focus]
@@ -88,7 +118,7 @@ pub struct Area {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct Row {
-    x: usize,
+    x: u16,
     width: NonZeroU16,
 }
 

@@ -17,17 +17,28 @@ const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
 pub trait Config {
+    const CURSOR_COLORS: Colors;
     const MENU_COLORS: Colors;
+    const SELECTION_COLORS: Colors;
 
     fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>>;
 }
 
 pub struct DefaultConfig;
 impl Config for DefaultConfig {
+    const CURSOR_COLORS: Colors = Colors {
+        foreground: Some(Color::Black),
+        background: Some(Color::White),
+    };
     const MENU_COLORS: Colors = Colors {
         foreground: Some(Color::White),
         background: Some(Color::Black),
     };
+    const SELECTION_COLORS: Colors = Colors {
+        foreground: Some(Color::Red),
+        background: None,
+    };
+
     fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>> {
         fn os_string_to_string(os_string: OsString) -> String {
             os_string

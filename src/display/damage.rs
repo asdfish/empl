@@ -1,12 +1,6 @@
 use {
     crate::display::state::{DisplayState, Focus, Marker},
-    bumpalo::Bump,
     enum_iterator::Sequence,
-    std::{
-        io,
-        marker::Unpin,
-    },
-    tokio::io::AsyncWriteExt,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq, Sequence)]
@@ -37,11 +31,5 @@ impl Damage {
                         || new.visible(*focus, new.offsets[*focus]))
             }
         }
-    }
-
-    pub async fn execute<O>(&self, alloc: &mut Bump, out: &mut O) -> Result<(), io::Error>
-    where O: AsyncWriteExt + Unpin {
-        alloc.reset();
-        Ok(())
     }
 }
