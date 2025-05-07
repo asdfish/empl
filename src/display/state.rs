@@ -99,7 +99,7 @@ impl<'a> DisplayState<'a> {
         }
     }
 
-    pub fn render_list(&self, focus: Focus, index: u16) -> impl CommandChain {
+    pub fn render_line(&self, focus: Focus, index: u16) -> impl CommandChain {
         index
             .checked_sub(self.offsets[focus])
             .and_then(|y| self.row(focus).map(|Row { x, width }| (x, y, width)))
@@ -123,7 +123,7 @@ impl<'a> DisplayState<'a> {
     {
         self.terminal_area.map(move |Area { height, .. }| {
             (self.offsets[focus]..self.offsets[focus] + height.get())
-                .map_command(move |index| self.render_list(focus, index))
+                .map_command(move |index| self.render_line(focus, index))
         })
     }
 

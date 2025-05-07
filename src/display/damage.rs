@@ -1,5 +1,8 @@
 use {
-    crate::display::state::{DisplayState, Focus, Marker, Song},
+    crate::{
+        display::state::{DisplayState, Focus, Marker, Song},
+        ext::command::CommandChain,
+    },
     bumpalo::Bump,
     enum_iterator::Sequence,
     std::{
@@ -18,9 +21,28 @@ pub enum Damage {
     MoveOffset(Focus),
 }
 impl Damage {
-    pub async fn execute<O>(&self, _: &Bump, _: &mut O, _old: &DisplayState<'_>, _new: &DisplayState<'_>) -> Result<(), io::Error>
+    pub async fn execute<O>(&self, alloc: &Bump, out: &mut O, old: &DisplayState<'_>, new: &DisplayState<'_>) -> Result<(), io::Error>
     where O: AsyncWriteExt + Unpin {
-        Ok(())
+        match self {
+            Self::Draw(focus, marker) => {
+                marker.get(*focus, new)
+                    .map(|index| new.render_line(*focus, index))
+                    .execute(alloc, out)
+                    .await
+            },
+            Self::Remove(focus, marker) => {
+                marker.get(*focus, old)
+                    .map(|index| new.render_line(*focus, index))
+                    .execute(alloc, out)
+                    .await
+            },
+            Self::FullRedraw => new.render_menu(Focus::Playlists)
+                .then(new.render_menu(Focus::Songs))
+                .execute(alloc, out).await,
+            Self::MoveOffset(focus) => new.render_menu(*focus)
+                .execute(alloc, out)
+                .await,
+        }
     }
 
     pub fn predicate(&self, old: &DisplayState, new: &DisplayState) -> bool {
