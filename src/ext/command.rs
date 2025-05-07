@@ -59,9 +59,9 @@ T: CommandChain;
 impl<I, T> CommandChain for CommandIter<I, T>
 where I: Iterator<Item = T>,
 T: CommandChain {
-    async fn execute<W>(mut self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where W: AsyncWriteExt + Unpin {
-        while let Some(cmd) = self.0.next() {
+        for cmd in self.0 {
             cmd.execute(alloc, out).await?;
         }
 

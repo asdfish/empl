@@ -16,7 +16,7 @@ pub enum Damage {
     FullRedraw,
 }
 impl Damage {
-    fn render<O>(
+    pub fn render(
         &self,
         old: &DisplayState<'_>,
         new: &DisplayState<'_>,

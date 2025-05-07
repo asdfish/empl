@@ -36,9 +36,9 @@ where
                 width += ch.width().unwrap_or_default();
 
                 if width > self.width {
-                    Err(TryFoldError::Break)
+                    Err(TryFoldShortCircuit::Break)
                 } else if let Err(err) = w.write_char(ch) {
-                    Err(TryFoldError::Fmt(err))
+                    Err(TryFoldShortCircuit::Fmt(err))
                 } else {
                     Ok(width)
                 }
@@ -59,20 +59,20 @@ where
 }
 
 #[derive(Debug)]
-pub enum TryFoldError {
+pub enum TryFoldShortCircuit {
     Break,
     Fmt(fmt::Error),
 }
-impl From<fmt::Error> for TryFoldError {
-    fn from(err: fmt::Error) -> TryFoldError {
+impl From<fmt::Error> for TryFoldShortCircuit {
+    fn from(err: fmt::Error) -> TryFoldShortCircuit {
         Self::Fmt(err)
     }
 }
-impl From<TryFoldError> for Result<(), fmt::Error> {
-    fn from(err: TryFoldError) -> Result<(), fmt::Error> {
+impl From<TryFoldShortCircuit> for Result<(), fmt::Error> {
+    fn from(err: TryFoldShortCircuit) -> Result<(), fmt::Error> {
         match err {
-            TryFoldError::Break => Ok(()),
-            TryFoldError::Fmt(err) => Err(err),
+            TryFoldShortCircuit::Break => Ok(()),
+            TryFoldShortCircuit::Fmt(err) => Err(err),
         }
     }
 }

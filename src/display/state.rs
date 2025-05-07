@@ -156,8 +156,8 @@ impl<'a> DisplayStateWriter<'a> {
         Self(DisplayState::new(playlists))
     }
 
-    pub fn write<F>(&mut self, operation: F) -> impl Iterator<Item = Damage>
-    where F: FnOnce(DisplayState<'a>) -> DisplayState<'a> {
+    pub fn write<F>(&mut self, operation: F) -> (impl Iterator<Item = Damage> + use<F>, DisplayState<'a>)
+    where F: for<'b> FnOnce(DisplayState<'b>) -> DisplayState<'b> {
         let old = self.0;
         self.0 = operation(self.0);
 
@@ -168,9 +168,14 @@ impl<'a> DisplayStateWriter<'a> {
             .flat_map(|(damage, _)| damage.resolves())
             .for_each(|damage| damages[*damage] = false);
 
-        damages.into_iter()
+        (damages.into_iter()
             .filter(|(_, enabled)| *enabled)
-            .map(|(d, _)| d)
+            .map(move |(damage, _)| damage), old)
+    }
+}
+impl<'a> AsRef<DisplayState<'a>> for DisplayStateWriter<'a> {
+    fn as_ref(&self) -> &DisplayState<'a> {
+        &self.0
     }
 }
 
