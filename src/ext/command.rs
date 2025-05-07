@@ -34,7 +34,7 @@ where
             let mut buf = BString::new_in(alloc);
             let _ = self.write_ansi(&mut buf);
 
-            out.write(buf.as_bytes()).await?;
+            out.write_all(buf.as_bytes()).await?;
             out.flush().await
         }
     }

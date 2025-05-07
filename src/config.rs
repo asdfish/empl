@@ -1,6 +1,7 @@
 //! Configuration file inspired by suckless programs.
 
 use {
+    crossterm::style::{Color, Colors},
     dirs::home_dir,
     nonempty_collections::{
         iter::{IntoIteratorExt, NonEmptyIterator},
@@ -16,12 +17,24 @@ const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
 pub trait Config {
-    fn get_playlists() -> Option<NEVec<(OsString, NEVec<PathBuf>)>>;
+    const MENU_COLORS: Colors;
+
+    fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>>;
 }
 
 pub struct DefaultConfig;
 impl Config for DefaultConfig {
-    fn get_playlists() -> Option<NEVec<(OsString, NEVec<PathBuf>)>> {
+    const MENU_COLORS: Colors = Colors {
+        foreground: Some(Color::White),
+        background: Some(Color::Black),
+    };
+    fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>> {
+        fn os_string_to_string(os_string: OsString) -> String {
+            os_string
+                .into_string()
+                .unwrap_or_else(|os_string| os_string.to_string_lossy().to_string())
+        }
+
         home_dir()?
             .join("Music")
             .read_dir()
@@ -40,11 +53,25 @@ impl Config for DefaultConfig {
                     .read_dir()
                     .ok()?
                     .flatten()
-                    .map(|dir_ent| dir_ent.path())
+                    .map(|dir_ent| {
+                        (
+                            dir_ent
+                                .file_name()
+                                .into_string()
+                                .unwrap_or_else(os_string_to_string),
+                            dir_ent.path(),
+                        )
+                    })
                     .try_into_nonempty_iter()?
                     .collect::<NEVec<_>>();
 
-                Some((dir_ent.file_name(), files))
+                Some((
+                    dir_ent
+                        .file_name()
+                        .into_string()
+                        .unwrap_or_else(os_string_to_string),
+                    files,
+                ))
             })
             .try_into_nonempty_iter()
             .map(NonEmptyIterator::collect::<NEVec<_>>)
