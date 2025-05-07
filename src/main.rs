@@ -4,7 +4,10 @@ use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
         config::{Config, SelectedConfig},
+        ext::future::FutureExt,
         flag::{Arguments, ArgumentsError, Flag},
+        select::select2,
+        tasks::{display::DisplayTask, event::EventTask},
     },
     std::{
         error::Error,
@@ -12,7 +15,7 @@ use {
         fmt::{self, Display, Formatter},
         io,
     },
-    tokio::runtime,
+    tokio::{runtime, sync::mpsc},
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
@@ -43,25 +46,17 @@ Options:
             }
         }
 
-        let playlists = SelectedConfig::get_playlists().unwrap();
+        let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
+
+        let (_display_tx, display_rx) = mpsc::channel(1);
+        let display_task = DisplayTask::new(&playlists, display_rx);
+        let event_task = EventTask::default();
+
         let runtime = runtime::Builder::new_current_thread()
             .build()
             .map_err(MainError::Runtime)?;
-        runtime.block_on(async {
-            use {
-                bumpalo::Bump,
-                empl::{
-                    display::state::{DisplayState, Focus},
-                    ext::command::CommandChain,
-                },
-                tokio::io::stdout,
-            };
-            let state = DisplayState::new(&playlists);
-            state
-                .render_menu(Focus::Playlists)
-                .execute(&Bump::new(), &mut stdout())
-                .await
-                .unwrap();
+        runtime.block_on(async move {
+            select2(display_task.run(), event_task.run().pipe(Ok));
         });
 
         Ok(())
@@ -78,6 +73,7 @@ Options:
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
+    EmptyPlaylists,
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
 }
@@ -86,6 +82,7 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
+            Self::EmptyPlaylists => f.write_str("no playlists were found"),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
         }
