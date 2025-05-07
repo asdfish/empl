@@ -27,9 +27,6 @@ extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
                     eprintln!(
                         "empl [OPTIONS..]
 
-Most configuration is done at compile time by editing source code.
-There are not any runtime configuration.
-
 Options:
   -h --help    Print this message and exit.
   -v --version Print version information and exit."
