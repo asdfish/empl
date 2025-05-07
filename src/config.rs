@@ -16,12 +16,14 @@ pub type SelectedConfig = DefaultConfig;
 const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
+type Playlists = NEVec<(String, NEVec<(String, PathBuf)>)>;
+
 pub trait Config {
     const CURSOR_COLORS: Colors;
     const MENU_COLORS: Colors;
     const SELECTION_COLORS: Colors;
 
-    fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>>;
+    fn get_playlists() -> Option<Playlists>;
 }
 
 pub struct DefaultConfig;

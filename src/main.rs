@@ -21,6 +21,7 @@ const VERSION_MESSAGE: &str = "empl 0.1.0";
 extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
     match (move || -> Result<(), MainError> {
         let mut flags = Arguments::new(unsafe { Argv::new(argc, argv) }?.skip(1));
+        #[expect(clippy::never_loop)]
         while let Some(flag) = flags.next().transpose()? {
             match flag {
                 Flag::Short('h') | Flag::Long("help") => {
@@ -34,7 +35,7 @@ Options:
                     return Ok(());
                 }
                 Flag::Short('v') | Flag::Long("version") => {
-                    eprintln!("{}", VERSION_MESSAGE);
+                    eprintln!("{VERSION_MESSAGE}");
                     return Ok(());
                 }
                 flag => return Err(MainError::UnknownFlag(flag)),
@@ -68,7 +69,7 @@ Options:
     })() {
         Ok(()) => 0,
         Err(err) => {
-            eprintln!("{}", err);
+            eprintln!("{err}");
             1
         }
     }
@@ -86,8 +87,8 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
-            Self::Runtime(e) => write!(f, "failed to create async runtime: {}", e), 
-            Self::UnknownFlag(flag) => write!(f, "unknown flag `{}`", flag),
+            Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"), 
+            Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
         }
     }
 }

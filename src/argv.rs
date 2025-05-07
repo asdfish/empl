@@ -56,7 +56,7 @@ impl Display for ArgError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Null => f.write_str("argument is null"),
-            Self::Utf8(a, e) => write!(f, "argument `{:?}` contains invalid utf8: {}", a, e),
+            Self::Utf8(a, e) => write!(f, "argument `{a:?}` contains invalid utf8: {e}"),
         }
     }
 }
@@ -70,7 +70,7 @@ pub enum ArgvError {
 impl Display for ArgvError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::InvalidArgc(e) => write!(f, "`argc` is invalid: {}", e),
+            Self::InvalidArgc(e) => write!(f, "`argc` is invalid: {e}"),
             Self::Null => f.write_str("`argv` is null"),
         }
     }

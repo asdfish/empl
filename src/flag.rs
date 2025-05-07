@@ -13,8 +13,8 @@ pub enum Flag<'a> {
 impl Display for Flag<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Short(flag) => write!(f, "-{}", flag),
-            Self::Long(flag) => write!(f, "--{}", flag),
+            Self::Short(flag) => write!(f, "-{flag}"),
+            Self::Long(flag) => write!(f, "--{flag}"),
         }
     }
 }
@@ -314,7 +314,7 @@ where
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::NonFlag(e) => Display::fmt(e, f),
-            Self::Source(e) => write!(f, "failed to source argument: {}", e),
+            Self::Source(e) => write!(f, "failed to source argument: {e}"),
         }
     }
 }

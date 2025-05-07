@@ -34,22 +34,20 @@ impl<C> CommandChain for Adapter<C>
 where
     C: Command,
 {
-    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {
-        async move {
-            #[cfg(windows)]
-            if !self.0.is_ansi_code_supported() {
-                return self.0.execute_winapi();
-            }
-
-            let mut buf = BString::new_in(alloc);
-            let _ = self.0.write_ansi(&mut buf);
-
-            out.write_all(buf.as_bytes()).await?;
-            out.flush().await
+        #[cfg(windows)]
+        if !self.0.is_ansi_code_supported() {
+            return self.0.execute_winapi();
         }
+
+        let mut buf = BString::new_in(alloc);
+        let _ = self.0.write_ansi(&mut buf);
+
+        out.write_all(buf.as_bytes()).await?;
+        out.flush().await
     }
 }
 
@@ -65,21 +63,19 @@ where
     M: FnMut(T) -> C,
     C: CommandChain,
 {
-    fn execute<W>(
+    async fn execute<W>(
         mut self,
         alloc: &Bump,
         out: &mut W,
-    ) -> impl Future<Output = Result<(), io::Error>>
+    ) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {
-        async move {
-            while let Some(cmd) = self.0.next().map(&mut self.1) {
-                cmd.execute(alloc, out).await?;
-            }
-
-            Ok(())
+        while let Some(cmd) = self.0.next().map(&mut self.1) {
+            cmd.execute(alloc, out).await?;
         }
+
+        Ok(())
     }
 }
 
@@ -88,15 +84,13 @@ where
     L: CommandChain,
     R: CommandChain,
 {
-    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {
-        async move {
-            match self {
-                Self::Left(cmd) => cmd.execute(alloc, out).await,
-                Self::Right(cmd) => cmd.execute(alloc, out).await,
-            }
+        match self {
+            Self::Left(cmd) => cmd.execute(alloc, out).await,
+            Self::Right(cmd) => cmd.execute(alloc, out).await,
         }
     }
 }
@@ -105,15 +99,13 @@ impl<T> CommandChain for Option<T>
 where
     T: CommandChain,
 {
-    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {
-        async move {
-            match self {
-                Some(cmd) => cmd.execute(alloc, out).await,
-                None => Ok(()),
-            }
+        match self {
+            Some(cmd) => cmd.execute(alloc, out).await,
+            None => Ok(()),
         }
     }
 }
@@ -132,13 +124,11 @@ where
     L: CommandChain,
     R: CommandChain,
 {
-    fn execute<W>(self, alloc: &Bump, out: &mut W) -> impl Future<Output = Result<(), io::Error>>
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {
-        async {
-            self.l.execute(alloc, out).await?;
-            self.r.execute(alloc, out).await
-        }
+        self.l.execute(alloc, out).await?;
+        self.r.execute(alloc, out).await
     }
 }
