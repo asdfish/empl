@@ -1,7 +1,6 @@
 //! Configuration file inspired by suckless programs.
 
 use {
-    crossterm::style::{Color, Colors},
     dirs::home_dir,
     nonempty_collections::{
         iter::{IntoIteratorExt, NonEmptyIterator},
@@ -17,18 +16,11 @@ const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
 pub trait Config {
-    const MENU_COLORS: Colors;
-
     fn get_playlists() -> Option<NEVec<(OsString, NEVec<PathBuf>)>>;
 }
 
 pub struct DefaultConfig;
 impl Config for DefaultConfig {
-    const MENU_COLORS: Colors = Colors {
-        foreground: Some(Color::White),
-        background: Some(Color::Black),
-    };
-
     fn get_playlists() -> Option<NEVec<(OsString, NEVec<PathBuf>)>> {
         home_dir()?
             .join("Music")
