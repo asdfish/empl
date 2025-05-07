@@ -9,5 +9,4 @@ pub trait IteratorExt: Iterator + Sized {
         CommandIter(self, map)
     }
 }
-impl<T> IteratorExt for T
-where T: Iterator {}
+impl<T> IteratorExt for T where T: Iterator {}

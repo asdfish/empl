@@ -1,6 +1,6 @@
 use std::{
     error::Error,
-    ffi::{c_char, c_int, CStr},
+    ffi::{CStr, c_char, c_int},
     fmt::{self, Display, Formatter},
     num::TryFromIntError,
     slice,
@@ -33,7 +33,7 @@ impl Argv {
 }
 impl Iterator for Argv {
     type Item = Result<&'static str, ArgError>;
-    
+
     fn next(&mut self) -> Option<Result<&'static str, ArgError>> {
         match self.0 {
             [car, ..] if car.is_null() => Some(Err(ArgError::Null)),
@@ -41,7 +41,7 @@ impl Iterator for Argv {
                 self.0 = cdr;
                 let arg = unsafe { CStr::from_ptr(*car) };
                 Some(arg.to_str().map_err(|err| ArgError::Utf8(arg, err)))
-            },
+            }
             [] => None,
         }
     }

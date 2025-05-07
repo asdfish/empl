@@ -4,8 +4,8 @@ use {
     crossterm::style::{Color, Colors},
     dirs::home_dir,
     nonempty_collections::{
-        iter::{IntoIteratorExt, NonEmptyIterator},
         NEVec,
+        iter::{IntoIteratorExt, NonEmptyIterator},
     },
     std::{ffi::OsString, path::PathBuf},
 };

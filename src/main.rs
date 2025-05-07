@@ -4,13 +4,14 @@ use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
         flag::{Arguments, ArgumentsError, Flag},
-        // config::{Config, ConfigError},
     },
     std::{
         error::Error,
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
+        io,
     },
+    tokio::runtime,
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
@@ -43,6 +44,29 @@ Options:
             }
         }
 
+        let runtime = runtime::Builder::new_current_thread()
+            .build().map_err(MainError::Runtime)?;
+        runtime.block_on(async {
+            use {
+                bumpalo::Bump,
+                empl::{
+                    display::state::{
+                        DisplayState,
+                        Focus,
+                    },
+                    ext::command::CommandChain,
+                },
+                tokio::io::stdout,
+            };
+            let state = DisplayState::new();
+            state.render_menu(Focus::Playlists, [
+                "hello",
+                "world",
+            ])
+                .execute(&Bump::new(), &mut stdout()).await
+                .unwrap();
+        });
+
         Ok(())
     })() {
         Ok(()) => 0,
@@ -57,6 +81,7 @@ Options:
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
+    Runtime(io::Error),
     UnknownFlag(Flag<'static>),
 }
 impl Display for MainError {
@@ -64,6 +89,7 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
+            Self::Runtime(e) => write!(f, "failed to create async runtime: {}", e), 
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{}`", flag),
         }
     }

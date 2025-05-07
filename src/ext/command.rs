@@ -1,5 +1,5 @@
 use {
-    bumpalo::{collections::String as BString, Bump},
+    bumpalo::{Bump, collections::String as BString},
     crossterm::Command,
     either::Either,
     std::{future::Future, io, marker::Unpin},

@@ -1,6 +1,6 @@
 use {
     crate::{
-        command::PrintBounded,
+        command::PrintPadded,
         config::{Config, SelectedConfig},
         ext::{
             colors::ColorsExt,
@@ -8,13 +8,13 @@ use {
             iterator::IteratorExt,
         },
     },
-    crossterm::{
-        cursor::MoveTo,
-        style::SetColors,
-    },
+    crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_iterator::Sequence,
     enum_map::{Enum, EnumMap},
-    std::num::NonZeroU16,
+    std::{
+        iter,
+        num::NonZeroU16,
+    },
 };
 
 #[derive(Clone, Copy, Debug, Default, Enum, PartialEq, Sequence)]
@@ -48,7 +48,19 @@ pub struct DisplayState {
     pub terminal_area: Option<Area>,
 }
 impl DisplayState {
-    pub fn row(&self, focus: Focus) -> Option<Row> {
+    pub fn new() -> Self {
+        Self {
+            terminal_area: terminal::size().ok().and_then(|(l, r)| {
+                Some(Area {
+                    width: NonZeroU16::new(l)?,
+                    height: NonZeroU16::new(r)?,
+                })
+            }),
+            ..Default::default()
+        }
+    }
+
+    fn row(&self, focus: Focus) -> Option<Row> {
         match (focus, self.terminal_area) {
             (Focus::Playlists, Some(Area { width, .. })) => width
                 .get()
@@ -71,32 +83,38 @@ impl DisplayState {
         }
     }
 
-    /// `items` should be *ALL* items in the menu
+    /// The [Default] implementation for `S` should return an identity value.
     pub fn render_menu<I, S>(&self, focus: Focus, items: I) -> impl CommandChain
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str>,
+        S: AsRef<str> + Default,
     {
-        self.row(focus).map(|Row { x, width }| {
-            items
-                .into_iter()
-                .enumerate()
-                .skip(self.offsets[focus])
-                .zip(0..)
-                .map_command(move |((index, item), y)| {
-                    let mut colors = SelectedConfig::MENU_COLORS;
-                    if index == Marker::Cursor.get(focus, self) {
-                        colors.join(&SelectedConfig::CURSOR_COLORS);
-                    }
-                    if index == Marker::Selection.get(focus, self) {
-                        colors.join(&SelectedConfig::SELECTION_COLORS);
-                    }
+        self.row(focus)
+            .and_then(|Row { x, width }| self.terminal_area.map(move |Area { height, .. }| (x, width, height)))
+            .map(|(x, width, height)| {
+                items
+                    .into_iter()
+                    .map(Some)
+                    .chain(iter::repeat_with(|| None))
+                    .take(usize::from(height.get()))
+                    .enumerate()
+                    .skip(self.offsets[focus])
+                    .zip(0..)
+                    .map_command(move |((index, item), y)| {
+                        let mut colors = SelectedConfig::MENU_COLORS;
+                        if index == Marker::Cursor.get(focus, self) {
+                            colors.join(&SelectedConfig::CURSOR_COLORS);
+                        }
+                        if index == Marker::Selection.get(focus, self) {
+                            colors.join(&SelectedConfig::SELECTION_COLORS);
+                        }
 
-                    SetColors(colors).adapt()
-                        .then(MoveTo(x, y).adapt())
-                        .then(PrintBounded(item, usize::from(width.get())).adapt())
-                })
-        })
+                        SetColors(colors)
+                            .adapt()
+                            .then(MoveTo(x, y).adapt())
+                            .then(PrintPadded { text: item.unwrap_or_default(), padding: ' ', width: usize::from(width.get()) }.adapt())
+                    })
+            })
     }
 
     pub fn visible(&self, focus: Focus, index: usize) -> bool {

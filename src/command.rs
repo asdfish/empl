@@ -1,6 +1,6 @@
 use {
     crossterm::Command,
-    std::{fmt, io},
+    std::{fmt, io, iter},
     unicode_width::UnicodeWidthChar,
 };
 
@@ -16,20 +16,23 @@ where
     }
 }
 
-pub struct PrintBounded<T>(pub T, pub usize)
-where
-    T: AsChars;
-impl<T> Command for PrintBounded<T>
-where
-    T: AsChars,
+pub struct PrintPadded<T>
+where T: AsChars {
+    pub text: T,
+    pub padding: char,
+    pub width: usize,
+}
+impl<T> Command for PrintPadded<T>
+where T: AsChars
 {
     fn write_ansi(&self, w: &mut impl fmt::Write) -> Result<(), fmt::Error> {
-        self.0
+        self.text
             .as_chars()
+            .chain(iter::repeat(self.padding))
             .try_fold(0, |mut width, ch| {
                 width += ch.width().unwrap_or_default();
 
-                if width > self.1 {
+                if width > self.width {
                     Err(TryFoldError::Break)
                 } else if let Err(err) = w.write_char(ch) {
                     Err(TryFoldError::Fmt(err))
