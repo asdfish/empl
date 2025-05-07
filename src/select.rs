@@ -8,16 +8,22 @@ use {
 };
 
 macro_rules! decl_select {
-    ($name:ident, [$(($generics_snake:ident, $generics_pascal:ident)),* $(,)?]) => {
+    (($name_snake:ident, $name_pascal:ident), [$(($generics_snake:ident, $generics_pascal:ident)),* $(,)?]) => {
         pin_project! {
             #[derive(Clone, Copy, Debug)]
-            pub struct $name<O, $($generics_pascal),*>
+            pub struct $name_pascal<O, $($generics_pascal),*>
             where $($generics_pascal: Future<Output = O>),* {
                 $(#[pin] $generics_snake: $generics_pascal),*
             }
         }
+        pub const fn $name_snake<O, $($generics_pascal),*>($($generics_snake: $generics_pascal),*) -> $name_pascal<O, $($generics_pascal),*>
+        where $($generics_pascal: Future<Output = O>),* {
+            $name_pascal {
+                $($generics_snake),*
+            }
+        }
 
-        impl<O, $($generics_pascal),*> Future for $name<O, $($generics_pascal),*>
+        impl<O, $($generics_pascal),*> Future for $name_pascal<O, $($generics_pascal),*>
         where $($generics_pascal: Future<Output = O>),* {
             type Output = O;
 
@@ -33,4 +39,4 @@ macro_rules! decl_select {
         }
     }
 }
-decl_select!(Select2, [(a, A), (b, B)]);
+decl_select!((select2, Select2), [(a, A), (b, B)]);
