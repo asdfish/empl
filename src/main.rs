@@ -56,10 +56,13 @@ Options:
             .build()
             .map_err(MainError::Runtime)?;
         runtime.block_on(async move {
-            select2(display_task.run(), event_task.run().pipe(Ok));
-        });
-
-        Ok(())
+            select2(
+                display_task
+                    .run()
+                    .pipe(|result| result.map_err(MainError::Display)),
+                event_task.run().pipe(Ok),
+            ).await
+        })
     })() {
         Ok(()) => 0,
         Err(err) => {
@@ -73,6 +76,7 @@ Options:
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
+    Display(io::Error),
     EmptyPlaylists,
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
@@ -82,6 +86,7 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
+            Self::Display(e) => write!(f, "error while rendering: {e}"),
             Self::EmptyPlaylists => f.write_str("no playlists were found"),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
