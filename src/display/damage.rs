@@ -1,9 +1,9 @@
 use {
     crate::{
         display::state::{DisplayState, Focus, Marker, Song},
+        either::Either4,
         ext::command::CommandChain,
     },
-    either::Either,
     enum_map::Enum,
     std::ptr,
 };
@@ -18,22 +18,22 @@ pub enum Damage {
 impl Damage {
     pub fn render(&self, old: &DisplayState<'_>, new: &DisplayState<'_>) -> impl CommandChain {
         match self {
-            Self::Draw(focus, marker) => Either::Left(
+            Self::Draw(focus, marker) => Either4::First(
                 marker
                     .get(*focus, new)
                     .map(|index| new.render_line(*focus, index)),
             ),
-            Self::Remove(focus, marker) => Either::Right(Either::Left(
+            Self::Remove(focus, marker) => Either4::Second(
                 marker
                     .get(*focus, old)
                     .map(|index| new.render_line(*focus, index)),
-            )),
-            Self::FullRedraw => Either::Right(Either::Right(Either::Left(
+            ),
+            Self::FullRedraw => Either4::Third(
                 new.render_menu(Focus::Playlists)
                     .then(new.render_menu(Focus::Songs)),
-            ))),
+            ),
             Self::MoveOffset(focus) => {
-                Either::Right(Either::Right(Either::Right(new.render_menu(*focus))))
+                Either4::Fourth(new.render_menu(*focus))
             }
         }
     }

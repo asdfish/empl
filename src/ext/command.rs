@@ -1,7 +1,6 @@
 use {
     bumpalo::{Bump, collections::String as BString},
     crossterm::Command,
-    either::Either,
     std::{future::Future, io, marker::Unpin},
     tokio::io::AsyncWriteExt,
 };
@@ -71,22 +70,6 @@ where
         }
 
         Ok(())
-    }
-}
-
-impl<L, R> CommandChain for Either<L, R>
-where
-    L: CommandChain,
-    R: CommandChain,
-{
-    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
-    where
-        W: AsyncWriteExt + Unpin,
-    {
-        match self {
-            Self::Left(cmd) => cmd.execute(alloc, out).await,
-            Self::Right(cmd) => cmd.execute(alloc, out).await,
-        }
     }
 }
 
