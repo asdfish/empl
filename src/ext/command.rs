@@ -14,6 +14,7 @@ pub trait CommandExt: Command + Sized {
 impl<T> CommandExt for T where T: Command {}
 
 pub trait CommandChain: Sized {
+    /// Should not flush the buffer
     fn execute<W>(self, _: &Bump, _: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin;
@@ -40,34 +41,27 @@ where
     {
         #[cfg(windows)]
         if !self.0.is_ansi_code_supported() {
+            out.flush().await?;
             return self.0.execute_winapi();
         }
 
         let mut buf = BString::new_in(alloc);
         let _ = self.0.write_ansi(&mut buf);
 
-        out.write_all(buf.as_bytes()).await?;
-        out.flush().await
+        out.write_all(buf.as_bytes()).await.map(drop)
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct CommandIter<I, T, M, C>(pub(super) I, pub(super) M)
-where
-    I: Iterator<Item = T>,
-    M: FnMut(T) -> C,
-    C: CommandChain;
-impl<I, T, M, C> CommandChain for CommandIter<I, T, M, C>
-where
-    I: Iterator<Item = T>,
-    M: FnMut(T) -> C,
-    C: CommandChain,
-{
+pub struct CommandIter<I, T>(pub I)
+where I: Iterator<Item = T>,
+T: CommandChain;
+impl<I, T> CommandChain for CommandIter<I, T>
+where I: Iterator<Item = T>,
+T: CommandChain {
     async fn execute<W>(mut self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
-    where
-        W: AsyncWriteExt + Unpin,
-    {
-        while let Some(cmd) = self.0.next().map(&mut self.1) {
+    where W: AsyncWriteExt + Unpin {
+        while let Some(cmd) = self.0.next() {
             cmd.execute(alloc, out).await?;
         }
 

@@ -1,12 +1,10 @@
 use crate::ext::command::{CommandChain, CommandIter};
 
-pub trait IteratorExt: Iterator + Sized {
-    fn map_command<M, C>(self, map: M) -> CommandIter<Self, Self::Item, M, C>
-    where
-        M: FnMut(Self::Item) -> C,
-        C: CommandChain,
-    {
-        CommandIter(self, map)
+pub trait IteratorExt<T>: Iterator<Item = T> + Sized
+where T: CommandChain {
+    fn adapt(self) -> CommandIter<Self, T> {
+        CommandIter(self)
     }
 }
-impl<T> IteratorExt for T where T: Iterator {}
+impl<I, T> IteratorExt<T> for I where I: Iterator<Item = T>,
+T: CommandChain {}

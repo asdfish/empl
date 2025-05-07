@@ -37,7 +37,7 @@ impl Marker {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DisplayState<'a> {
     pub focus: Focus,
     pub cursors: EnumMap<Focus, u16>,
@@ -130,7 +130,8 @@ impl<'a> DisplayState<'a> {
     pub fn render_menu(&self, focus: Focus) -> impl CommandChain {
         self.terminal_area.map(move |Area { height, .. }| {
             (self.offsets[focus]..self.offsets[focus] + height.get())
-                .map_command(move |index| self.render_line(focus, index))
+                .map(move |index| self.render_line(focus, index))
+                .adapt()
         })
     }
 
@@ -143,6 +144,21 @@ impl<'a> DisplayState<'a> {
                         .map(|Area { width, .. }| width)
                         .map(NonZeroU16::get)
                         .unwrap_or_default()
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct DisplayStateWriter<'a>(DisplayState<'a>);
+impl<'a> DisplayStateWriter<'a> {
+    pub fn new(playlists: &'a Playlists) -> Self
+    {
+        Self(DisplayState::new(playlists))
+    }
+
+    pub fn write<F>(&mut self, operation: F)
+    where F: FnOnce(DisplayState<'a>) -> DisplayState<'a> {
+        let old = self.0;
+        self.0 = operation(self.0);
     }
 }
 

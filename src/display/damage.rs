@@ -3,9 +3,8 @@ use {
         display::state::{DisplayState, Focus, Marker, Song},
         ext::command::CommandChain,
     },
-    bumpalo::Bump,
-    std::{io, marker::Unpin, ptr},
-    tokio::io::AsyncWriteExt,
+    either::Either,
+    std::ptr,
 };
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -16,38 +15,29 @@ pub enum Damage {
     FullRedraw,
 }
 impl Damage {
-    pub async fn execute<O>(
+    fn render<O>(
         &self,
-        alloc: &Bump,
-        out: &mut O,
         old: &DisplayState<'_>,
         new: &DisplayState<'_>,
-    ) -> Result<(), io::Error>
-    where
-        O: AsyncWriteExt + Unpin,
-    {
+    ) -> impl CommandChain {
         match self {
-            Self::Draw(focus, marker) => {
+            Self::Draw(focus, marker) => Either::Left(
                 marker
                     .get(*focus, new)
-                    .map(|index| new.render_line(*focus, index))
-                    .execute(alloc, out)
-                    .await
-            }
-            Self::Remove(focus, marker) => {
+                    .map(|index| new.render_line(*focus, index)),
+            ),
+            Self::Remove(focus, marker) => Either::Right(Either::Left(
                 marker
                     .get(*focus, old)
-                    .map(|index| new.render_line(*focus, index))
-                    .execute(alloc, out)
-                    .await
-            }
-            Self::FullRedraw => {
+                    .map(|index| new.render_line(*focus, index)),
+            )),
+            Self::FullRedraw => Either::Right(Either::Right(Either::Left(
                 new.render_menu(Focus::Playlists)
-                    .then(new.render_menu(Focus::Songs))
-                    .execute(alloc, out)
-                    .await
-            }
-            Self::MoveOffset(focus) => new.render_menu(*focus).execute(alloc, out).await,
+                    .then(new.render_menu(Focus::Songs)),
+            ))),
+            Self::MoveOffset(focus) => Either::Right(Either::Right(Either::Right(
+                new.render_menu(*focus),
+            ))),
         }
     }
 
