@@ -1,6 +1,6 @@
 use {
     crossterm::Command,
-    std::{fmt, io, iter},
+    std::{fmt, iter},
     unicode_width::UnicodeWidthChar,
 };
 

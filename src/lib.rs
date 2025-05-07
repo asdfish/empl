@@ -5,4 +5,5 @@ pub mod display;
 pub mod either;
 pub mod ext;
 pub mod flag;
+pub mod select;
 pub mod tasks;

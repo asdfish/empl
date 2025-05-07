@@ -27,7 +27,7 @@ const fn get_max_key_binding_len(
         ([(_, car), cdr @ ..], Some(current_max)) if car.len() > current_max => {
             get_max_key_binding_len(Some(car.len()), cdr)
         }
-        ([(_, car), cdr @ ..], Some(current_max)) => {
+        ([_, cdr @ ..], Some(current_max)) => {
             get_max_key_binding_len(Some(current_max), cdr)
         }
         ([(_, car), cdr @ ..], None) => get_max_key_binding_len(Some(car.len()), cdr),

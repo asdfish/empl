@@ -29,7 +29,7 @@ impl EventTask {
                 continue;
             };
 
-            if let Err(_) = self.key_presses.try_push((modifiers, code)) {
+            if self.key_presses.try_push((modifiers, code)).is_err() {
                 self.key_presses.clear();
                 continue;
             }
