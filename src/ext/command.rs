@@ -63,11 +63,7 @@ where
     M: FnMut(T) -> C,
     C: CommandChain,
 {
-    async fn execute<W>(
-        mut self,
-        alloc: &Bump,
-        out: &mut W,
-    ) -> Result<(), io::Error>
+    async fn execute<W>(mut self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
     where
         W: AsyncWriteExt + Unpin,
     {

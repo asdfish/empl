@@ -17,13 +17,16 @@ where
 }
 
 pub struct PrintPadded<T>
-where T: AsChars {
+where
+    T: AsChars,
+{
     pub text: T,
     pub padding: char,
     pub width: usize,
 }
 impl<T> Command for PrintPadded<T>
-where T: AsChars
+where
+    T: AsChars,
 {
     fn write_ansi(&self, w: &mut impl fmt::Write) -> Result<(), fmt::Error> {
         self.text

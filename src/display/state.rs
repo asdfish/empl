@@ -29,7 +29,9 @@ impl Marker {
     pub fn get(&self, focus: Focus, state: &DisplayState) -> Option<u16> {
         match (self, focus) {
             (Self::Cursor, focus) => Some(state.cursors[focus]),
-            (Self::Selection, Focus::Playlists) => state.selected_song.map(|Song { playlist, .. }| playlist),
+            (Self::Selection, Focus::Playlists) => {
+                state.selected_song.map(|Song { playlist, .. }| playlist)
+            }
             (Self::Selection, Focus::Songs) => state.selected_song.map(|Song { index, .. }| index),
         }
     }
@@ -51,27 +53,30 @@ impl<'a> DisplayState<'a> {
             cursors: EnumMap::default(),
             offsets: EnumMap::default(),
             selected_song: None,
-            terminal_area: terminal::size().ok()
-                .and_then(|(width, height)| Some(Area {
+            terminal_area: terminal::size().ok().and_then(|(width, height)| {
+                Some(Area {
                     width: NonZeroU16::new(width)?,
                     height: NonZeroU16::new(height)?,
-                })),
+                })
+            }),
             playlists,
         }
     }
 
     fn get(&self, focus: Focus, index: u16) -> Option<&str> {
         match focus {
-            Focus::Playlists => self.playlists.get(usize::from(index))
+            Focus::Playlists => self
+                .playlists
+                .get(usize::from(index))
                 .map(|(item, _)| item.as_str()),
-            Focus::Songs =>
-                self.selected_song
-                    .map(|Song { playlist, .. }| playlist)
-                    .and_then(|playlist| self.playlists.get(usize::from(playlist)))
-                    .map(|(_, playlist)| playlist)
-                    .and_then(|playlist| playlist.get(usize::from(index)))
-                    .map(|(item, _)| item)
-                    .map(|item| item.as_str())
+            Focus::Songs => self
+                .selected_song
+                .map(|Song { playlist, .. }| playlist)
+                .and_then(|playlist| self.playlists.get(usize::from(playlist)))
+                .map(|(_, playlist)| playlist)
+                .and_then(|playlist| playlist.get(usize::from(index)))
+                .map(|(item, _)| item)
+                .map(|item| item.as_str()),
         }
     }
 
@@ -111,15 +116,18 @@ impl<'a> DisplayState<'a> {
                     colors.join(&SelectedConfig::SELECTION_COLORS);
                 }
 
-                SetColors(colors)
-                    .adapt()
-                    .then(MoveTo(x, y).adapt())
-                    .then(PrintPadded { text: self.get(focus, index).unwrap_or(""), padding: ' ', width: usize::from(width.get()) }.adapt())
+                SetColors(colors).adapt().then(MoveTo(x, y).adapt()).then(
+                    PrintPadded {
+                        text: self.get(focus, index).unwrap_or(""),
+                        padding: ' ',
+                        width: usize::from(width.get()),
+                    }
+                    .adapt(),
+                )
             })
     }
 
-    pub fn render_menu(&self, focus: Focus) -> impl CommandChain
-    {
+    pub fn render_menu(&self, focus: Focus) -> impl CommandChain {
         self.terminal_area.map(move |Area { height, .. }| {
             (self.offsets[focus]..self.offsets[focus] + height.get())
                 .map_command(move |index| self.render_line(focus, index))

@@ -45,22 +45,22 @@ Options:
 
         let playlists = SelectedConfig::get_playlists().unwrap();
         let runtime = runtime::Builder::new_current_thread()
-            .build().map_err(MainError::Runtime)?;
+            .build()
+            .map_err(MainError::Runtime)?;
         runtime.block_on(async {
             use {
                 bumpalo::Bump,
                 empl::{
-                    display::state::{
-                        DisplayState,
-                        Focus,
-                    },
+                    display::state::{DisplayState, Focus},
                     ext::command::CommandChain,
                 },
                 tokio::io::stdout,
             };
             let state = DisplayState::new(&playlists);
-            state.render_menu(Focus::Playlists)
-                .execute(&Bump::new(), &mut stdout()).await
+            state
+                .render_menu(Focus::Playlists)
+                .execute(&Bump::new(), &mut stdout())
+                .await
                 .unwrap();
         });
 
@@ -86,7 +86,7 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
-            Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"), 
+            Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
         }
     }

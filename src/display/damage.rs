@@ -4,11 +4,7 @@ use {
         ext::command::CommandChain,
     },
     bumpalo::Bump,
-    std::{
-        io,
-        marker::Unpin,
-        ptr,
-    },
+    std::{io, marker::Unpin, ptr},
     tokio::io::AsyncWriteExt,
 };
 
@@ -16,31 +12,42 @@ use {
 pub enum Damage {
     Draw(Focus, Marker),
     Remove(Focus, Marker),
-    FullRedraw,
     MoveOffset(Focus),
+    FullRedraw,
 }
 impl Damage {
-    pub async fn execute<O>(&self, alloc: &Bump, out: &mut O, old: &DisplayState<'_>, new: &DisplayState<'_>) -> Result<(), io::Error>
-    where O: AsyncWriteExt + Unpin {
+    pub async fn execute<O>(
+        &self,
+        alloc: &Bump,
+        out: &mut O,
+        old: &DisplayState<'_>,
+        new: &DisplayState<'_>,
+    ) -> Result<(), io::Error>
+    where
+        O: AsyncWriteExt + Unpin,
+    {
         match self {
             Self::Draw(focus, marker) => {
-                marker.get(*focus, new)
+                marker
+                    .get(*focus, new)
                     .map(|index| new.render_line(*focus, index))
                     .execute(alloc, out)
                     .await
-            },
+            }
             Self::Remove(focus, marker) => {
-                marker.get(*focus, old)
+                marker
+                    .get(*focus, old)
                     .map(|index| new.render_line(*focus, index))
                     .execute(alloc, out)
                     .await
-            },
-            Self::FullRedraw => new.render_menu(Focus::Playlists)
-                .then(new.render_menu(Focus::Songs))
-                .execute(alloc, out).await,
-            Self::MoveOffset(focus) => new.render_menu(*focus)
-                .execute(alloc, out)
-                .await,
+            }
+            Self::FullRedraw => {
+                new.render_menu(Focus::Playlists)
+                    .then(new.render_menu(Focus::Songs))
+                    .execute(alloc, out)
+                    .await
+            }
+            Self::MoveOffset(focus) => new.render_menu(*focus).execute(alloc, out).await,
         }
     }
 
@@ -48,13 +55,15 @@ impl Damage {
         match self {
             Self::Draw(focus, marker) => {
                 (marker.get(*focus, old) != marker.get(*focus, new))
-                    && marker.get(*focus, new)
+                    && marker
+                        .get(*focus, new)
                         .map(|index| new.visible(*focus, index))
                         .unwrap_or_default()
             }
             Self::Remove(focus, marker) => {
                 (marker.get(*focus, old) != marker.get(*focus, new))
-                    && marker.get(*focus, old)
+                    && marker
+                        .get(*focus, old)
                         .map(|index| old.visible(*focus, index))
                         .unwrap_or_default()
             }
