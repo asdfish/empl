@@ -83,11 +83,10 @@ impl DisplayState {
         }
     }
 
-    /// The [Default] implementation for `S` should return an identity value.
     pub fn render_menu<I, S>(&self, focus: Focus, items: I) -> impl CommandChain
     where
         I: IntoIterator<Item = S>,
-        S: AsRef<str> + Default,
+        S: AsRef<str> + From<&'static str>,
     {
         self.row(focus)
             .and_then(|Row { x, width }| self.terminal_area.map(move |Area { height, .. }| (x, width, height)))
@@ -112,7 +111,7 @@ impl DisplayState {
                         SetColors(colors)
                             .adapt()
                             .then(MoveTo(x, y).adapt())
-                            .then(PrintPadded { text: item.unwrap_or_default(), padding: ' ', width: usize::from(width.get()) }.adapt())
+                            .then(PrintPadded { text: item.unwrap_or_else(|| S::from("")), padding: ' ', width: usize::from(width.get()) }.adapt())
                     })
             })
     }
