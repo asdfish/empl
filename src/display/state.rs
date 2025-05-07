@@ -207,7 +207,11 @@ pub struct Song {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        nonempty_collections::NEVec,
+        std::path::PathBuf,
+    };
 
     #[test]
     fn display_state_is_visible() {
@@ -220,10 +224,12 @@ mod tests {
                     height: NonZeroU16::new(1).unwrap(),
                 })
             },
-            ..Default::default()
+            cursors: EnumMap::default(),
+            selected_song: None,
+            playlists: &NEVec::new((String::from(""), NEVec::new((String::from(""), PathBuf::new())))),
         };
 
-        assert_eq!(display_state.is_visible(0), true);
-        assert_eq!(display_state.is_visible(1), false);
+        assert_eq!(display_state.visible(Focus::Playlists, 0), true);
+        assert_eq!(display_state.visible(Focus::Playlists, 1), false);
     }
 }

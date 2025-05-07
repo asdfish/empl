@@ -34,3 +34,20 @@ decl_either!(Either4, [
     (Third, C),
     (Fourth, D),
 ]);
+
+#[derive(Clone, Copy, Debug)]
+pub enum EitherOrBoth<L, R> {
+    Left(L),
+    Right(R),
+    Both(L, R),
+}
+impl<L, R> EitherOrBoth<L, R> {
+    pub fn new(l: Option<L>, r: Option<R>) -> Option<Self> {
+        match (l, r) {
+            (Some(l), Some(r)) => Some(Self::Both(l, r)),
+            (Some(l), None) => Some(Self::Left(l)),
+            (None, Some(r)) => Some(Self::Right(r)),
+            (None, None) => None,
+        }
+    }
+}
