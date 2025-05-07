@@ -40,7 +40,7 @@ where
     {
         async move {
             #[cfg(windows)]
-            if !self.is_ansi_code_supported() {
+            if !self.0.is_ansi_code_supported() {
                 return self.0.execute_winapi();
             }
 

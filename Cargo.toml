@@ -12,3 +12,4 @@ enum-iterator = { version = "2.1.0", default-features = false }
 enum-map = { version = "2.7.3", default-features = false }
 nonempty-collections = { version = "0.3.0", default-features = false }
 tokio = { version = "1.45.0", default-features = false, features = ["io-util"] }
+unicode-width = { version = "0.2.0", default-features = false }

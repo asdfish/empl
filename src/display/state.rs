@@ -1,5 +1,6 @@
 use {
     crate::{
+        command::PrintBounded,
         config::{Config, SelectedConfig},
         ext::{
             colors::ColorsExt,
@@ -82,7 +83,7 @@ impl DisplayState {
                 .enumerate()
                 .skip(self.offsets[focus])
                 .zip(0..)
-                .map_command(move |((index, _item), y)| {
+                .map_command(move |((index, item), y)| {
                     let mut colors = SelectedConfig::MENU_COLORS;
                     if index == Marker::Cursor.get(focus, self) {
                         colors.join(&SelectedConfig::CURSOR_COLORS);
@@ -93,6 +94,7 @@ impl DisplayState {
 
                     SetColors(colors).adapt()
                         .then(MoveTo(x, y).adapt())
+                        .then(PrintBounded(item, usize::from(width.get())).adapt())
                 })
         })
     }
