@@ -2,6 +2,7 @@ use {
     crate::{
         command::PrintPadded,
         config::{Config, Playlists, SelectedConfig},
+        display::damage::Damage,
         ext::{
             colors::ColorsExt,
             command::{CommandChain, CommandExt},
@@ -155,10 +156,21 @@ impl<'a> DisplayStateWriter<'a> {
         Self(DisplayState::new(playlists))
     }
 
-    pub fn write<F>(&mut self, operation: F)
+    pub fn write<F>(&mut self, operation: F) -> impl Iterator<Item = Damage>
     where F: FnOnce(DisplayState<'a>) -> DisplayState<'a> {
         let old = self.0;
         self.0 = operation(self.0);
+
+        let mut damages = EnumMap::from_fn(|damage: Damage| damage.predicate(&old, &self.0));
+        damages
+            .into_iter()
+            .filter(|(_, enabled)| *enabled)
+            .flat_map(|(damage, _)| damage.resolves())
+            .for_each(|damage| damages[*damage] = false);
+
+        damages.into_iter()
+            .filter(|(_, enabled)| *enabled)
+            .map(|(d, _)| d)
     }
 }
 

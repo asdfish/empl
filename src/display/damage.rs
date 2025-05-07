@@ -4,10 +4,11 @@ use {
         ext::command::CommandChain,
     },
     either::Either,
+    enum_map::Enum,
     std::ptr,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Enum, PartialEq)]
 pub enum Damage {
     Draw(Focus, Marker),
     Remove(Focus, Marker),
@@ -38,6 +39,35 @@ impl Damage {
             Self::MoveOffset(focus) => Either::Right(Either::Right(Either::Right(
                 new.render_menu(*focus),
             ))),
+        }
+    }
+    pub const fn resolves(&self) -> &'static [Self] {
+        match self {
+            Self::FullRedraw => &[
+                Self::MoveOffset(Focus::Playlists),
+                Self::MoveOffset(Focus::Songs),
+                Self::Remove(Focus::Playlists, Marker::Cursor),
+                Self::Remove(Focus::Playlists, Marker::Selection),
+                Self::Remove(Focus::Songs, Marker::Cursor),
+                Self::Remove(Focus::Songs, Marker::Selection),
+                Self::Draw(Focus::Playlists, Marker::Cursor),
+                Self::Draw(Focus::Playlists, Marker::Selection),
+                Self::Draw(Focus::Songs, Marker::Cursor),
+                Self::Draw(Focus::Songs, Marker::Selection),
+            ],
+            Self::MoveOffset(Focus::Playlists) => &[
+                Self::Remove(Focus::Playlists, Marker::Cursor),
+                Self::Remove(Focus::Playlists, Marker::Selection),
+                Self::Draw(Focus::Playlists, Marker::Cursor),
+                Self::Draw(Focus::Playlists, Marker::Selection),
+            ],
+            Self::MoveOffset(Focus::Songs) => &[
+                Self::Remove(Focus::Songs, Marker::Cursor),
+                Self::Remove(Focus::Songs, Marker::Selection),
+                Self::Draw(Focus::Songs, Marker::Cursor),
+                Self::Draw(Focus::Songs, Marker::Selection),
+            ],
+            _ => &[],
         }
     }
 
