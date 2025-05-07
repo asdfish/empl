@@ -1,13 +1,16 @@
 //! Configuration file inspired by suckless programs.
 
 use {
-    crossterm::style::{Color, Colors},
+    crossterm::{
+        event::{KeyCode, KeyModifiers},
+        style::{Color, Colors},
+    },
     dirs::home_dir,
     nonempty_collections::{
-        NEVec,
         iter::{IntoIteratorExt, NonEmptyIterator},
+        NEVec,
     },
-    std::{ffi::OsString, path::PathBuf},
+    std::{ffi::OsString, num::NonZeroUsize, path::PathBuf},
 };
 
 pub type SelectedConfig = DefaultConfig;
@@ -16,12 +19,32 @@ pub type SelectedConfig = DefaultConfig;
 const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
+const fn get_max_key_binding_len(
+    current_max: Option<usize>,
+    cons: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])],
+) -> Option<usize> {
+    match (cons, current_max) {
+        ([(_, car), cdr @ ..], Some(current_max)) if car.len() > current_max => {
+            get_max_key_binding_len(Some(car.len()), cdr)
+        }
+        ([(_, car), cdr @ ..], Some(current_max)) => {
+            get_max_key_binding_len(Some(current_max), cdr)
+        }
+        ([(_, car), cdr @ ..], None) => get_max_key_binding_len(Some(car.len()), cdr),
+        ([], current_max) => current_max,
+    }
+}
+
 pub type Playlists = NEVec<(String, NEVec<(String, PathBuf)>)>;
 
 pub trait Config {
     const CURSOR_COLORS: Colors;
     const MENU_COLORS: Colors;
     const SELECTION_COLORS: Colors;
+
+    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])];
+    const MAX_KEY_BINDING_LEN: NonZeroUsize =
+        NonZeroUsize::new(get_max_key_binding_len(None, Self::KEY_BINDINGS).unwrap()).unwrap();
 
     fn get_playlists() -> Option<Playlists>;
 }
@@ -40,6 +63,11 @@ impl Config for DefaultConfig {
         foreground: Some(Color::Red),
         background: None,
     };
+
+    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])] = &[(
+        KeyAction::Quit,
+        &[(KeyModifiers::empty(), KeyCode::Char('q'))],
+    )];
 
     fn get_playlists() -> Option<Playlists> {
         fn os_string_to_string(os_string: OsString) -> String {
@@ -89,4 +117,9 @@ impl Config for DefaultConfig {
             .try_into_nonempty_iter()
             .map(NonEmptyIterator::collect::<NEVec<_>>)
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum KeyAction {
+    Quit,
 }
