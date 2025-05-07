@@ -4,7 +4,6 @@ use {
         ext::command::CommandChain,
     },
     bumpalo::Bump,
-    enum_iterator::Sequence,
     std::{
         io,
         marker::Unpin,
@@ -13,7 +12,7 @@ use {
     tokio::io::AsyncWriteExt,
 };
 
-#[derive(Clone, Copy, Debug, PartialEq, Sequence)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Damage {
     Draw(Focus, Marker),
     Remove(Focus, Marker),

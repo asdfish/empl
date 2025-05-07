@@ -9,19 +9,18 @@ use {
         },
     },
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
-    enum_iterator::Sequence,
     enum_map::{Enum, EnumMap},
     std::num::NonZeroU16,
 };
 
-#[derive(Clone, Copy, Debug, Default, Enum, PartialEq, Sequence)]
+#[derive(Clone, Copy, Debug, Default, Enum, PartialEq)]
 pub enum Focus {
     #[default]
     Playlists,
     Songs,
 }
 
-#[derive(Clone, Copy, Debug, Enum, PartialEq, Sequence)]
+#[derive(Clone, Copy, Debug, Enum, PartialEq)]
 pub enum Marker {
     Cursor,
     Selection,
