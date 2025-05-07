@@ -7,7 +7,7 @@ use {
     bumpalo::Bump,
     std::io,
     tokio::{
-        io::{stdout, Stdout},
+        io::{Stdout, stdout},
         sync::mpsc,
     },
 };
@@ -20,7 +20,10 @@ pub struct DisplayTask<'a> {
     rx: mpsc::Receiver<&'static dyn for<'b> Fn(DisplayState<'b>) -> DisplayState<'b>>,
 }
 impl<'a> DisplayTask<'a> {
-    pub fn new(playlists: &'a Playlists, rx: mpsc::Receiver<&'static dyn for<'b> Fn(DisplayState<'b>) -> DisplayState<'b>>) -> Self {
+    pub fn new(
+        playlists: &'a Playlists,
+        rx: mpsc::Receiver<&'static dyn for<'b> Fn(DisplayState<'b>) -> DisplayState<'b>>,
+    ) -> Self {
         Self {
             alloc: Bump::new(),
             state: DisplayStateWriter::new(playlists),
@@ -35,8 +38,10 @@ impl<'a> DisplayTask<'a> {
             let (damages, old_state) = self.state.write(action);
 
             for damage in damages {
-                damage.render(&old_state, self.state.as_ref())
-                    .execute(&self.alloc, &mut self.stdout).await?;
+                damage
+                    .render(&old_state, self.state.as_ref())
+                    .execute(&self.alloc, &mut self.stdout)
+                    .await?;
             }
         }
 

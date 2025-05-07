@@ -54,13 +54,18 @@ where
 
 #[derive(Clone, Copy, Debug)]
 pub struct CommandIter<I, T>(pub I)
-where I: Iterator<Item = T>,
-T: CommandChain;
+where
+    I: Iterator<Item = T>,
+    T: CommandChain;
 impl<I, T> CommandChain for CommandIter<I, T>
-where I: Iterator<Item = T>,
-T: CommandChain {
+where
+    I: Iterator<Item = T>,
+    T: CommandChain,
+{
     async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
-    where W: AsyncWriteExt + Unpin {
+    where
+        W: AsyncWriteExt + Unpin,
+    {
         for cmd in self.0 {
             cmd.execute(alloc, out).await?;
         }

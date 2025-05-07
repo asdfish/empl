@@ -16,11 +16,7 @@ pub enum Damage {
     FullRedraw,
 }
 impl Damage {
-    pub fn render(
-        &self,
-        old: &DisplayState<'_>,
-        new: &DisplayState<'_>,
-    ) -> impl CommandChain {
+    pub fn render(&self, old: &DisplayState<'_>, new: &DisplayState<'_>) -> impl CommandChain {
         match self {
             Self::Draw(focus, marker) => Either::Left(
                 marker
@@ -36,9 +32,9 @@ impl Damage {
                 new.render_menu(Focus::Playlists)
                     .then(new.render_menu(Focus::Songs)),
             ))),
-            Self::MoveOffset(focus) => Either::Right(Either::Right(Either::Right(
-                new.render_menu(*focus),
-            ))),
+            Self::MoveOffset(focus) => {
+                Either::Right(Either::Right(Either::Right(new.render_menu(*focus))))
+            }
         }
     }
     pub const fn resolves(&self) -> &'static [Self] {
