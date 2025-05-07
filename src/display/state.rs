@@ -1,7 +1,7 @@
 use {
     crate::{
         command::PrintPadded,
-        config::{Config, SelectedConfig},
+        config::{Config, Playlists, SelectedConfig},
         ext::{
             colors::ColorsExt,
             command::{CommandChain, CommandExt},
@@ -11,10 +11,7 @@ use {
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_iterator::Sequence,
     enum_map::{Enum, EnumMap},
-    std::{
-        iter,
-        num::NonZeroU16,
-    },
+    std::num::NonZeroU16,
 };
 
 #[derive(Clone, Copy, Debug, Default, Enum, PartialEq, Sequence)]
@@ -30,33 +27,52 @@ pub enum Marker {
     Selection,
 }
 impl Marker {
-    pub fn get(&self, focus: Focus, state: &DisplayState) -> u16 {
+    pub fn get(&self, focus: Focus, state: &DisplayState) -> Option<u16> {
         match (self, focus) {
-            (Self::Cursor, focus) => state.cursors[focus],
-            (Self::Selection, Focus::Playlists) => state.selected_song.playlist,
-            (Self::Selection, Focus::Songs) => state.selected_song.index,
+            (Self::Cursor, focus) => Some(state.cursors[focus]),
+            (Self::Selection, Focus::Playlists) => state.selected_song.map(|Song { playlist, .. }| playlist),
+            (Self::Selection, Focus::Songs) => state.selected_song.map(|Song { index, .. }| index),
         }
     }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-pub struct DisplayState {
+#[derive(Clone, Copy, Debug)]
+pub struct DisplayState<'a> {
     pub focus: Focus,
     pub cursors: EnumMap<Focus, u16>,
     pub offsets: EnumMap<Focus, u16>,
-    pub selected_song: Song,
+    pub selected_song: Option<Song>,
     pub terminal_area: Option<Area>,
+    pub playlists: &'a Playlists,
 }
-impl DisplayState {
-    pub fn new() -> Self {
+impl<'a> DisplayState<'a> {
+    pub fn new(playlists: &'a Playlists) -> Self {
         Self {
-            terminal_area: terminal::size().ok().and_then(|(l, r)| {
-                Some(Area {
-                    width: NonZeroU16::new(l)?,
-                    height: NonZeroU16::new(r)?,
-                })
-            }),
-            ..Default::default()
+            focus: Focus::Playlists,
+            cursors: EnumMap::default(),
+            offsets: EnumMap::default(),
+            selected_song: None,
+            terminal_area: terminal::size().ok()
+                .and_then(|(width, height)| Some(Area {
+                    width: NonZeroU16::new(width)?,
+                    height: NonZeroU16::new(height)?,
+                })),
+            playlists,
+        }
+    }
+
+    fn get(&self, focus: Focus, index: u16) -> Option<&str> {
+        match focus {
+            Focus::Playlists => self.playlists.get(usize::from(index))
+                .map(|(item, _)| item.as_str()),
+            Focus::Songs =>
+                self.selected_song
+                    .map(|Song { playlist, .. }| playlist)
+                    .and_then(|playlist| self.playlists.get(usize::from(playlist)))
+                    .map(|(_, playlist)| playlist)
+                    .and_then(|playlist| playlist.get(usize::from(index)))
+                    .map(|(item, _)| item)
+                    .map(|item| item.as_str())
         }
     }
 
@@ -83,68 +99,32 @@ impl DisplayState {
         }
     }
 
-    pub fn render_line<S>(&self, focus: Focus, item: Option<S>, index: u16) -> impl CommandChain
-    where S: AsRef<str> + From<&'static str> {
+    pub fn render_list(&self, focus: Focus, index: u16) -> impl CommandChain {
         index
             .checked_sub(self.offsets[focus])
             .and_then(|y| self.row(focus).map(|Row { x, width }| (x, y, width)))
             .map(|(x, y, width)| {
                 let mut colors = SelectedConfig::MENU_COLORS;
-                if index == Marker::Cursor.get(focus, self) {
+                if Some(index) == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
-                if index == Marker::Selection.get(focus, self) {
+                if Some(index) == Marker::Selection.get(focus, self) {
                     colors.join(&SelectedConfig::SELECTION_COLORS);
                 }
 
                 SetColors(colors)
                     .adapt()
                     .then(MoveTo(x, y).adapt())
-                    .then(PrintPadded { text: item.unwrap_or_else(|| S::from("")), padding: ' ', width: usize::from(width.get()) }.adapt())
+                    .then(PrintPadded { text: self.get(focus, index).unwrap_or(""), padding: ' ', width: usize::from(width.get()) }.adapt())
             })
     }
 
-    pub fn render_menu<I, S>(&self, focus: Focus, items: I) -> impl CommandChain
-    where
-        I: IntoIterator<Item = S>,
-        S: AsRef<str> + From<&'static str>,
+    pub fn render_menu(&self, focus: Focus) -> impl CommandChain
     {
         self.terminal_area.map(move |Area { height, .. }| {
-            items
-                .into_iter()
-                .map(Some)
-                .chain(iter::repeat_with(|| None))
-                .take(usize::from(height.get()))
-                .zip(0..)
-                .map_command(move |(item, index)| self.render_line(focus, item, index))
+            (self.offsets[focus]..self.offsets[focus] + height.get())
+                .map_command(move |index| self.render_list(focus, index))
         })
-
-        // self.row(focus)
-        //     .and_then(|Row { x, width }| self.terminal_area.map(move |Area { height, .. }| (x, width, height)))
-        //     .map(|(x, width, height)| {
-        //         items
-        //             .into_iter()
-        //             .map(Some)
-        //             .chain(iter::repeat_with(|| None))
-        //             .take(usize::from(height.get()))
-        //             .zip(0..)
-        //             .skip(usize::from(self.offsets[focus]))
-        //             .zip(0..)
-        //             .map_command(move |((item, index), y)| {
-        //                 let mut colors = SelectedConfig::MENU_COLORS;
-        //                 if index == Marker::Cursor.get(focus, self) {
-        //                     colors.join(&SelectedConfig::CURSOR_COLORS);
-        //                 }
-        //                 if index == Marker::Selection.get(focus, self) {
-        //                     colors.join(&SelectedConfig::SELECTION_COLORS);
-        //                 }
-
-        //                 SetColors(colors)
-        //                     .adapt()
-        //                     .then(MoveTo(x, y).adapt())
-        //                     .then(PrintPadded { text: item.unwrap_or_else(|| S::from("")), padding: ' ', width: usize::from(width.get()) }.adapt())
-        //             })
-        //     })
     }
 
     pub fn visible(&self, focus: Focus, index: u16) -> bool {

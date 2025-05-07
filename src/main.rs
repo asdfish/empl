@@ -3,6 +3,7 @@
 use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
+        config::{Config, SelectedConfig},
         flag::{Arguments, ArgumentsError, Flag},
     },
     std::{
@@ -42,6 +43,7 @@ Options:
             }
         }
 
+        let playlists = SelectedConfig::get_playlists().unwrap();
         let runtime = runtime::Builder::new_current_thread()
             .build().map_err(MainError::Runtime)?;
         runtime.block_on(async {
@@ -56,11 +58,8 @@ Options:
                 },
                 tokio::io::stdout,
             };
-            let state = DisplayState::new();
-            state.render_menu(Focus::Playlists, [
-                "hello",
-                "world",
-            ])
+            let state = DisplayState::new(&playlists);
+            state.render_menu(Focus::Playlists)
                 .execute(&Bump::new(), &mut stdout()).await
                 .unwrap();
         });

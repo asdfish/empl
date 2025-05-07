@@ -16,7 +16,7 @@ pub type SelectedConfig = DefaultConfig;
 const fn take_config<C: Config>() {}
 const _: fn() = take_config::<SelectedConfig>;
 
-type Playlists = NEVec<(String, NEVec<(String, PathBuf)>)>;
+pub type Playlists = NEVec<(String, NEVec<(String, PathBuf)>)>;
 
 pub trait Config {
     const CURSOR_COLORS: Colors;
@@ -41,7 +41,7 @@ impl Config for DefaultConfig {
         background: None,
     };
 
-    fn get_playlists() -> Option<NEVec<(String, NEVec<(String, PathBuf)>)>> {
+    fn get_playlists() -> Option<Playlists> {
         fn os_string_to_string(os_string: OsString) -> String {
             os_string
                 .into_string()
