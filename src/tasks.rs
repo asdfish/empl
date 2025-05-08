@@ -42,6 +42,7 @@ pub struct TaskManager<'a> {
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
         let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
+        let (_audio_error_tx, audio_error_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let (display_tx, display_rx) = mpsc::unbounded_channel();
         let display_state = DisplayState::new(playlists);
@@ -69,6 +70,7 @@ impl<'a> TaskManager<'a> {
                 display_state,
                 playlists,
                 audio_action_tx,
+                audio_error_rx,
                 display_tx,
                 event_rx,
             ),
