@@ -49,12 +49,10 @@ Options:
             .build()
             .map_err(MainError::Runtime)?;
         runtime.block_on(async move {
-            TaskManager::new(&playlists)
+            Ok(TaskManager::new(&playlists)
                 .await
                 .map_err(MainError::Render)?
-                .run()
-                .await
-                .map_err(MainError::Render)
+                .run().await)
         })
     })() {
         Ok(()) => 0,

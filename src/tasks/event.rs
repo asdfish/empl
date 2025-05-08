@@ -2,33 +2,38 @@ use {
     crate::{
         config::{Config, KeyAction, SelectedConfig},
         ext::iterator::IteratorExt,
-        tasks::display::state::Area,
+        tasks::{
+            display::state::Area,
+            ChannelError,
+        },
     },
     arrayvec::ArrayVec,
     crossterm::event::{
         Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
     },
     futures_core::Stream,
-    std::{cmp::Ordering, future::poll_fn, num::NonZeroU16, pin::Pin},
+    std::{cmp::Ordering, future::poll_fn, marker::PhantomData, num::NonZeroU16, pin::Pin},
     tokio::sync::mpsc,
 };
 
 #[derive(Debug)]
-pub struct EventTask {
+pub struct EventTask<'a> {
     pub event_tx: mpsc::UnboundedSender<Event>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
+    _marker: PhantomData<&'a ()>,
 }
-impl EventTask {
+impl<'a> EventTask<'a> {
     pub fn new(event_tx: mpsc::UnboundedSender<Event>) -> Self {
         Self {
             event_tx,
             key_presses: ArrayVec::new(),
             stream: EventStream::new(),
+            _marker: PhantomData,
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), mpsc::error::SendError<Event>> {
+    pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             match poll_fn(|ctx| Pin::new(&mut self.stream).poll_next(ctx)).await {
                 Some(Ok(TermEvent::Key(KeyEvent {

@@ -4,7 +4,7 @@ pub mod state;
 use {
     crate::{
         ext::command::{CommandChain, CommandExt},
-        tasks::display::damage::DamageList,
+        tasks::{ChannelError, display::damage::DamageList},
     },
     bumpalo::Bump,
     crossterm::{
@@ -46,14 +46,13 @@ impl<'a> DisplayTask<'a> {
         })
     }
 
-    pub async fn run(&mut self) -> Result<(), io::Error> {
-        while let Some(action) = self.display_rx.recv().await {
+    pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
+        loop {
+            let action = self.display_rx.recv().await.ok_or(ChannelError::Display(None))?;
             self.alloc.reset();
-            action.execute(&self.alloc, &mut self.stdout).await?;
-            self.stdout.flush().await?;
+            let _ = action.execute(&self.alloc, &mut self.stdout).await;
+            let _ = self.stdout.flush().await;
         }
-
-        Ok(())
     }
 }
 impl Drop for DisplayTask<'_> {

@@ -2,23 +2,21 @@ use {
     crate::{
         config::{KeyAction, Playlists},
         tasks::{
+            audio::AudioAction,
             display::{
-                damage::{Damage, DamageList},
+                damage::DamageList,
                 state::{DisplayState, Focus},
             },
             event::Event,
+            ChannelError,
         },
-    },
-    enum_map::EnumMap,
-    std::{
-        error::Error,
-        fmt::{self, Display, Formatter},
     },
     tokio::sync::mpsc,
 };
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
+    pub audio_action_tx: mpsc::UnboundedSender<AudioAction<'a>>,
     cursor_cache: Box<[u16]>,
     pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
@@ -26,18 +24,16 @@ pub struct StateTask<'a> {
 }
 impl<'a> StateTask<'a> {
     pub fn new(
+        display_state: DisplayState<'a>,
         playlists: &'a Playlists,
+        audio_action_tx: mpsc::UnboundedSender<AudioAction<'a>>,
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
         let display_state = DisplayState::new(playlists);
-        let _ = display_tx.send(DamageList::new(
-            EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
-            display_state,
-            display_state,
-        ));
 
         Self {
+            audio_action_tx,
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
             display_tx,
             display_state,
@@ -45,10 +41,10 @@ impl<'a> StateTask<'a> {
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), StateError<'a>> {
+    pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             self.display_tx.send(
-                match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
+                match self.event_rx.recv().await.ok_or(ChannelError::Event(None))? {
                     Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                     Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
                         state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
@@ -99,25 +95,5 @@ impl<'a> StateTask<'a> {
                 },
             )?;
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-pub enum StateError<'a> {
-    DisplaySend(mpsc::error::SendError<DamageList<'a>>),
-    EventRecv,
-}
-impl Display for StateError<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::DisplaySend(e) => write!(f, "failed to send display instructions: {e}"),
-            Self::EventRecv => f.write_str("event channel closed unexpectedly"),
-        }
-    }
-}
-impl Error for StateError<'_> {}
-impl<'a> From<mpsc::error::SendError<DamageList<'a>>> for StateError<'a> {
-    fn from(err: mpsc::error::SendError<DamageList<'a>>) -> Self {
-        Self::DisplaySend(err)
     }
 }
