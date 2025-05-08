@@ -31,6 +31,7 @@ impl<'a> StateTask<'a> {
     }
 
     pub async fn run(&mut self) -> Result<(), StateError<'a>> {
+        #[expect(clippy::never_loop)]
         loop {
             match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
                 Event::KeyBinding(KeyAction::Quit) => break Ok(()),

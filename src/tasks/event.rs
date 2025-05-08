@@ -6,7 +6,7 @@ use {
     arrayvec::ArrayVec,
     crossterm::event::{Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     futures_core::Stream,
-    std::{cmp::Ordering, future::poll_fn, io, pin::Pin},
+    std::{cmp::Ordering, future::poll_fn, pin::Pin},
     tokio::sync::mpsc,
 };
 
