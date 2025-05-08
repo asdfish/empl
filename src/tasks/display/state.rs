@@ -81,8 +81,7 @@ impl<'a> DisplayState<'a> {
     }
     fn len(&self, focus: Focus) -> Option<NonZeroUsize> {
         match focus {
-            Focus::Playlists => Some(self.playlists
-                .len()),
+            Focus::Playlists => Some(self.playlists.len()),
             Focus::Songs => self
                 .playlists
                 .get(usize::from(self.selected_menu))
@@ -103,7 +102,8 @@ impl<'a> DisplayState<'a> {
 
         if let Some(height) = self.terminal_area.map(|Area { height, .. }| height) {
             if self.cursors[self.focus] >= self.offsets[self.focus].saturating_add(height.get()) {
-                self.offsets[self.focus] = self.cursors[self.focus].saturating_sub(height.get()) + 1;
+                self.offsets[self.focus] =
+                    self.cursors[self.focus].saturating_sub(height.get()) + 1;
             }
         }
     }
@@ -140,7 +140,11 @@ impl<'a> DisplayState<'a> {
                 if self.focus == focus && index == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
-                if self.selected_menu == self.selected_song.playlist && index == Marker::Selection.get(focus, self) {
+                if ((focus == Focus::Songs
+                    && self.selected_menu == self.selected_song.playlist)
+                    || focus == Focus::Playlists)
+                    && index == Marker::Selection.get(focus, self)
+                {
                     colors.join(&SelectedConfig::SELECTION_COLORS);
                 }
 
