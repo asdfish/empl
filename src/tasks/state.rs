@@ -5,7 +5,7 @@ use {
             audio::AudioAction,
             display::{
                 damage::DamageList,
-                state::{DisplayState, Focus},
+                state::{DisplayState, Focus, Marker},
             },
             event::Event,
             ChannelError,
@@ -86,6 +86,9 @@ impl<'a> StateTask<'a> {
                     }),
                     Event::KeyBinding(KeyAction::MoveTop) => self.display_state.write(|state| {
                         state.cursors[state.focus] = 0;
+                    }),
+                    Event::KeyBinding(KeyAction::MoveSelection) => self.display_state.write(|state| {
+                        state.cursors[state.focus] = Marker::Selection.get(state.focus, state);
                     }),
                     Event::KeyBinding(KeyAction::Select)
                         if self.display_state.focus == Focus::Songs =>
