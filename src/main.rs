@@ -23,8 +23,7 @@ const VERSION_MESSAGE: &str = "empl 0.1.0";
 extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
     match (move || -> Result<(), MainError> {
         let mut flags = Arguments::new(unsafe { Argv::new(argc, argv) }?.skip(1));
-        #[expect(clippy::never_loop)]
-        while let Some(flag) = flags.next().transpose()? {
+        if let Some(flag) = flags.next().transpose()? {
             match flag {
                 Flag::Short('h') | Flag::Long("help") => {
                     eprintln!(

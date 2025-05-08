@@ -59,11 +59,10 @@ impl EventTask {
                     }
                 }
                 Some(Ok(TermEvent::Resize(width, height))) => {
-                    if let (Some(width), Some(height)) = (NonZeroU16::new(width), NonZeroU16::new(height)) {
-                        self.event_tx.send(Event::Resize(Area {
-                            width,
-                            height,
-                        }))?;
+                    if let (Some(width), Some(height)) =
+                        (NonZeroU16::new(width), NonZeroU16::new(height))
+                    {
+                        self.event_tx.send(Event::Resize(Area { width, height }))?;
                     }
                 }
                 _ => continue,

@@ -113,11 +113,7 @@ pub struct DamageList<'a> {
 }
 impl<'a> DamageList<'a> {
     pub fn new(list: EnumMap<Damage, bool>, old: DisplayState<'a>, new: DisplayState<'a>) -> Self {
-        Self {
-            list,
-            old,
-            new,
-        }
+        Self { list, old, new }
     }
 }
 impl CommandChain for DamageList<'_> {
