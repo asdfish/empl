@@ -7,8 +7,8 @@ use {
     },
     dirs::home_dir,
     nonempty_collections::{
-        NEVec,
         iter::{IntoIteratorExt, NonEmptyIterator},
+        NEVec,
     },
     std::{ffi::OsString, num::NonZeroUsize, path::PathBuf},
 };
@@ -62,10 +62,20 @@ impl Config for DefaultConfig {
         background: None,
     };
 
-    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])] = &[(
-        KeyAction::Quit,
-        &[(KeyModifiers::empty(), KeyCode::Char('q'))],
-    )];
+    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])] = &[
+        (
+            KeyAction::Quit,
+            &[(KeyModifiers::empty(), KeyCode::Char('q'))],
+        ),
+        (
+            KeyAction::MoveUp(1),
+            &[(KeyModifiers::empty(), KeyCode::Char('k'))],
+        ),
+        (
+            KeyAction::MoveDown(1),
+            &[(KeyModifiers::empty(), KeyCode::Char('j'))],
+        ),
+    ];
 
     fn get_playlists() -> Option<Playlists> {
         fn os_string_to_string(os_string: OsString) -> String {
@@ -120,4 +130,6 @@ impl Config for DefaultConfig {
 #[derive(Clone, Copy, Debug)]
 pub enum KeyAction {
     Quit,
+    MoveUp(u16),
+    MoveDown(u16),
 }

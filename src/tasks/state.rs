@@ -47,6 +47,16 @@ impl<'a> StateTask<'a> {
         loop {
             match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
                 Event::KeyBinding(KeyAction::Quit) => break Ok(()),
+                Event::KeyBinding(KeyAction::MoveUp(n)) => {
+                    self.display_tx.send(self.display_state.write(|state| {
+                        state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
+                    }))?
+                }
+                Event::KeyBinding(KeyAction::MoveDown(n)) => {
+                    self.display_tx.send(self.display_state.write(|state| {
+                        state.cursors[state.focus] = state.cursors[state.focus].saturating_add(n);
+                    }))?
+                }
                 Event::Resize(area) => {
                     self.display_tx
                         .send(self.display_state.write(move |state| {
