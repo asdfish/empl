@@ -11,14 +11,12 @@ use {
             event::Event,
         },
     },
-    symphonia::core::errors::Error as SymphoniaError,
     tokio::sync::mpsc,
 };
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
     pub audio_action_tx: mpsc::UnboundedSender<AudioAction>,
-    pub audio_error_rx: mpsc::UnboundedReceiver<SymphoniaError>,
     cursor_cache: Box<[u16]>,
     pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
@@ -29,13 +27,11 @@ impl<'a> StateTask<'a> {
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
         audio_action_tx: mpsc::UnboundedSender<AudioAction>,
-        audio_error_rx: mpsc::UnboundedReceiver<SymphoniaError>,
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
         Self {
             audio_action_tx,
-            audio_error_rx,
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
             display_tx,
             display_state,

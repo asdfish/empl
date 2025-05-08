@@ -6,6 +6,7 @@ pub mod state;
 use {
     crate::{
         config::Playlists,
+        either::{Either, EitherFuture},
         ext::command::{CommandChain, CommandExt},
         select::Select3,
         tasks::{
@@ -30,11 +31,13 @@ use {
         fmt::{self, Display, Formatter},
         io::{self, Write},
     },
-    tokio::{io::AsyncWriteExt, runtime, sync::mpsc},
+    symphonia::core::errors::Error as SymphoniaError,
+    tokio::{io::AsyncWriteExt, sync::mpsc},
 };
 
 pub struct TaskManager<'a> {
     audio: AudioTask,
+    audio_error_rx: mpsc::UnboundedReceiver<SymphoniaError>,
     display: DisplayTask<'a>,
     event: EventTask<'a>,
     state: StateTask<'a>,
@@ -42,7 +45,7 @@ pub struct TaskManager<'a> {
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
         let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
-        let (_audio_error_tx, audio_error_rx) = mpsc::unbounded_channel();
+        let (audio_error_tx, audio_error_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let (display_tx, display_rx) = mpsc::unbounded_channel();
         let display_state = DisplayState::new(playlists);
@@ -63,22 +66,33 @@ impl<'a> TaskManager<'a> {
         stdout.flush().await?;
 
         Ok(Self {
-            audio: AudioTask::new(audio_action_rx),
+            audio: AudioTask::new(audio_action_rx, audio_error_tx),
+            audio_error_rx,
             display: DisplayTask::new(alloc, stdout, display_rx),
             event: EventTask::new(event_tx),
             state: StateTask::new(
                 display_state,
                 playlists,
                 audio_action_tx,
-                audio_error_rx,
                 display_tx,
                 event_rx,
             ),
         })
     }
+    fn recover_audio(&mut self, msg: Option<AudioAction>) {
+        let (new_audio_action_tx, new_audio_action_rx) = mpsc::unbounded_channel();
+        let (new_audio_error_tx, new_audio_error_rx) = mpsc::unbounded_channel();
+        if let Some(msg) = msg {
+            let result = new_audio_action_tx.send(msg);
+            debug_assert!(result.is_ok());
+        }
 
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
-        fn fix_channel<T>(
+        self.audio.reset(new_audio_action_rx, new_audio_error_tx);
+        self.audio_error_rx = new_audio_error_rx;
+        self.state.audio_action_tx = new_audio_action_tx;
+    }
+    fn recover(&mut self, err: ChannelError<'a>) {
+        fn recover_channel<T>(
             tx: &mut mpsc::UnboundedSender<T>,
             rx: &mut mpsc::UnboundedReceiver<T>,
             msg: Option<T>,
@@ -92,36 +106,43 @@ impl<'a> TaskManager<'a> {
             *rx = new_rx;
         }
 
-        loop {
-            match self.audio.spawn().and_then(|_| {
-                runtime::Handle::current()
-                    .block_on(Select3::new(
-                        self.display.run(),
-                        self.event.run(),
-                        self.state.run(),
-                    ))
-                    .map_err(TaskError::Channel)
-            }) {
-                Ok(()) => break Ok(()),
-                Err(TaskError::Channel(ChannelError::Audio(msg))) => {
-                    let (new_tx, new_rx) = mpsc::unbounded_channel();
-                    if let Some(msg) = msg {
-                        let result = new_tx.send(msg);
-                        debug_assert!(result.is_ok());
-                    }
+        match err {
+            ChannelError::Audio(msg) => {
+                self.recover_audio(msg);
+            }
+            ChannelError::Event(msg) => {
+                recover_channel(&mut self.event.event_tx, &mut self.state.event_rx, msg)
+            }
+            ChannelError::Display(msg) => recover_channel(
+                &mut self.state.display_tx,
+                &mut self.display.display_rx,
+                msg,
+            ),
+        }
+    }
 
-                    self.audio.reset(new_rx);
-                    self.state.audio_action_tx = new_tx;
+    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+        loop {
+            if let Err(err) = self.audio.spawn() {
+                match err {
+                    TaskError::Channel(err) => {
+                        self.recover(err);
+                        continue;
+                    },
+                    TaskError::OutputDevice(err) => break Err(err),
                 }
-                Err(TaskError::Channel(ChannelError::Event(msg))) => {
-                    fix_channel(&mut self.event.event_tx, &mut self.state.event_rx, msg)
+            }
+
+            match EitherFuture::new(self.audio_error_rx.recv(), Select3::new(
+                self.display.run(),
+                self.event.run(),
+                self.state.run(),
+            )).await {
+                Either::Left(_) => self.recover_audio(None),
+                Either::Right(result) => match result {
+                    Ok(()) => break Ok(()),
+                    Err(err) => self.recover(err),
                 }
-                Err(TaskError::Channel(ChannelError::Display(msg))) => fix_channel(
-                    &mut self.state.display_tx,
-                    &mut self.display.display_rx,
-                    msg,
-                ),
-                Err(TaskError::OutputDevice(err)) => break Err(err),
             }
         }
     }

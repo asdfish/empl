@@ -3,6 +3,7 @@ use {
     std::{ffi::OsStr, fs::File, path::Path, sync::Arc},
     symphonia::{
         core::{
+            errors::Error as SymphoniaError,
             formats::FormatOptions,
             io::{MediaSourceStream, MediaSourceStreamOptions},
             meta::MetadataOptions,
@@ -16,17 +17,20 @@ use {
 
 pub struct AudioTask {
     pub audio_action_rx: Option<mpsc::UnboundedReceiver<AudioAction>>,
+    pub audio_error_tx: mpsc::UnboundedSender<SymphoniaError>,
     device: Option<OutputDevice>,
 }
 impl AudioTask {
-    pub fn new(audio_action_rx: mpsc::UnboundedReceiver<AudioAction>) -> Self {
+    pub fn new(audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<SymphoniaError>) -> Self {
         Self {
             audio_action_rx: Some(audio_action_rx),
+            audio_error_tx,
             device: None,
         }
     }
-    pub fn reset(&mut self, audio_action_rx: mpsc::UnboundedReceiver<AudioAction>) {
+    pub fn reset(&mut self, audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<SymphoniaError>) {
         self.audio_action_rx = Some(audio_action_rx);
+        self.audio_error_tx = audio_error_tx;
         if let Some(device) = &mut self.device {
             device.close();
         }
@@ -38,6 +42,7 @@ impl AudioTask {
             .audio_action_rx
             .take()
             .ok_or(ChannelError::Audio(None))?;
+        let audio_error_tx = self.audio_error_tx.clone();
         let config = OutputDeviceParameters {
             sample_rate: 44_100,
             channels_count: 2,
@@ -50,8 +55,10 @@ impl AudioTask {
                     AudioAction::Play(path) => {
                         let file = match File::open(&path) {
                             Ok(f) => f,
-                            Err(_err) => {
-                                todo!("send error")
+                            Err(err) => {
+                                // if we do not panic, and the channel was lost this would hang
+                                audio_error_tx.send(SymphoniaError::IoError(err)).unwrap();
+                                return;
                             }
                         };
 
@@ -77,8 +84,10 @@ impl AudioTask {
                             &MetadataOptions::default(),
                         ) {
                             Ok(result) => result,
-                            Err(_err) => {
-                                todo!("send error")
+                            Err(err) => {
+                                // if we do not panic, and the channel was lost this would hang
+                                audio_error_tx.send(err).unwrap();
+                                return;
                             }
                         };
                     }
