@@ -5,13 +5,12 @@ use {
     },
     bumpalo::Bump,
     crossterm::{
-        cursor,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        QueueableCommand,
+        QueueableCommand, cursor,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     std::io::{self, Write},
     tokio::{
-        io::{stdout, AsyncWriteExt, Stdout},
+        io::{AsyncWriteExt, Stdout, stdout},
         sync::mpsc,
     },
 };

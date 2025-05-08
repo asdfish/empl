@@ -7,12 +7,7 @@ use {
     arrayvec::ArrayVec,
     bumpalo::Bump,
     enum_map::{Enum, EnumMap},
-    std::{
-        cmp::Ordering,
-        io,
-        marker::Unpin,
-        ptr,
-    },
+    std::{cmp::Ordering, io, marker::Unpin, ptr},
     tokio::io::AsyncWriteExt,
 };
 
@@ -34,10 +29,9 @@ impl Damage {
             match damage {
                 Damage::FullRedraw => 3,
                 Damage::MoveOffset(_) => 2,
-                Damage::Draw(..) |
-                Damage::Remove(..) => 1,
+                Damage::Draw(..) | Damage::Remove(..) => 1,
             }
-        } 
+        }
 
         to_ranking(self).cmp(&to_ranking(r))
     }
@@ -58,9 +52,7 @@ impl Damage {
                 new.render_menu(Focus::Playlists)
                     .then(new.render_menu(Focus::Songs)),
             ),
-            Self::MoveOffset(focus) => {
-                Either4::Fourth(new.render_menu(*focus))
-            }
+            Self::MoveOffset(focus) => Either4::Fourth(new.render_menu(*focus)),
         }
     }
     pub const fn resolves(&self) -> &'static [Self] {
@@ -131,15 +123,22 @@ pub struct DamageList<'a> {
 }
 impl CommandChain for DamageList<'_> {
     async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
-    where W: AsyncWriteExt + Unpin {
-        let mut damages = self.list.into_iter()
+    where
+        W: AsyncWriteExt + Unpin,
+    {
+        let mut damages = self
+            .list
+            .into_iter()
             .filter(|(_, enabled)| *enabled)
             .map(|(damage, _)| damage)
             .collect::<ArrayVec<Damage, { Damage::LENGTH }>>();
         damages.sort_by(|l, r| l.rank(r));
 
         while let Some(damage) = damages.pop() {
-            damage.render(&self.old, &self.new).execute(alloc, out).await?;
+            damage
+                .render(&self.old, &self.new)
+                .execute(alloc, out)
+                .await?;
             let resolutions = damage.resolves();
             damages.retain(|damage| !resolutions.contains(damage));
         }

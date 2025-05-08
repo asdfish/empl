@@ -8,16 +8,14 @@ use {
 };
 
 pub trait FutureExt: Future + Sized {
-    fn pipe<P, O>(self, pipe: P) -> Pipe<Self, P, Self::Output, O> 
-    where P: FnMut(Self::Output) -> O {
-        Pipe {
-            future: self,
-            pipe
-        }
+    fn pipe<P, O>(self, pipe: P) -> Pipe<Self, P, Self::Output, O>
+    where
+        P: FnMut(Self::Output) -> O,
+    {
+        Pipe { future: self, pipe }
     }
 }
-impl<T> FutureExt for T
-where T: Future {}
+impl<T> FutureExt for T where T: Future {}
 
 pin_project! {
     #[derive(Clone, Copy, Debug)]
@@ -33,7 +31,7 @@ pin_project! {
 impl<F, P, T, O> Future for Pipe<F, P, T, O>
 where
     F: Future<Output = T>,
-    P: FnMut(T) -> O
+    P: FnMut(T) -> O,
 {
     type Output = O;
 

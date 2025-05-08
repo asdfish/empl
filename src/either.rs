@@ -1,10 +1,7 @@
 use {
     crate::ext::command::CommandChain,
     bumpalo::Bump,
-    std::{
-        io,
-        marker::Unpin,
-    },
+    std::{io, marker::Unpin},
     tokio::io::AsyncWriteExt,
 };
 
@@ -28,12 +25,7 @@ macro_rules! decl_either {
         }
     }
 }
-decl_either!(Either4, [
-    (First, A),
-    (Second, B),
-    (Third, C),
-    (Fourth, D),
-]);
+decl_either!(Either4, [(First, A), (Second, B), (Third, C), (Fourth, D),]);
 
 #[derive(Clone, Copy, Debug)]
 pub enum EitherOrBoth<L, R> {

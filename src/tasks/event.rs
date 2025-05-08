@@ -4,7 +4,9 @@ use {
         ext::iterator::IteratorExt,
     },
     arrayvec::ArrayVec,
-    crossterm::event::{Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
+    crossterm::event::{
+        Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+    },
     futures_core::Stream,
     std::{cmp::Ordering, future::poll_fn, pin::Pin},
     tokio::sync::mpsc,
@@ -45,14 +47,15 @@ impl EventTask {
                             (action, self.key_presses.iter().containment(*key_binding))
                         })
                         .filter(|(_, ord)| *ord < Some(Ordering::Greater))
-                        .max_by(|(_, l), (_, r)| l.cmp(r)) {
-                            Some((action, Some(Ordering::Equal))) => {
-                                self.event_tx.send(Event::KeyBinding(*action))?;
-                                self.key_presses.clear();
-                            },
-                            Some((_, Some(Ordering::Less))) => {}
-                            _ => self.key_presses.clear(),
+                        .max_by(|(_, l), (_, r)| l.cmp(r))
+                    {
+                        Some((action, Some(Ordering::Equal))) => {
+                            self.event_tx.send(Event::KeyBinding(*action))?;
+                            self.key_presses.clear();
                         }
+                        Some((_, Some(Ordering::Less))) => {}
+                        _ => self.key_presses.clear(),
+                    }
                 }
                 _ => continue,
             }

@@ -3,14 +3,18 @@ use {
         either::EitherOrBoth,
         ext::command::{CommandChain, CommandIter},
     },
-    std::{cmp::{max, Ordering}, iter::FusedIterator, ops::ControlFlow},
+    std::{
+        cmp::{Ordering, max},
+        iter::FusedIterator,
+        ops::ControlFlow,
+    },
 };
 
-pub trait IteratorExt: Iterator + Sized
-{
+pub trait IteratorExt: Iterator + Sized {
     fn adapt(self) -> CommandIter<Self, Self::Item>
     where
-        Self::Item: CommandChain {
+        Self::Item: CommandChain,
+    {
         CommandIter(self)
     }
 
@@ -34,17 +38,14 @@ pub trait IteratorExt: Iterator + Sized
     {
         match self
             .zip_all(r)
-            .try_fold(Some(Ordering::Equal), |_, items| {
-                match items {
-                    EitherOrBoth::Left(_) => ControlFlow::Break(Some(Ordering::Greater)),
-                    EitherOrBoth::Right(_) => ControlFlow::Break(Some(Ordering::Less)),
-                    EitherOrBoth::Both(l, r) if l == r => ControlFlow::Continue(Some(Ordering::Equal)),
-                    EitherOrBoth::Both(..) => ControlFlow::Break(None),
-                }
+            .try_fold(Some(Ordering::Equal), |_, items| match items {
+                EitherOrBoth::Left(_) => ControlFlow::Break(Some(Ordering::Greater)),
+                EitherOrBoth::Right(_) => ControlFlow::Break(Some(Ordering::Less)),
+                EitherOrBoth::Both(l, r) if l == r => ControlFlow::Continue(Some(Ordering::Equal)),
+                EitherOrBoth::Both(..) => ControlFlow::Break(None),
             }) {
-                ControlFlow::Continue(v) |
-                ControlFlow::Break(v) => v,
-            }
+            ControlFlow::Continue(v) | ControlFlow::Break(v) => v,
+        }
     }
 
     fn zip_all<I, R>(self, r: I) -> ZipAll<Self, R>
@@ -52,13 +53,13 @@ pub trait IteratorExt: Iterator + Sized
         I: IntoIterator<IntoIter = R>,
         R: Iterator,
     {
-        ZipAll { l: self, r: r.into_iter() }
+        ZipAll {
+            l: self,
+            r: r.into_iter(),
+        }
     }
 }
-impl<I> IteratorExt for I
-where
-    I: Iterator,
-{}
+impl<I> IteratorExt for I where I: Iterator {}
 
 #[derive(Clone, Debug)]
 pub struct ZipAll<L, R>

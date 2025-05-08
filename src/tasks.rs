@@ -27,10 +27,9 @@ fn fix_channel<T>(
         let _ = new_tx.send(msg);
     }
     match tx {
-        [] => {},
+        [] => {}
         [tx] => **tx = new_tx,
-        txs => txs.iter_mut()
-            .for_each(|tx| **tx = new_tx.clone()),
+        txs => txs.iter_mut().for_each(|tx| **tx = new_tx.clone()),
     }
     *rx = new_rx;
 }
@@ -70,13 +69,25 @@ impl<'a> TaskManager<'a> {
             {
                 Ok(()) => break Ok(()),
                 Err(TaskError::EventSend(e)) => {
-                    fix_channel(&mut [&mut self.event.event_tx], &mut self.state.event_rx, Some(e.0));
+                    fix_channel(
+                        &mut [&mut self.event.event_tx],
+                        &mut self.state.event_rx,
+                        Some(e.0),
+                    );
                 }
                 Err(TaskError::State(StateError::DisplaySend(e))) => {
-                    fix_channel(&mut [&mut self.state.display_tx], &mut self.display.display_rx, Some(e.0));
+                    fix_channel(
+                        &mut [&mut self.state.display_tx],
+                        &mut self.display.display_rx,
+                        Some(e.0),
+                    );
                 }
                 Err(TaskError::State(StateError::EventRecv)) => {
-                    fix_channel(&mut [&mut self.event.event_tx], &mut self.state.event_rx, None);
+                    fix_channel(
+                        &mut [&mut self.event.event_tx],
+                        &mut self.state.event_rx,
+                        None,
+                    );
                 }
                 Err(TaskError::Render(e)) => break Err(e),
             }
