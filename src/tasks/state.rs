@@ -51,11 +51,11 @@ impl<'a> StateTask<'a> {
                 match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
                     Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                     Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
-                        state.set_cursor(state.cursors[state.focus].saturating_sub(n));
+                            state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
                     }),
                     Event::KeyBinding(KeyAction::MoveDown(n)) => {
                         self.display_state.write(|state| {
-                            state.set_cursor(state.cursors[state.focus].saturating_add(n));
+                            state.cursors[state.focus] = state.cursors[state.focus].saturating_add(n);
                         })
                     }
                     Event::KeyBinding(KeyAction::MoveLeft) => self
@@ -86,7 +86,6 @@ impl<'a> StateTask<'a> {
                     Event::KeyBinding(KeyAction::Select) => todo!(),
                     Event::Resize(area) => self.display_state.write(move |state| {
                         state.terminal_area = Some(area);
-                        state.check_offset();
                     }),
                 },
             )?;

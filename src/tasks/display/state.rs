@@ -88,7 +88,13 @@ impl<'a> DisplayState<'a> {
         }
     }
 
-    pub fn check_offset(&mut self) {
+    fn check_offset(&mut self) {
+        if let Some(len) = self.len(self.focus) {
+            if usize::from(self.cursors[self.focus]) > len.get() - 1 {
+                self.cursors[self.focus] = u16::try_from(len.get() - 1).unwrap_or(u16::MAX);
+            }
+        }
+
         if self.offsets[self.focus] > self.cursors[self.focus] {
             self.offsets[self.focus] = self.cursors[self.focus];
         }
@@ -98,16 +104,6 @@ impl<'a> DisplayState<'a> {
                 self.offsets[self.focus] = self.cursors[self.focus].saturating_sub(height.get()) + 1;
             }
         }
-    }
-    pub fn set_cursor(&mut self, mut y: u16) {
-        if let Some(len) = self.len(self.focus) {
-            if usize::from(y) > len.get() - 1 {
-                y = u16::try_from(len.get() - 1).unwrap_or(u16::MAX);
-            }
-        }
-        self.cursors[self.focus] = y;
-
-        self.check_offset();
     }
 
     fn row(&self, focus: Focus) -> Option<Row> {
@@ -171,6 +167,7 @@ impl<'a> DisplayState<'a> {
     {
         let old = *self;
         operation(self);
+        self.check_offset();
 
         if old.eq(self) {
             DamageList::new(EnumMap::default(), old, *self)
