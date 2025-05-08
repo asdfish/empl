@@ -52,9 +52,9 @@ Options:
             TaskManager::new(&playlists)
                 .await
                 .map_err(MainError::Render)?
-                .run().await;
-
-            Ok(())
+                .run()
+                .await
+                .map_err(MainError::OutputDevice)
         })
     })() {
         Ok(()) => 0,
@@ -70,6 +70,7 @@ pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
     EmptyPlaylists,
+    OutputDevice(Box<dyn Error>),
     Render(io::Error),
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
@@ -80,6 +81,7 @@ impl Display for MainError {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
             Self::EmptyPlaylists => f.write_str("no playlists were found"),
+            Self::OutputDevice(e) => write!(f, "failed to create output device: {e}"),
             Self::Render(e) => write!(f, "error while rendering: {e}"),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),

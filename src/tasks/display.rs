@@ -34,7 +34,11 @@ impl<'a> DisplayTask<'a> {
 
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
-            let action = self.display_rx.recv().await.ok_or(ChannelError::Display(None))?;
+            let action = self
+                .display_rx
+                .recv()
+                .await
+                .ok_or(ChannelError::Display(None))?;
             self.alloc.reset();
             let _ = action.execute(&self.alloc, &mut self.stdout).await;
             let _ = self.stdout.flush().await;

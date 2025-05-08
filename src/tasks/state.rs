@@ -2,13 +2,13 @@ use {
     crate::{
         config::{KeyAction, Playlists},
         tasks::{
+            ChannelError,
             audio::AudioAction,
             display::{
                 damage::DamageList,
                 state::{DisplayState, Focus, Marker},
             },
             event::Event,
-            ChannelError,
         },
     },
     tokio::sync::mpsc,
@@ -16,7 +16,7 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
-    pub audio_action_tx: mpsc::UnboundedSender<AudioAction<'a>>,
+    pub audio_action_tx: mpsc::UnboundedSender<AudioAction>,
     cursor_cache: Box<[u16]>,
     pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
@@ -26,7 +26,7 @@ impl<'a> StateTask<'a> {
     pub fn new(
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
-        audio_action_tx: mpsc::UnboundedSender<AudioAction<'a>>,
+        audio_action_tx: mpsc::UnboundedSender<AudioAction>,
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
@@ -42,7 +42,12 @@ impl<'a> StateTask<'a> {
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             self.display_tx.send(
-                match self.event_rx.recv().await.ok_or(ChannelError::Event(None))? {
+                match self
+                    .event_rx
+                    .recv()
+                    .await
+                    .ok_or(ChannelError::Event(None))?
+                {
                     Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                     Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
                         state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
@@ -81,15 +86,18 @@ impl<'a> StateTask<'a> {
                     }
                     Event::KeyBinding(KeyAction::MoveBottom) => self.display_state.write(|state| {
                         if let Some(len) = state.len(state.focus) {
-                            state.cursors[state.focus] = u16::try_from(len.get()).unwrap_or(u16::MAX);
+                            state.cursors[state.focus] =
+                                u16::try_from(len.get()).unwrap_or(u16::MAX);
                         }
                     }),
                     Event::KeyBinding(KeyAction::MoveTop) => self.display_state.write(|state| {
                         state.cursors[state.focus] = 0;
                     }),
-                    Event::KeyBinding(KeyAction::MoveSelection) => self.display_state.write(|state| {
-                        state.cursors[state.focus] = Marker::Selection.get(state.focus, state);
-                    }),
+                    Event::KeyBinding(KeyAction::MoveSelection) => {
+                        self.display_state.write(|state| {
+                            state.cursors[state.focus] = Marker::Selection.get(state.focus, state);
+                        })
+                    }
                     Event::KeyBinding(KeyAction::Select)
                         if self.display_state.focus == Focus::Songs =>
                     {

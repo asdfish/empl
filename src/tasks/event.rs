@@ -2,10 +2,7 @@ use {
     crate::{
         config::{Config, KeyAction, SelectedConfig},
         ext::iterator::IteratorExt,
-        tasks::{
-            display::state::Area,
-            ChannelError,
-        },
+        tasks::{ChannelError, display::state::Area},
     },
     arrayvec::ArrayVec,
     crossterm::event::{

@@ -10,7 +10,7 @@ use {
         NEVec,
         iter::{IntoIteratorExt, NonEmptyIterator},
     },
-    std::{ffi::OsString, num::NonZeroUsize, path::PathBuf},
+    std::{ffi::OsString, num::NonZeroUsize, path::Path, sync::Arc},
 };
 
 pub type SelectedConfig = DefaultConfig;
@@ -33,7 +33,7 @@ const fn get_max_key_binding_len(
     }
 }
 
-pub type Playlists = NEVec<(String, NEVec<(String, PathBuf)>)>;
+pub type Playlists = NEVec<(String, NEVec<(String, Arc<Path>)>)>;
 
 pub trait Config {
     const CURSOR_COLORS: Colors;
@@ -89,7 +89,10 @@ impl Config for DefaultConfig {
         ),
         (
             KeyAction::MoveTop,
-            &[(KeyModifiers::empty(), KeyCode::Char('g')), (KeyModifiers::empty(), KeyCode::Char('g'))],
+            &[
+                (KeyModifiers::empty(), KeyCode::Char('g')),
+                (KeyModifiers::empty(), KeyCode::Char('g')),
+            ],
         ),
         (
             KeyAction::MoveSelection,
@@ -132,7 +135,7 @@ impl Config for DefaultConfig {
                                 .file_name()
                                 .into_string()
                                 .unwrap_or_else(os_string_to_string),
-                            dir_ent.path(),
+                            Arc::from(dir_ent.path()),
                         )
                     })
                     .try_into_nonempty_iter()?
