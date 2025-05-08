@@ -47,9 +47,82 @@ decl_select!(Select3, [(a, A), (b, B), (c, C)]);
 decl_select!(Select4, [(a, A), (b, B), (c, C), (d, D)]);
 decl_select!(Select5, [(a, A), (b, B), (c, C), (d, D), (e, E)]);
 decl_select!(Select6, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F)]);
-decl_select!(Select7, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G)]);
-decl_select!(Select8, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G), (h, H)]);
-decl_select!(Select9, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G), (h, H), (i, I)]);
-decl_select!(Select10, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G), (h, H), (i, I), (j, J)]);
-decl_select!(Select11, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G), (h, H), (i, I), (j, J), (k, K)]);
-decl_select!(Select12, [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G), (h, H), (i, I), (j, J), (k, K), (l, L)]);
+decl_select!(
+    Select7,
+    [(a, A), (b, B), (c, C), (d, D), (e, E), (f, F), (g, G)]
+);
+decl_select!(
+    Select8,
+    [
+        (a, A),
+        (b, B),
+        (c, C),
+        (d, D),
+        (e, E),
+        (f, F),
+        (g, G),
+        (h, H)
+    ]
+);
+decl_select!(
+    Select9,
+    [
+        (a, A),
+        (b, B),
+        (c, C),
+        (d, D),
+        (e, E),
+        (f, F),
+        (g, G),
+        (h, H),
+        (i, I)
+    ]
+);
+decl_select!(
+    Select10,
+    [
+        (a, A),
+        (b, B),
+        (c, C),
+        (d, D),
+        (e, E),
+        (f, F),
+        (g, G),
+        (h, H),
+        (i, I),
+        (j, J)
+    ]
+);
+decl_select!(
+    Select11,
+    [
+        (a, A),
+        (b, B),
+        (c, C),
+        (d, D),
+        (e, E),
+        (f, F),
+        (g, G),
+        (h, H),
+        (i, I),
+        (j, J),
+        (k, K)
+    ]
+);
+decl_select!(
+    Select12,
+    [
+        (a, A),
+        (b, B),
+        (c, C),
+        (d, D),
+        (e, E),
+        (f, F),
+        (g, G),
+        (h, H),
+        (i, I),
+        (j, J),
+        (k, K),
+        (l, L)
+    ]
+);

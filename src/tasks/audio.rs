@@ -6,10 +6,7 @@ use {
             formats::FormatOptions,
             io::{MediaSourceStream, MediaSourceStreamOptions},
             meta::MetadataOptions,
-            probe::{
-                Hint,
-                ProbeResult,
-            },
+            probe::{Hint, ProbeResult},
         },
         default::get_probe,
     },
@@ -47,40 +44,47 @@ impl AudioTask {
             channel_sample_count: 4_410,
         };
 
-        self.device = run_output_device(
-            config,
-            move |_output| {
-                if let Ok(action) = audio_action_rx.try_recv() {
-                    match action {
-                        AudioAction::Play(path) => {
-                            let file = match File::open(&path) {
-                                Ok(f) => f,
-                                Err(_err) => {
-                                    todo!("send error")
-                                },
-                            };
-
-                            let source = MediaSourceStream::new(Box::new(file), MediaSourceStreamOptions::default());
-
-                            let mut hint = Hint::new();
-                            if let Some(extension) = path.extension().and_then(OsStr::to_str) {
-                                hint.with_extension(extension);
+        self.device = run_output_device(config, move |_output| {
+            if let Ok(action) = audio_action_rx.try_recv() {
+                match action {
+                    AudioAction::Play(path) => {
+                        let file = match File::open(&path) {
+                            Ok(f) => f,
+                            Err(_err) => {
+                                todo!("send error")
                             }
+                        };
 
-                            let ProbeResult { format: _format, .. } = match get_probe().format(&hint, source, &FormatOptions {
+                        let source = MediaSourceStream::new(
+                            Box::new(file),
+                            MediaSourceStreamOptions::default(),
+                        );
+
+                        let mut hint = Hint::new();
+                        if let Some(extension) = path.extension().and_then(OsStr::to_str) {
+                            hint.with_extension(extension);
+                        }
+
+                        let ProbeResult {
+                            format: _format, ..
+                        } = match get_probe().format(
+                            &hint,
+                            source,
+                            &FormatOptions {
                                 enable_gapless: true,
                                 ..Default::default()
-                            }, &MetadataOptions::default()) {
-                                Ok(result) => result,
-                                Err(_err) => {
-                                    todo!("send error")
-                                }
-                            };
-                        }
+                            },
+                            &MetadataOptions::default(),
+                        ) {
+                            Ok(result) => result,
+                            Err(_err) => {
+                                todo!("send error")
+                            }
+                        };
                     }
                 }
-            },
-        )
+            }
+        })
         .map(Some)?;
 
         Ok(())

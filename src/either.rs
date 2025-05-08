@@ -60,7 +60,10 @@ macro_rules! decl_either {
         }
     }
 }
-decl_either!((Either, EitherFuture), [(left, Left, A, AO), (right, Right, B, BO)]);
+decl_either!(
+    (Either, EitherFuture),
+    [(left, Left, A, AO), (right, Right, B, BO)]
+);
 decl_either!(
     (Either3, EitherFuture3),
     [
