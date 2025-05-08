@@ -15,11 +15,11 @@ use {
 pub struct DisplayTask<'a> {
     alloc: Bump,
     stdout: Stdout,
-    rx: mpsc::Receiver<DamageList<'a>>,
+    rx: mpsc::UnboundedReceiver<DamageList<'a>>,
 }
 impl<'a> DisplayTask<'a> {
     pub fn new(
-        rx: mpsc::Receiver<DamageList<'a>>
+        rx: mpsc::UnboundedReceiver<DamageList<'a>>
     ) -> Self {
         Self {
             alloc: Bump::new(),

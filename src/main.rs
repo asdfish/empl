@@ -6,8 +6,6 @@ use {
         config::{Config, SelectedConfig},
         ext::future::FutureExt,
         flag::{Arguments, ArgumentsError, Flag},
-        select::select2,
-        tasks::{display::DisplayTask, event::EventTask},
     },
     std::{
         error::Error,

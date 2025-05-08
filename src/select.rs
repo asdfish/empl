@@ -39,4 +39,4 @@ macro_rules! decl_select {
         }
     }
 }
-decl_select!((select2, Select2), [(a, A), (b, B)]);
+decl_select!((select3, Select3), [(a, A), (b, B), (c, C)]);
