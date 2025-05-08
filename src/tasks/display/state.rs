@@ -140,8 +140,7 @@ impl<'a> DisplayState<'a> {
                 if self.focus == focus && index == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
-                if ((focus == Focus::Songs
-                    && self.selected_menu == self.selected_song.playlist)
+                if ((focus == Focus::Songs && self.selected_menu == self.selected_song.playlist)
                     || focus == Focus::Playlists)
                     && index == Marker::Selection.get(focus, self)
                 {

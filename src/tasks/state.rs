@@ -71,9 +71,8 @@ impl<'a> StateTask<'a> {
                                 != self.display_state.selected_menu =>
                     {
                         self.display_state.write(|state| {
-                            if let Some(cached_cursor) = self
-                                .cursor_cache
-                                .get_mut(usize::from(state.selected_menu))
+                            if let Some(cached_cursor) =
+                                self.cursor_cache.get_mut(usize::from(state.selected_menu))
                             {
                                 *cached_cursor = state.cursors[Focus::Songs];
                             }
@@ -86,11 +85,13 @@ impl<'a> StateTask<'a> {
                             state.selected_menu = state.cursors[Focus::Playlists];
                         })
                     }
-                    Event::KeyBinding(KeyAction::Select) if self.display_state.focus == Focus::Songs => {
+                    Event::KeyBinding(KeyAction::Select)
+                        if self.display_state.focus == Focus::Songs =>
+                    {
                         self.display_state.write(|state| {
                             state.selected_song.index = state.cursors[Focus::Songs];
                         })
-                    },
+                    }
                     Event::KeyBinding(KeyAction::Select) => continue,
                     Event::Resize(area) => self.display_state.write(move |state| {
                         state.terminal_area = Some(area);
