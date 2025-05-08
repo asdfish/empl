@@ -49,12 +49,12 @@ impl<'a> StateTask<'a> {
                 Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                 Event::KeyBinding(KeyAction::MoveUp(n)) => {
                     self.display_tx.send(self.display_state.write(|state| {
-                        state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
+                        state.set_cursor(state.cursors[state.focus].saturating_sub(n));
                     }))?
                 }
                 Event::KeyBinding(KeyAction::MoveDown(n)) => {
                     self.display_tx.send(self.display_state.write(|state| {
-                        state.cursors[state.focus] = state.cursors[state.focus].saturating_add(n);
+                        state.set_cursor(state.cursors[state.focus].saturating_add(n));
                     }))?
                 }
                 Event::Resize(area) => {

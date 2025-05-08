@@ -11,7 +11,7 @@ use {
     },
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_map::{Enum, EnumMap},
-    std::num::NonZeroU16,
+    std::num::{NonZeroU16, NonZeroUsize},
 };
 
 #[derive(Clone, Copy, Debug, Default, Enum, PartialEq)]
@@ -75,6 +75,35 @@ impl<'a> DisplayState<'a> {
                 .and_then(|playlist| playlist.get(usize::from(index)))
                 .map(|(item, _)| item)
                 .map(|item| item.as_str()),
+        }
+    }
+    fn len(&self, focus: Focus) -> Option<NonZeroUsize> {
+        match focus {
+            Focus::Playlists => Some(self.playlists
+                .len()),
+            Focus::Songs => self
+                .playlists
+                .get(usize::from(self.selected_song.playlist))
+                .map(|(_, playlist)| playlist.len()),
+        }
+    }
+
+    pub fn set_cursor(&mut self, mut y: u16) {
+        if let Some(len) = self.len(self.focus) {
+            if usize::from(y) > len.get() - 1 {
+                y = u16::try_from(len.get() - 1).unwrap_or(u16::MAX);
+            }
+        }
+
+        self.cursors[self.focus] = y;
+        if self.offsets[self.focus] > y {
+            self.offsets[self.focus] = y;
+        }
+
+        if let Some(height) = self.terminal_area.map(|Area { height, .. }| height) {
+            if self.offsets[self.focus].saturating_add(height.get()) > y {
+                self.offsets[self.focus] = y.saturating_sub(height.get());
+            }
         }
     }
 
