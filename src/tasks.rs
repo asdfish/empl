@@ -7,7 +7,7 @@ use {
     crate::{
         config::Playlists,
         ext::command::{CommandChain, CommandExt},
-        select::select3,
+        select::Select3,
         tasks::{
             audio::{AudioAction, AudioTask},
             display::{
@@ -95,7 +95,7 @@ impl<'a> TaskManager<'a> {
         loop {
             match self.audio.spawn().and_then(|_| {
                 runtime::Handle::current()
-                    .block_on(select3(
+                    .block_on(Select3::new(
                         self.display.run(),
                         self.event.run(),
                         self.state.run(),
