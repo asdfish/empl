@@ -88,23 +88,26 @@ impl<'a> DisplayState<'a> {
         }
     }
 
+    pub fn check_offset(&mut self) {
+        if self.offsets[self.focus] > self.cursors[self.focus] {
+            self.offsets[self.focus] = self.cursors[self.focus];
+        }
+
+        if let Some(height) = self.terminal_area.map(|Area { height, .. }| height) {
+            if self.cursors[self.focus] >= self.offsets[self.focus].saturating_add(height.get()) {
+                self.offsets[self.focus] = self.cursors[self.focus].saturating_sub(height.get()) + 1;
+            }
+        }
+    }
     pub fn set_cursor(&mut self, mut y: u16) {
         if let Some(len) = self.len(self.focus) {
             if usize::from(y) > len.get() - 1 {
                 y = u16::try_from(len.get() - 1).unwrap_or(u16::MAX);
             }
         }
-
         self.cursors[self.focus] = y;
-        if self.offsets[self.focus] > y {
-            self.offsets[self.focus] = y;
-        }
 
-        if let Some(height) = self.terminal_area.map(|Area { height, .. }| height) {
-            if self.offsets[self.focus].saturating_add(height.get()) > y {
-                self.offsets[self.focus] = y.saturating_sub(height.get());
-            }
-        }
+        self.check_offset();
     }
 
     fn row(&self, focus: Focus) -> Option<Row> {

@@ -61,6 +61,7 @@ impl<'a> StateTask<'a> {
                     self.display_tx
                         .send(self.display_state.write(move |state| {
                             state.terminal_area = Some(area);
+                            state.check_offset();
                         }))?
                 }
             }
