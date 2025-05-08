@@ -2,10 +2,14 @@ use {
     crate::{
         config::{KeyAction, Playlists},
         tasks::{
-            display::{damage::DamageList, state::DisplayState},
+            display::{
+                damage::{Damage, DamageList},
+                state::DisplayState,
+            },
             event::Event,
         },
     },
+    enum_map::EnumMap,
     std::{
         error::Error,
         fmt::{self, Display, Formatter},
@@ -25,18 +29,30 @@ impl<'a> StateTask<'a> {
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
+        let display_state = DisplayState::new(playlists);
+        let _ = display_tx.send(DamageList::new(
+            EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
+            display_state,
+            display_state,
+        ));
+
         Self {
             display_tx,
-            display_state: DisplayState::new(playlists),
+            display_state,
             event_rx,
         }
     }
 
     pub async fn run(&mut self) -> Result<(), StateError<'a>> {
-        #[expect(clippy::never_loop)]
         loop {
             match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
                 Event::KeyBinding(KeyAction::Quit) => break Ok(()),
+                Event::Resize(area) => {
+                    self.display_tx
+                        .send(self.display_state.write(move |state| {
+                            state.terminal_area = Some(area);
+                        }))?
+                }
             }
         }
     }
@@ -56,3 +72,8 @@ impl Display for StateError<'_> {
     }
 }
 impl Error for StateError<'_> {}
+impl<'a> From<mpsc::error::SendError<DamageList<'a>>> for StateError<'a> {
+    fn from(err: mpsc::error::SendError<DamageList<'a>>) -> Self {
+        Self::DisplaySend(err)
+    }
+}

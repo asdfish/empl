@@ -38,16 +38,12 @@ impl Damage {
 
     pub fn render(&self, old: &DisplayState<'_>, new: &DisplayState<'_>) -> impl CommandChain {
         match self {
-            Self::Draw(focus, marker) => Either4::First(
-                marker
-                    .get(*focus, new)
-                    .map(|index| new.render_line(*focus, index)),
-            ),
-            Self::Remove(focus, marker) => Either4::Second(
-                marker
-                    .get(*focus, old)
-                    .map(|index| new.render_line(*focus, index)),
-            ),
+            Self::Draw(focus, marker) => {
+                Either4::First(new.render_line(*focus, marker.get(*focus, new)))
+            }
+            Self::Remove(focus, marker) => {
+                Either4::Second(new.render_line(*focus, marker.get(*focus, old)))
+            }
             Self::FullRedraw => Either4::Third(
                 new.render_menu(Focus::Playlists)
                     .then(new.render_menu(Focus::Songs)),
@@ -89,21 +85,15 @@ impl Damage {
         match self {
             Self::Draw(focus, marker) => {
                 (marker.get(*focus, old) != marker.get(*focus, new))
-                    && marker
-                        .get(*focus, new)
-                        .map(|index| new.visible(*focus, index))
-                        .unwrap_or_default()
+                    && new.visible(*focus, marker.get(*focus, new))
             }
             Self::Remove(focus, marker) => {
                 (marker.get(*focus, old) != marker.get(*focus, new))
-                    && marker
-                        .get(*focus, old)
-                        .map(|index| old.visible(*focus, index))
-                        .unwrap_or_default()
+                    && old.visible(*focus, marker.get(*focus, old))
             }
             Self::FullRedraw => {
                 (old.terminal_area != new.terminal_area && new.terminal_area.is_some())
-                    || matches!((old.selected_song, new.selected_song), (Some(Song { playlist: old_playlist, .. }), Some(Song { playlist: new_playlist, .. })) if old_playlist != new_playlist)
+                    || matches!((old.selected_song, new.selected_song), (Song { playlist: old_playlist, .. }, Song { playlist: new_playlist, .. }) if old_playlist != new_playlist)
                     || ptr::from_ref(old.playlists) != ptr::from_ref(new.playlists)
             }
             Self::MoveOffset(focus) => {
@@ -120,6 +110,15 @@ pub struct DamageList<'a> {
     list: EnumMap<Damage, bool>,
     old: DisplayState<'a>,
     new: DisplayState<'a>,
+}
+impl<'a> DamageList<'a> {
+    pub fn new(list: EnumMap<Damage, bool>, old: DisplayState<'a>, new: DisplayState<'a>) -> Self {
+        Self {
+            list,
+            old,
+            new,
+        }
+    }
 }
 impl CommandChain for DamageList<'_> {
     async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>

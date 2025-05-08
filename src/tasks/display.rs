@@ -50,6 +50,7 @@ impl<'a> DisplayTask<'a> {
         while let Some(action) = self.display_rx.recv().await {
             self.alloc.reset();
             action.execute(&self.alloc, &mut self.stdout).await?;
+            self.stdout.flush().await?;
         }
 
         Ok(())

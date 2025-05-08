@@ -7,7 +7,7 @@ use {
             command::{CommandChain, CommandExt},
             iterator::IteratorExt,
         },
-        tasks::display::damage::Damage,
+        tasks::display::damage::{Damage, DamageList},
     },
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_map::{Enum, EnumMap},
@@ -27,13 +27,11 @@ pub enum Marker {
     Selection,
 }
 impl Marker {
-    pub fn get(&self, focus: Focus, state: &DisplayState) -> Option<u16> {
+    pub fn get(&self, focus: Focus, state: &DisplayState) -> u16 {
         match (self, focus) {
-            (Self::Cursor, focus) => Some(state.cursors[focus]),
-            (Self::Selection, Focus::Playlists) => {
-                state.selected_song.map(|Song { playlist, .. }| playlist)
-            }
-            (Self::Selection, Focus::Songs) => state.selected_song.map(|Song { index, .. }| index),
+            (Self::Cursor, focus) => state.cursors[focus],
+            (Self::Selection, Focus::Playlists) => state.selected_song.playlist,
+            (Self::Selection, Focus::Songs) => state.selected_song.index,
         }
     }
 }
@@ -43,7 +41,7 @@ pub struct DisplayState<'a> {
     pub focus: Focus,
     pub cursors: EnumMap<Focus, u16>,
     pub offsets: EnumMap<Focus, u16>,
-    pub selected_song: Option<Song>,
+    pub selected_song: Song,
     pub terminal_area: Option<Area>,
     pub playlists: &'a Playlists,
 }
@@ -53,7 +51,7 @@ impl<'a> DisplayState<'a> {
             focus: Focus::Playlists,
             cursors: EnumMap::default(),
             offsets: EnumMap::default(),
-            selected_song: None,
+            selected_song: Song::default(),
             terminal_area: terminal::size().ok().and_then(|(width, height)| {
                 Some(Area {
                     width: NonZeroU16::new(width)?,
@@ -71,9 +69,8 @@ impl<'a> DisplayState<'a> {
                 .get(usize::from(index))
                 .map(|(item, _)| item.as_str()),
             Focus::Songs => self
-                .selected_song
-                .map(|Song { playlist, .. }| playlist)
-                .and_then(|playlist| self.playlists.get(usize::from(playlist)))
+                .playlists
+                .get(usize::from(self.selected_song.playlist))
                 .map(|(_, playlist)| playlist)
                 .and_then(|playlist| playlist.get(usize::from(index)))
                 .map(|(item, _)| item)
@@ -110,10 +107,10 @@ impl<'a> DisplayState<'a> {
             .and_then(|y| self.row(focus).map(|Row { x, width }| (x, y, width)))
             .map(|(x, y, width)| {
                 let mut colors = SelectedConfig::MENU_COLORS;
-                if Some(index) == Marker::Cursor.get(focus, self) {
+                if index == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
-                if Some(index) == Marker::Selection.get(focus, self) {
+                if index == Marker::Selection.get(focus, self) {
                     colors.join(&SelectedConfig::SELECTION_COLORS);
                 }
 
@@ -136,7 +133,7 @@ impl<'a> DisplayState<'a> {
         })
     }
 
-    pub fn write<F>(&mut self, operation: F) -> (EnumMap<Damage, bool>, Self)
+    pub fn write<F>(&mut self, operation: F) -> DamageList<'a>
     where
         F: FnOnce(&mut Self),
     {
@@ -144,11 +141,12 @@ impl<'a> DisplayState<'a> {
         operation(self);
 
         if old.eq(self) {
-            (EnumMap::default(), old)
+            DamageList::new(EnumMap::default(), old, *self)
         } else {
-            (
+            DamageList::new(
                 EnumMap::from_fn(|damage: Damage| damage.predicate(&old, self)),
                 old,
+                *self,
             )
         }
     }

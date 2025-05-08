@@ -2,13 +2,14 @@ use {
     crate::{
         config::{Config, KeyAction, SelectedConfig},
         ext::iterator::IteratorExt,
+        tasks::display::state::Area,
     },
     arrayvec::ArrayVec,
     crossterm::event::{
         Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
     },
     futures_core::Stream,
-    std::{cmp::Ordering, future::poll_fn, pin::Pin},
+    std::{cmp::Ordering, future::poll_fn, num::NonZeroU16, pin::Pin},
     tokio::sync::mpsc,
 };
 
@@ -57,6 +58,14 @@ impl EventTask {
                         _ => self.key_presses.clear(),
                     }
                 }
+                Some(Ok(TermEvent::Resize(width, height))) => {
+                    if let (Some(width), Some(height)) = (NonZeroU16::new(width), NonZeroU16::new(height)) {
+                        self.event_tx.send(Event::Resize(Area {
+                            width,
+                            height,
+                        }))?;
+                    }
+                }
                 _ => continue,
             }
         }
@@ -66,4 +75,5 @@ impl EventTask {
 #[derive(Clone, Copy, Debug)]
 pub enum Event {
     KeyBinding(KeyAction),
+    Resize(Area),
 }
