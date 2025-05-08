@@ -30,7 +30,7 @@ impl Marker {
     pub fn get(&self, focus: Focus, state: &DisplayState) -> u16 {
         match (self, focus) {
             (Self::Cursor, focus) => state.cursors[focus],
-            (Self::Selection, Focus::Playlists) => state.selected_song.playlist,
+            (Self::Selection, Focus::Playlists) => state.selected_menu,
             (Self::Selection, Focus::Songs) => state.selected_song.index,
         }
     }
@@ -41,6 +41,7 @@ pub struct DisplayState<'a> {
     pub focus: Focus,
     pub cursors: EnumMap<Focus, u16>,
     pub offsets: EnumMap<Focus, u16>,
+    pub selected_menu: u16,
     pub selected_song: Song,
     pub terminal_area: Option<Area>,
     pub(super) playlists: &'a Playlists,
@@ -51,6 +52,7 @@ impl<'a> DisplayState<'a> {
             focus: Focus::Playlists,
             cursors: EnumMap::default(),
             offsets: EnumMap::default(),
+            selected_menu: 0,
             selected_song: Song::default(),
             terminal_area: terminal::size().ok().and_then(|(width, height)| {
                 Some(Area {
@@ -70,7 +72,7 @@ impl<'a> DisplayState<'a> {
                 .map(|(item, _)| item.as_str()),
             Focus::Songs => self
                 .playlists
-                .get(usize::from(self.selected_song.playlist))
+                .get(usize::from(self.selected_menu))
                 .map(|(_, playlist)| playlist)
                 .and_then(|playlist| playlist.get(usize::from(index)))
                 .map(|(item, _)| item)
@@ -83,7 +85,7 @@ impl<'a> DisplayState<'a> {
                 .len()),
             Focus::Songs => self
                 .playlists
-                .get(usize::from(self.selected_song.playlist))
+                .get(usize::from(self.selected_menu))
                 .map(|(_, playlist)| playlist.len()),
         }
     }
@@ -138,7 +140,7 @@ impl<'a> DisplayState<'a> {
                 if self.focus == focus && index == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
-                if index == Marker::Selection.get(focus, self) {
+                if self.selected_menu == self.selected_song.playlist && index == Marker::Selection.get(focus, self) {
                     colors.join(&SelectedConfig::SELECTION_COLORS);
                 }
 

@@ -2,7 +2,7 @@ use {
     crate::{
         either::Either4,
         ext::command::CommandChain,
-        tasks::display::state::{DisplayState, Focus, Marker, Song},
+        tasks::display::state::{DisplayState, Focus, Marker},
     },
     arrayvec::ArrayVec,
     bumpalo::Bump,
@@ -95,7 +95,7 @@ impl Damage {
             }
             Self::FullRedraw => {
                 (old.terminal_area != new.terminal_area && new.terminal_area.is_some())
-                    || matches!((old.selected_song, new.selected_song), (Song { playlist: old_playlist, .. }, Song { playlist: new_playlist, .. }) if old_playlist != new_playlist)
+                    || old.selected_menu != new.selected_menu
                     || ptr::from_ref(old.playlists) != ptr::from_ref(new.playlists)
             }
             Self::MoveOffset(focus) => {
