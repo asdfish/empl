@@ -19,9 +19,8 @@ impl<'a> AudioTask<'a> {
 
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
-            match self.audio_action_rx.recv().await.ok_or(ChannelError::Audio(None))? {
-                _ => {},
-            }
+            self.audio_action_rx.recv().await.ok_or(ChannelError::Audio(None))?;
+            todo!()
         }
     }
 }

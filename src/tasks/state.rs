@@ -30,8 +30,6 @@ impl<'a> StateTask<'a> {
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
-        let display_state = DisplayState::new(playlists);
-
         Self {
             audio_action_tx,
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),

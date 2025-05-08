@@ -6,6 +6,7 @@ pub mod state;
 use {
     crate::{
         config::Playlists,
+        ext::command::{CommandChain, CommandExt},
         select::select4,
         tasks::{
             audio::{AudioAction, AudioTask},
@@ -18,13 +19,18 @@ use {
             state::StateTask,
         },
     },
+    bumpalo::Bump,
+    crossterm::{
+        QueueableCommand, cursor,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+    },
     enum_map::EnumMap,
     std::{
         error::Error,
         fmt::{self, Display, Formatter},
-        io,
+        io::{self, Write},
     },
-    tokio::sync::mpsc,
+    tokio::{io::AsyncWriteExt, sync::mpsc},
 };
 
 #[derive(Debug)]
@@ -46,11 +52,27 @@ impl<'a> TaskManager<'a> {
             display_state,
         ));
 
+        let alloc = Bump::new();
+        let mut stdout = tokio::io::stdout();
+        enable_raw_mode()?;
+        cursor::Hide
+            .adapt()
+            .then(EnterAlternateScreen.adapt())
+            .execute(&alloc, &mut stdout)
+            .await?;
+        stdout.flush().await?;
+
         Ok(Self {
             audio: AudioTask::new(audio_action_rx),
-            display: DisplayTask::new(display_rx).await?,
+            display: DisplayTask::new(alloc, stdout, display_rx),
             event: EventTask::new(event_tx),
-            state: StateTask::new(display_state, playlists, audio_action_tx, display_tx, event_rx),
+            state: StateTask::new(
+                display_state,
+                playlists,
+                audio_action_tx,
+                display_tx,
+                event_rx,
+            ),
         })
     }
 
@@ -78,13 +100,36 @@ impl<'a> TaskManager<'a> {
                 self.display.run(),
                 self.event.run(),
                 self.state.run(),
-            ).await {
+            )
+            .await
+            {
                 Ok(()) => break,
-                Err(ChannelError::Audio(miss)) => fix_channel(&mut [&mut self.state.audio_action_tx], &mut self.audio.audio_action_rx, miss),
-                Err(ChannelError::Event(miss)) => fix_channel(&mut [&mut self.event.event_tx], &mut self.state.event_rx, miss),
-                Err(ChannelError::Display(miss)) => fix_channel(&mut [&mut self.state.display_tx], &mut self.display.display_rx, miss),
+                Err(ChannelError::Audio(miss)) => fix_channel(
+                    &mut [&mut self.state.audio_action_tx],
+                    &mut self.audio.audio_action_rx,
+                    miss,
+                ),
+                Err(ChannelError::Event(miss)) => fix_channel(
+                    &mut [&mut self.event.event_tx],
+                    &mut self.state.event_rx,
+                    miss,
+                ),
+                Err(ChannelError::Display(miss)) => fix_channel(
+                    &mut [&mut self.state.display_tx],
+                    &mut self.display.display_rx,
+                    miss,
+                ),
             }
         }
+    }
+}
+impl Drop for TaskManager<'_> {
+    fn drop(&mut self) {
+        let mut stdout = std::io::stdout();
+        let _ = stdout.queue(LeaveAlternateScreen);
+        let _ = stdout.queue(cursor::Show);
+        let _ = stdout.flush();
+        let _ = disable_raw_mode();
     }
 }
 
