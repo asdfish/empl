@@ -2,12 +2,12 @@ use {
     crate::{
         command::PrintPadded,
         config::{Config, Playlists, SelectedConfig},
-        display::damage::Damage,
         ext::{
             colors::ColorsExt,
             command::{CommandChain, CommandExt},
             iterator::IteratorExt,
         },
+        tasks::display::damage::Damage,
     },
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_map::{Enum, EnumMap},

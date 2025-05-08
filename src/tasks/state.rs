@@ -1,8 +1,10 @@
 use {
     crate::{
         config::{KeyAction, Playlists},
-        display::{damage::DamageList, state::DisplayState},
-        tasks::event::Event,
+        tasks::{
+            display::{damage::DamageList, state::DisplayState},
+            event::Event,
+        },
     },
     std::{
         error::Error,

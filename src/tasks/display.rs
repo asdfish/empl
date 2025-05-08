@@ -1,7 +1,10 @@
+pub mod damage;
+pub mod state;
+
 use {
     crate::{
-        display::damage::DamageList,
         ext::command::{CommandChain, CommandExt},
+        tasks::display::damage::DamageList,
     },
     bumpalo::Bump,
     crossterm::{

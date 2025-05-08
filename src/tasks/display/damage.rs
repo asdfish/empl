@@ -1,8 +1,8 @@
 use {
     crate::{
-        display::state::{DisplayState, Focus, Marker, Song},
         either::Either4,
         ext::command::CommandChain,
+        tasks::display::state::{DisplayState, Focus, Marker, Song},
     },
     arrayvec::ArrayVec,
     bumpalo::Bump,
