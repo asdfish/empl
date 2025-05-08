@@ -86,10 +86,12 @@ impl Damage {
             Self::Draw(focus, marker) => {
                 (marker.get(*focus, old) != marker.get(*focus, new))
                     && new.visible(*focus, marker.get(*focus, new))
+                    || (new.focus == *focus && old.focus != *focus && new.visible(*focus, marker.get(*focus, new)))
             }
             Self::Remove(focus, marker) => {
-                (marker.get(*focus, old) != marker.get(*focus, new))
-                    && old.visible(*focus, marker.get(*focus, old))
+                ((marker.get(*focus, old) != marker.get(*focus, new))
+                    && old.visible(*focus, marker.get(*focus, old)))
+                    || (old.focus == *focus && new.focus != *focus && old.visible(*focus, marker.get(*focus, old)))
             }
             Self::FullRedraw => {
                 (old.terminal_area != new.terminal_area && new.terminal_area.is_some())

@@ -139,7 +139,7 @@ impl<'a> DisplayState<'a> {
             .and_then(|y| self.row(focus).map(|Row { x, width }| (x, y, width)))
             .map(|(x, y, width)| {
                 let mut colors = SelectedConfig::MENU_COLORS;
-                if index == Marker::Cursor.get(focus, self) {
+                if self.focus == focus && index == Marker::Cursor.get(focus, self) {
                     colors.join(&SelectedConfig::CURSOR_COLORS);
                 }
                 if index == Marker::Selection.get(focus, self) {

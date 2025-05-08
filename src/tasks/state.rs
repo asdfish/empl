@@ -4,7 +4,7 @@ use {
         tasks::{
             display::{
                 damage::{Damage, DamageList},
-                state::DisplayState,
+                state::{Focus, DisplayState},
             },
             event::Event,
         },
@@ -45,26 +45,29 @@ impl<'a> StateTask<'a> {
 
     pub async fn run(&mut self) -> Result<(), StateError<'a>> {
         loop {
-            match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
-                Event::KeyBinding(KeyAction::Quit) => break Ok(()),
-                Event::KeyBinding(KeyAction::MoveUp(n)) => {
-                    self.display_tx.send(self.display_state.write(|state| {
+            self.display_tx.send(
+                match self.event_rx.recv().await.ok_or(StateError::EventRecv)? {
+                    Event::KeyBinding(KeyAction::Quit) => break Ok(()),
+                    Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
                         state.set_cursor(state.cursors[state.focus].saturating_sub(n));
-                    }))?
-                }
-                Event::KeyBinding(KeyAction::MoveDown(n)) => {
-                    self.display_tx.send(self.display_state.write(|state| {
-                        state.set_cursor(state.cursors[state.focus].saturating_add(n));
-                    }))?
-                }
-                Event::Resize(area) => {
-                    self.display_tx
-                        .send(self.display_state.write(move |state| {
-                            state.terminal_area = Some(area);
-                            state.check_offset();
-                        }))?
-                }
-            }
+                    }),
+                    Event::KeyBinding(KeyAction::MoveDown(n)) => {
+                        self.display_state.write(|state| {
+                            state.set_cursor(state.cursors[state.focus].saturating_add(n));
+                        })
+                    }
+                    Event::KeyBinding(KeyAction::MoveLeft) => self
+                        .display_state
+                        .write(|state| state.focus = Focus::Playlists),
+                    Event::KeyBinding(KeyAction::MoveRight) => {
+                        self.display_state.write(|state| state.focus = Focus::Songs)
+                    }
+                    Event::Resize(area) => self.display_state.write(move |state| {
+                        state.terminal_area = Some(area);
+                        state.check_offset();
+                    }),
+                },
+            )?;
         }
     }
 }

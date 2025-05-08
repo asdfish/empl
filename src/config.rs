@@ -75,6 +75,14 @@ impl Config for DefaultConfig {
             KeyAction::MoveDown(1),
             &[(KeyModifiers::empty(), KeyCode::Char('j'))],
         ),
+        (
+            KeyAction::MoveLeft,
+            &[(KeyModifiers::empty(), KeyCode::Char('h'))],
+        ),
+        (
+            KeyAction::MoveRight,
+            &[(KeyModifiers::empty(), KeyCode::Char('l'))],
+        ),
     ];
 
     fn get_playlists() -> Option<Playlists> {
@@ -132,4 +140,6 @@ pub enum KeyAction {
     Quit,
     MoveUp(u16),
     MoveDown(u16),
+    MoveLeft,
+    MoveRight,
 }
