@@ -42,15 +42,15 @@ pub struct TaskManager<'a> {
     state: StateTask<'a>,
 }
 impl<'a> TaskManager<'a> {
-    pub fn new(playlists: &'a Playlists) -> Self {
+    pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
         let (action_tx, action_rx) = mpsc::unbounded_channel();
         let (display_tx, display_rx) = mpsc::unbounded_channel();
 
-        Self {
-            display: DisplayTask::new(display_rx),
+        Ok(Self {
+            display: DisplayTask::new(display_rx).await?,
             event: EventTask::new(action_tx),
             state: StateTask::new(playlists, display_tx, action_rx),
-        }
+        })
     }
 
     pub async fn run(&mut self) -> Result<(), io::Error> {

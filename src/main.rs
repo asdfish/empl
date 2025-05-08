@@ -50,7 +50,7 @@ Options:
             .build()
             .map_err(MainError::Runtime)?;
         runtime.block_on(async move {
-            TaskManager::new(&playlists)
+            TaskManager::new(&playlists).await.map_err(MainError::Render)?
                 .run().await
                 .map_err(MainError::Render)
         })

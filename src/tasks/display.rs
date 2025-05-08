@@ -1,12 +1,17 @@
 use {
     crate::{
         display::damage::DamageList,
-        ext::command::CommandChain,
+        ext::command::{CommandChain, CommandExt},
     },
     bumpalo::Bump,
-    std::io,
+    crossterm::{
+        cursor,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        QueueableCommand,
+    },
+    std::io::{self, Write},
     tokio::{
-        io::{Stdout, stdout},
+        io::{stdout, AsyncWriteExt, Stdout},
         sync::mpsc,
     },
 };
@@ -18,14 +23,25 @@ pub struct DisplayTask<'a> {
     pub display_rx: mpsc::UnboundedReceiver<DamageList<'a>>,
 }
 impl<'a> DisplayTask<'a> {
-    pub fn new(
-        display_rx: mpsc::UnboundedReceiver<DamageList<'a>>
-    ) -> Self {
-        Self {
-            alloc: Bump::new(),
-            stdout: stdout(),
+    pub async fn new(
+        display_rx: mpsc::UnboundedReceiver<DamageList<'a>>,
+    ) -> Result<Self, io::Error> {
+        let alloc = Bump::new();
+        let mut stdout = stdout();
+
+        enable_raw_mode()?;
+        cursor::Hide
+            .adapt()
+            .then(EnterAlternateScreen.adapt())
+            .execute(&alloc, &mut stdout)
+            .await?;
+        stdout.flush().await?;
+
+        Ok(Self {
+            alloc,
+            stdout,
             display_rx,
-        }
+        })
     }
 
     pub async fn run(&mut self) -> Result<(), io::Error> {
@@ -35,5 +51,14 @@ impl<'a> DisplayTask<'a> {
         }
 
         Ok(())
+    }
+}
+impl Drop for DisplayTask<'_> {
+    fn drop(&mut self) {
+        let mut stdout = std::io::stdout();
+        let _ = stdout.queue(LeaveAlternateScreen);
+        let _ = stdout.queue(cursor::Show);
+        let _ = stdout.flush();
+        let _ = disable_raw_mode();
     }
 }
