@@ -4,7 +4,7 @@ use {
         tasks::{
             display::{
                 damage::{Damage, DamageList},
-                state::{Focus, DisplayState},
+                state::{DisplayState, Focus},
             },
             event::Event,
         },
@@ -19,6 +19,7 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
+    cursor_cache: Box<[u16]>,
     pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
     pub event_rx: mpsc::UnboundedReceiver<Event>,
@@ -37,6 +38,7 @@ impl<'a> StateTask<'a> {
         ));
 
         Self {
+            cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
             display_tx,
             display_state,
             event_rx,
@@ -62,6 +64,26 @@ impl<'a> StateTask<'a> {
                     Event::KeyBinding(KeyAction::MoveRight) => {
                         self.display_state.write(|state| state.focus = Focus::Songs)
                     }
+                    Event::KeyBinding(KeyAction::Select)
+                        if self.display_state.focus == Focus::Playlists =>
+                    {
+                        self.display_state.write(|state| {
+                            if let Some(cached_cursor) = self
+                                .cursor_cache
+                                .get_mut(usize::from(state.cursors[Focus::Playlists]))
+                            {
+                                *cached_cursor = state.cursors[Focus::Songs];
+                            }
+
+                            state.cursors[Focus::Songs] = self
+                                .cursor_cache
+                                .get(usize::from(state.cursors[Focus::Playlists]))
+                                .copied()
+                                .unwrap_or_default();
+                            state.selected_song.playlist = state.cursors[Focus::Playlists];
+                        })
+                    }
+                    Event::KeyBinding(KeyAction::Select) => todo!(),
                     Event::Resize(area) => self.display_state.write(move |state| {
                         state.terminal_area = Some(area);
                         state.check_offset();
