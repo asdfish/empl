@@ -12,14 +12,14 @@ use {
 
 #[derive(Debug)]
 pub struct EventTask {
-    pub action_tx: mpsc::UnboundedSender<Event>,
+    pub event_tx: mpsc::UnboundedSender<Event>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
 }
 impl EventTask {
-    pub fn new(action_tx: mpsc::UnboundedSender<Event>) -> Self {
+    pub fn new(event_tx: mpsc::UnboundedSender<Event>) -> Self {
         Self {
-            action_tx,
+            event_tx,
             key_presses: ArrayVec::new(),
             stream: EventStream::new(),
         }
@@ -47,7 +47,7 @@ impl EventTask {
                         .filter(|(_, ord)| *ord < Some(Ordering::Greater))
                         .max_by(|(_, l), (_, r)| l.cmp(r)) {
                             Some((action, Some(Ordering::Equal))) => {
-                                self.action_tx.send(Event::KeyBinding(*action))?;
+                                self.event_tx.send(Event::KeyBinding(*action))?;
                                 self.key_presses.clear();
                             },
                             Some((_, Some(Ordering::Less))) => {}

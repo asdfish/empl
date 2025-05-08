@@ -4,8 +4,8 @@ use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
         config::{Config, SelectedConfig},
-        ext::future::FutureExt,
         flag::{Arguments, ArgumentsError, Flag},
+        tasks::TaskManager,
     },
     std::{
         error::Error,
@@ -13,7 +13,7 @@ use {
         fmt::{self, Display, Formatter},
         io,
     },
-    tokio::{runtime, sync::mpsc},
+    tokio::runtime,
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
@@ -44,22 +44,16 @@ Options:
             }
         }
 
-        // let (display_tx, display_rx) = mpsc::channel(1);
-        // let display_task = DisplayTask::new(display_rx);
-        // let event_task = EventTask::default();
+        let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
 
-        // let runtime = runtime::Builder::new_current_thread()
-        //     .build()
-        //     .map_err(MainError::Runtime)?;
-        // runtime.block_on(async move {
-        //     select2(
-        //         display_task
-        //             .run()
-        //             .pipe(|result| result.map_err(MainError::Display)),
-        //         event_task.run().pipe(Ok),
-        //     ).await
-        // })
-        Ok(())
+        let runtime = runtime::Builder::new_current_thread()
+            .build()
+            .map_err(MainError::Runtime)?;
+        runtime.block_on(async move {
+            TaskManager::new(&playlists)
+                .run().await
+                .map_err(MainError::Render)
+        })
     })() {
         Ok(()) => 0,
         Err(err) => {
@@ -73,8 +67,8 @@ Options:
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
-    Display(io::Error),
     EmptyPlaylists,
+    Render(io::Error),
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
 }
@@ -83,8 +77,8 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
-            Self::Display(e) => write!(f, "error while rendering: {e}"),
             Self::EmptyPlaylists => f.write_str("no playlists were found"),
+            Self::Render(e) => write!(f, "error while rendering: {e}"),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
         }

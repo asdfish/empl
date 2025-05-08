@@ -13,9 +13,9 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
-    display_tx: mpsc::UnboundedSender<DamageList<'a>>,
+    pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
-    event_rx: mpsc::UnboundedReceiver<Event>,
+    pub event_rx: mpsc::UnboundedReceiver<Event>,
 }
 impl<'a> StateTask<'a> {
     pub fn new(
@@ -52,3 +52,4 @@ impl Display for StateError<'_> {
         }
     }
 }
+impl Error for StateError<'_> {}
