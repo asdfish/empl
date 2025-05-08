@@ -4,8 +4,16 @@ use {
         either::Either4,
         ext::command::CommandChain,
     },
-    enum_map::Enum,
-    std::ptr,
+    arrayvec::ArrayVec,
+    bumpalo::Bump,
+    enum_map::{Enum, EnumMap},
+    std::{
+        cmp::Ordering,
+        io,
+        marker::Unpin,
+        ptr,
+    },
+    tokio::io::AsyncWriteExt,
 };
 
 #[derive(Clone, Copy, Debug, Enum, PartialEq)]
@@ -16,6 +24,24 @@ pub enum Damage {
     FullRedraw,
 }
 impl Damage {
+    /// Rank damage by how much they will change.
+    ///
+    ///  - [Self::FullRedraw] is [Ordering::Greater] than [Self::MoveOffset]
+    ///  - [Self::MoveOffset] is [Ordering::Greater] than [Self::Draw] and [Self::Remove]
+    ///  - [Self::Draw] is [Ordering::Equal] to [Self::Remove]
+    pub fn rank(&self, r: &Self) -> Ordering {
+        const fn to_ranking(damage: &Damage) -> u8 {
+            match damage {
+                Damage::FullRedraw => 3,
+                Damage::MoveOffset(_) => 2,
+                Damage::Draw(..) |
+                Damage::Remove(..) => 1,
+            }
+        } 
+
+        to_ranking(self).cmp(&to_ranking(r))
+    }
+
     pub fn render(&self, old: &DisplayState<'_>, new: &DisplayState<'_>) -> impl CommandChain {
         match self {
             Self::Draw(focus, marker) => Either4::First(
@@ -94,5 +120,30 @@ impl Damage {
                         || new.visible(*focus, new.offsets[*focus]))
             }
         }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DamageList<'a> {
+    list: EnumMap<Damage, bool>,
+    old: DisplayState<'a>,
+    new: DisplayState<'a>,
+}
+impl CommandChain for DamageList<'_> {
+    async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
+    where W: AsyncWriteExt + Unpin {
+        let mut damages = self.list.into_iter()
+            .filter(|(_, enabled)| *enabled)
+            .map(|(damage, _)| damage)
+            .collect::<ArrayVec<Damage, { Damage::LENGTH }>>();
+        damages.sort_by(|l, r| l.rank(r));
+
+        while let Some(damage) = damages.pop() {
+            damage.render(&self.old, &self.new).execute(alloc, out).await?;
+            let resolutions = damage.resolves();
+            damages.retain(|damage| !resolutions.contains(damage));
+        }
+
+        Ok(())
     }
 }

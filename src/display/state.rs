@@ -136,6 +136,23 @@ impl<'a> DisplayState<'a> {
         })
     }
 
+    pub fn write<F>(&mut self, operation: F) -> (EnumMap<Damage, bool>, Self)
+    where
+        F: FnOnce(&mut Self),
+    {
+        let old = *self;
+        operation(self);
+
+        if old.eq(self) {
+            (EnumMap::default(), old)
+        } else {
+            (
+                EnumMap::from_fn(|damage: Damage| damage.predicate(&old, self)),
+                old,
+            )
+        }
+    }
+
     pub fn visible(&self, focus: Focus, index: u16) -> bool {
         index >= self.offsets[focus]
             && index
@@ -145,45 +162,6 @@ impl<'a> DisplayState<'a> {
                         .map(|Area { width, .. }| width)
                         .map(NonZeroU16::get)
                         .unwrap_or_default()
-    }
-}
-
-#[derive(Clone, Debug)]
-pub struct DisplayStateWriter<'a>(DisplayState<'a>);
-impl<'a> DisplayStateWriter<'a> {
-    pub fn new(playlists: &'a Playlists) -> Self {
-        Self(DisplayState::new(playlists))
-    }
-
-    pub fn write<F>(
-        &mut self,
-        operation: F,
-    ) -> (impl Iterator<Item = Damage> + use<F>, DisplayState<'a>)
-    where
-        F: for<'b> FnOnce(DisplayState<'b>) -> DisplayState<'b>,
-    {
-        let old = self.0;
-        self.0 = operation(self.0);
-
-        let mut damages = EnumMap::from_fn(|damage: Damage| damage.predicate(&old, &self.0));
-        damages
-            .into_iter()
-            .filter(|(_, enabled)| *enabled)
-            .flat_map(|(damage, _)| damage.resolves())
-            .for_each(|damage| damages[*damage] = false);
-
-        (
-            damages
-                .into_iter()
-                .filter(|(_, enabled)| *enabled)
-                .map(move |(damage, _)| damage),
-            old,
-        )
-    }
-}
-impl<'a> AsRef<DisplayState<'a>> for DisplayStateWriter<'a> {
-    fn as_ref(&self) -> &DisplayState<'a> {
-        &self.0
     }
 }
 
@@ -207,11 +185,7 @@ pub struct Song {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*,
-        nonempty_collections::NEVec,
-        std::path::PathBuf,
-    };
+    use {super::*, nonempty_collections::NEVec, std::path::PathBuf};
 
     #[test]
     fn display_state_is_visible() {
@@ -226,7 +200,10 @@ mod tests {
             },
             cursors: EnumMap::default(),
             selected_song: None,
-            playlists: &NEVec::new((String::from(""), NEVec::new((String::from(""), PathBuf::new())))),
+            playlists: &NEVec::new((
+                String::from(""),
+                NEVec::new((String::from(""), PathBuf::new())),
+            )),
         };
 
         assert_eq!(display_state.visible(Focus::Playlists, 0), true);

@@ -46,23 +46,22 @@ Options:
             }
         }
 
-        let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
+        // let (display_tx, display_rx) = mpsc::channel(1);
+        // let display_task = DisplayTask::new(display_rx);
+        // let event_task = EventTask::default();
 
-        let (_display_tx, display_rx) = mpsc::channel(1);
-        let display_task = DisplayTask::new(&playlists, display_rx);
-        let event_task = EventTask::default();
-
-        let runtime = runtime::Builder::new_current_thread()
-            .build()
-            .map_err(MainError::Runtime)?;
-        runtime.block_on(async move {
-            select2(
-                display_task
-                    .run()
-                    .pipe(|result| result.map_err(MainError::Display)),
-                event_task.run().pipe(Ok),
-            ).await
-        })
+        // let runtime = runtime::Builder::new_current_thread()
+        //     .build()
+        //     .map_err(MainError::Runtime)?;
+        // runtime.block_on(async move {
+        //     select2(
+        //         display_task
+        //             .run()
+        //             .pipe(|result| result.map_err(MainError::Display)),
+        //         event_task.run().pipe(Ok),
+        //     ).await
+        // })
+        Ok(())
     })() {
         Ok(()) => 0,
         Err(err) => {

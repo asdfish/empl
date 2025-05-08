@@ -7,17 +7,17 @@ use {
     crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     futures_core::Stream,
     std::{cmp::Ordering, future::poll_fn, pin::Pin},
+    tokio::sync::mpsc,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct EventTask {
+    pub action_tx: mpsc::UnboundedSender<KeyAction>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
 }
 impl EventTask {
-    fn execute(&self, _: &KeyAction) {}
-
-    pub async fn run(mut self) {
+    pub async fn run(&mut self) -> Result<(), mpsc::error::SendError<KeyAction>> {
         loop {
             let Some(Ok(Event::Key(KeyEvent {
                 code,
@@ -42,7 +42,7 @@ impl EventTask {
                 .filter(|(_, ord)| *ord < Some(Ordering::Greater))
                 .max_by(|(_, l), (_, r)| l.cmp(r)) {
                     Some((action, Some(Ordering::Equal))) => {
-                        self.execute(action);
+                        self.action_tx.send(*action)?;
                         self.key_presses.clear();
                     },
                     Some((_, Some(Ordering::Less))) => {}

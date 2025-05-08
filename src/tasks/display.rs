@@ -1,7 +1,6 @@
 use {
     crate::{
-        config::Playlists,
-        display::state::{DisplayState, DisplayStateWriter},
+        display::damage::DamageList,
         ext::command::CommandChain,
     },
     bumpalo::Bump,
@@ -15,34 +14,24 @@ use {
 #[derive(Debug)]
 pub struct DisplayTask<'a> {
     alloc: Bump,
-    state: DisplayStateWriter<'a>,
     stdout: Stdout,
-    rx: mpsc::Receiver<&'static dyn for<'b> Fn(DisplayState<'b>) -> DisplayState<'b>>,
+    rx: mpsc::Receiver<DamageList<'a>>,
 }
 impl<'a> DisplayTask<'a> {
     pub fn new(
-        playlists: &'a Playlists,
-        rx: mpsc::Receiver<&'static dyn for<'b> Fn(DisplayState<'b>) -> DisplayState<'b>>,
+        rx: mpsc::Receiver<DamageList<'a>>
     ) -> Self {
         Self {
             alloc: Bump::new(),
-            state: DisplayStateWriter::new(playlists),
             stdout: stdout(),
             rx,
         }
     }
 
-    pub async fn run(mut self) -> Result<(), io::Error> {
+    pub async fn run(&mut self) -> Result<(), io::Error> {
         while let Some(action) = self.rx.recv().await {
             self.alloc.reset();
-            let (damages, old_state) = self.state.write(action);
-
-            for damage in damages {
-                damage
-                    .render(&old_state, self.state.as_ref())
-                    .execute(&self.alloc, &mut self.stdout)
-                    .await?;
-            }
+            action.execute(&self.alloc, &mut self.stdout).await?;
         }
 
         Ok(())
