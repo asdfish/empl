@@ -53,7 +53,7 @@ where
     }
 
     #[cfg(windows)]
-    fn execute_winapi(&self) -> Result<(), io::Error> {
+    fn execute_winapi(&self) -> Result<(), std::io::Error> {
         Ok(())
     }
 }
