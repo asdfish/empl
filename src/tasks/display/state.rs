@@ -79,7 +79,7 @@ impl<'a> DisplayState<'a> {
                 .map(|item| item.as_str()),
         }
     }
-    fn len(&self, focus: Focus) -> Option<NonZeroUsize> {
+    pub fn len(&self, focus: Focus) -> Option<NonZeroUsize> {
         match focus {
             Focus::Playlists => Some(self.playlists.len()),
             Focus::Songs => self

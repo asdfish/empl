@@ -79,6 +79,14 @@ impl<'a> StateTask<'a> {
                             state.selected_menu = state.cursors[Focus::Playlists];
                         })
                     }
+                    Event::KeyBinding(KeyAction::MoveBottom) => self.display_state.write(|state| {
+                        if let Some(len) = state.len(state.focus) {
+                            state.cursors[state.focus] = u16::try_from(len.get()).unwrap_or(u16::MAX);
+                        }
+                    }),
+                    Event::KeyBinding(KeyAction::MoveTop) => self.display_state.write(|state| {
+                        state.cursors[state.focus] = 0;
+                    }),
                     Event::KeyBinding(KeyAction::Select)
                         if self.display_state.focus == Focus::Songs =>
                     {

@@ -84,6 +84,14 @@ impl Config for DefaultConfig {
             &[(KeyModifiers::empty(), KeyCode::Char('l'))],
         ),
         (
+            KeyAction::MoveBottom,
+            &[(KeyModifiers::SHIFT, KeyCode::Char('G'))],
+        ),
+        (
+            KeyAction::MoveTop,
+            &[(KeyModifiers::empty(), KeyCode::Char('g')), (KeyModifiers::empty(), KeyCode::Char('g'))],
+        ),
+        (
             KeyAction::Select,
             &[(KeyModifiers::empty(), KeyCode::Enter)],
         ),
@@ -146,5 +154,7 @@ pub enum KeyAction {
     MoveDown(u16),
     MoveLeft,
     MoveRight,
+    MoveBottom,
+    MoveTop,
     Select,
 }
