@@ -43,7 +43,7 @@ pub struct DisplayState<'a> {
     pub offsets: EnumMap<Focus, u16>,
     pub selected_song: Song,
     pub terminal_area: Option<Area>,
-    pub playlists: &'a Playlists,
+    pub(super) playlists: &'a Playlists,
 }
 impl<'a> DisplayState<'a> {
     pub fn new(playlists: &'a Playlists) -> Self {
