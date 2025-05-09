@@ -13,9 +13,9 @@ use {
             audio::{AudioAction, AudioTask},
             audio_error::AudioErrorTask,
             display::{
+                DisplayTask,
                 damage::{Damage, DamageList},
                 state::DisplayState,
-                DisplayTask,
             },
             state::{Event, StateTask},
             terminal_event::TerminalEventTask,
@@ -23,9 +23,8 @@ use {
     },
     bumpalo::Bump,
     crossterm::{
-        cursor,
-        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
-        QueueableCommand,
+        QueueableCommand, cursor,
+        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
     },
     enum_map::EnumMap,
     std::{

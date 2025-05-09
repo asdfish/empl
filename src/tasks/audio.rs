@@ -1,5 +1,5 @@
 use {
-    crate::tasks::{audio_error::AudioError, ChannelError, TaskError},
+    crate::tasks::{ChannelError, TaskError, audio_error::AudioError},
     std::{ffi::OsStr, fs::File, path::Path, sync::Arc},
     symphonia::{
         core::{
@@ -21,14 +21,21 @@ pub struct AudioTask {
     device: Option<OutputDevice>,
 }
 impl AudioTask {
-    pub fn new(audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<AudioError>) -> Self {
+    pub fn new(
+        audio_action_rx: mpsc::UnboundedReceiver<AudioAction>,
+        audio_error_tx: mpsc::UnboundedSender<AudioError>,
+    ) -> Self {
         Self {
             audio_action_rx: Some(audio_action_rx),
             audio_error_tx,
             device: None,
         }
     }
-    pub fn reset(&mut self, audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<AudioError>) {
+    pub fn reset(
+        &mut self,
+        audio_action_rx: mpsc::UnboundedReceiver<AudioAction>,
+        audio_error_tx: mpsc::UnboundedSender<AudioError>,
+    ) {
         self.audio_action_rx = Some(audio_action_rx);
         self.audio_error_tx = audio_error_tx;
         if let Some(device) = &mut self.device {
@@ -56,7 +63,8 @@ impl AudioTask {
                         let file = match File::open(&path) {
                             Ok(f) => f,
                             Err(err) => {
-                                let _ = audio_error_tx.send(AudioError::Decoder(SymphoniaError::IoError(err)));
+                                let _ = audio_error_tx
+                                    .send(AudioError::Decoder(SymphoniaError::IoError(err)));
                                 return;
                             }
                         };

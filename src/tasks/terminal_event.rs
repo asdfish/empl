@@ -5,9 +5,7 @@ use {
         tasks::{ChannelError, display::state::Area, state},
     },
     arrayvec::ArrayVec,
-    crossterm::event::{
-        Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
-    },
+    crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     futures_core::Stream,
     std::{cmp::Ordering, future::poll_fn, marker::PhantomData, num::NonZeroU16, pin::Pin},
     tokio::sync::mpsc,
@@ -64,7 +62,8 @@ impl<'a> TerminalEventTask<'a> {
                     if let (Some(width), Some(height)) =
                         (NonZeroU16::new(width), NonZeroU16::new(height))
                     {
-                        self.event_tx.send(state::Event::Resize(Area { width, height }))?;
+                        self.event_tx
+                            .send(state::Event::Resize(Area { width, height }))?;
                     }
                 }
                 _ => continue,
