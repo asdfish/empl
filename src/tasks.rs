@@ -1,5 +1,6 @@
 pub mod decoder;
 pub mod display;
+pub mod player;
 pub mod state;
 pub mod terminal_event;
 
@@ -35,17 +36,19 @@ use {
         sync::{mpsc as std_mpsc},
     },
     symphonia::core::audio::SampleBuffer,
+    tinyaudio::OutputDevice,
     tokio::{io::AsyncWriteExt, sync::mpsc as tokio_mpsc, task::{self, JoinHandle}},
 };
 
 pub struct TaskManager<'a> {
     decoder: JoinHandle<Result<(), ChannelError<'a>>>,
+    device: OutputDevice,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
     terminal_event: TerminalEventTask,
 }
 impl<'a> TaskManager<'a> {
-    pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
+    pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
         let (event_tx, event_rx) = tokio_mpsc::unbounded_channel();
         let (decoder_action_tx, decoder_action_rx) = std_mpsc::channel();
         let (decoder_idle_tx, decoder_idle_rx) = tokio_mpsc::unbounded_channel();
@@ -70,6 +73,7 @@ impl<'a> TaskManager<'a> {
 
         Ok(Self {
             decoder: task::spawn_blocking(move || DecoderTask::new(decoder_action_rx, decoder_idle_tx, decoder_output_tx).run()),
+            device: player::spawn(decoder_output_rx)?,
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
                 display_state,
@@ -112,7 +116,7 @@ impl<'a> TaskManager<'a> {
                 &mut self.display.display_rx,
                 msg,
             ),
-            _ => todo!("recover audio"),
+            _ => todo!("channel recovery"),
         }
     }
 
@@ -187,3 +191,28 @@ impl From<std_mpsc::SendError<SampleBuffer<f32>>> for ChannelError<'_> {
         Self::DecoderOutput
     }
 }
+
+#[derive(Debug)]
+pub enum NewTaskManagerError {
+    Setup(io::Error),
+    OutputDevice(Box<dyn Error>),
+}
+impl Display for NewTaskManagerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Setup(e) => write!(f, "failed to set up terminal: {e}"),
+            Self::OutputDevice(e) => write!(f, "failed to get output device: {e}"),
+        }
+    }
+}
+impl From<io::Error> for NewTaskManagerError {
+    fn from(err: io::Error) -> Self {
+        Self::Setup(err)
+    }
+}
+impl From<Box<dyn Error>> for NewTaskManagerError {
+    fn from(err: Box<dyn Error>) -> Self {
+        Self::OutputDevice(err)
+    }
+}
+impl Error for NewTaskManagerError {}
