@@ -52,8 +52,8 @@ Options:
                 .await
                 .map_err(MainError::Render)?
                 .run()
-                .await
-                .map_err(MainError::OutputDevice)
+                .await;
+            Ok(())
         })
     })() {
         Ok(()) => 0,

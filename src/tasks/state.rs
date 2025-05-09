@@ -3,7 +3,7 @@ use {
         config::{KeyAction, Playlists},
         tasks::{
             ChannelError,
-            audio::AudioAction,
+            decoder::DecoderAction,
             display::{
                 damage::DamageList,
                 state::{Area, DisplayState, Focus, Marker},
@@ -16,8 +16,8 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
-    pub audio_action_tx: mpsc::UnboundedSender<AudioAction>,
     cursor_cache: Box<[u16]>,
+    pub decoder_action_tx: mpsc::UnboundedSender<DecoderAction>,
     pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
     pub event_rx: mpsc::UnboundedReceiver<Event>,
@@ -26,13 +26,13 @@ impl<'a> StateTask<'a> {
     pub fn new(
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
-        audio_action_tx: mpsc::UnboundedSender<AudioAction>,
+        decoder_action_tx: mpsc::UnboundedSender<DecoderAction>,
         display_tx: mpsc::UnboundedSender<DamageList<'a>>,
         event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
         Self {
-            audio_action_tx,
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
+            decoder_action_tx,
             display_tx,
             display_state,
             event_rx,
@@ -107,7 +107,7 @@ impl<'a> StateTask<'a> {
                             .map(|(_, path)| Arc::clone(&path)) else {
                             continue;
                         };
-                        self.audio_action_tx.send(AudioAction::Play(path))?;
+                        self.decoder_action_tx.send(DecoderAction::Play(path))?;
 
                         self.display_state.write(|state| {
                             state.selected_song.index = state.cursors[Focus::Songs];
