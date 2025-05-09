@@ -1,16 +1,18 @@
 pub mod decoder;
 pub mod display;
-pub mod player;
 pub mod state;
 pub mod terminal_event;
 
 use {
     crate::{
         config::Playlists,
-        ext::command::{CommandChain, CommandExt},
-        select::Select3,
+        ext::{
+            command::{CommandChain, CommandExt},
+            future::FutureExt,
+        },
+        select::Select4,
         tasks::{
-            decoder::DecoderAction,
+            decoder::{DecoderAction, DecoderTask},
             display::{
                 DisplayTask,
                 damage::{Damage, DamageList},
@@ -30,23 +32,24 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         io::{self, Write},
-        sync::{Arc, mpsc as std_mpsc},
+        sync::{mpsc as std_mpsc},
     },
     symphonia::core::audio::SampleBuffer,
-    tokio::{io::AsyncWriteExt, sync::mpsc as tokio_mpsc},
+    tokio::{io::AsyncWriteExt, sync::mpsc as tokio_mpsc, task::{self, JoinHandle}},
 };
 
 pub struct TaskManager<'a> {
+    decoder: JoinHandle<Result<(), ChannelError<'a>>>,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
     terminal_event: TerminalEventTask,
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
-        let (audio_action_tx, audio_action_rx) = tokio_mpsc::unbounded_channel();
-        audio_action_tx.send(DecoderAction::Play(Arc::clone(&playlists.first().1.first().1))).unwrap();
-        // let (audio_error_tx, audio_error_rx) = tokio_mpsc::unbounded_channel();
         let (event_tx, event_rx) = tokio_mpsc::unbounded_channel();
+        let (decoder_action_tx, decoder_action_rx) = std_mpsc::channel();
+        let (decoder_idle_tx, decoder_idle_rx) = tokio_mpsc::unbounded_channel();
+        let (decoder_output_tx, decoder_output_rx) = std_mpsc::channel();
         let (display_tx, display_rx) = tokio_mpsc::unbounded_channel();
         let display_state = DisplayState::new(playlists);
         let _ = display_tx.send(DamageList::new(
@@ -66,11 +69,13 @@ impl<'a> TaskManager<'a> {
         stdout.flush().await?;
 
         Ok(Self {
+            decoder: task::spawn_blocking(move || DecoderTask::new(decoder_action_rx, decoder_idle_tx, decoder_output_tx).run()),
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
                 display_state,
                 playlists,
-                audio_action_tx,
+                decoder_action_tx,
+                decoder_idle_rx,
                 display_tx,
                 event_rx,
             ),
@@ -113,7 +118,8 @@ impl<'a> TaskManager<'a> {
 
     pub async fn run(&mut self) {
         loop {
-            match Select3::new(
+            match Select4::new(
+                (&mut self.decoder).pipe(Result::unwrap),
                 self.display.run(),
                 self.state.run(),
                 self.terminal_event.run(),
@@ -161,8 +167,8 @@ impl Display for ChannelError<'_> {
     }
 }
 impl Error for ChannelError<'_> {}
-impl From<tokio_mpsc::error::SendError<DecoderAction>> for ChannelError<'_> {
-    fn from(err: tokio_mpsc::error::SendError<DecoderAction>) -> Self {
+impl From<std_mpsc::SendError<DecoderAction>> for ChannelError<'_> {
+    fn from(err: std_mpsc::SendError<DecoderAction>) -> Self {
         Self::DecoderAction(Some(err.0))
     }
 }
