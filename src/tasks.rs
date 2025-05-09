@@ -41,7 +41,7 @@ pub struct TaskManager<'a> {
     audio_error: AudioErrorTask,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
-    terminal_event: TerminalEventTask<'a>,
+    terminal_event: TerminalEventTask,
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {

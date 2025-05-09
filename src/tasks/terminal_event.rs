@@ -7,28 +7,26 @@ use {
     arrayvec::ArrayVec,
     crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     futures_core::Stream,
-    std::{cmp::Ordering, future::poll_fn, marker::PhantomData, num::NonZeroU16, pin::Pin},
+    std::{cmp::Ordering, future::poll_fn, num::NonZeroU16, pin::Pin},
     tokio::sync::mpsc,
 };
 
 #[derive(Debug)]
-pub struct TerminalEventTask<'a> {
+pub struct TerminalEventTask {
     pub event_tx: mpsc::UnboundedSender<state::Event>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
-    _marker: PhantomData<&'a ()>,
 }
-impl<'a> TerminalEventTask<'a> {
+impl TerminalEventTask {
     pub fn new(event_tx: mpsc::UnboundedSender<state::Event>) -> Self {
         Self {
             event_tx,
             key_presses: ArrayVec::new(),
             stream: EventStream::new(),
-            _marker: PhantomData,
         }
     }
 
-    pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
+    pub async fn run<'a>(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             match poll_fn(|ctx| Pin::new(&mut self.stream).poll_next(ctx)).await {
                 Some(Ok(Event::Key(KeyEvent {
