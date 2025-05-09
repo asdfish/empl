@@ -109,7 +109,6 @@ impl AudioTask {
                         let decoder = match get_codecs().make(&track.codec_params, &DecoderOptions::default()) {
                             Ok(d) => d,
                             Err(err) => {
-                                println!("{err}");
                                 let _ = audio_error_tx.send(AudioError::Decoder(err));
                                 return;
                             },
