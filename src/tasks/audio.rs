@@ -1,5 +1,5 @@
 use {
-    crate::tasks::{ChannelError, TaskError},
+    crate::tasks::{audio_error::AudioError, ChannelError, TaskError},
     std::{ffi::OsStr, fs::File, path::Path, sync::Arc},
     symphonia::{
         core::{
@@ -17,18 +17,18 @@ use {
 
 pub struct AudioTask {
     pub audio_action_rx: Option<mpsc::UnboundedReceiver<AudioAction>>,
-    pub audio_error_tx: mpsc::UnboundedSender<SymphoniaError>,
+    pub audio_error_tx: mpsc::UnboundedSender<AudioError>,
     device: Option<OutputDevice>,
 }
 impl AudioTask {
-    pub fn new(audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<SymphoniaError>) -> Self {
+    pub fn new(audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<AudioError>) -> Self {
         Self {
             audio_action_rx: Some(audio_action_rx),
             audio_error_tx,
             device: None,
         }
     }
-    pub fn reset(&mut self, audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<SymphoniaError>) {
+    pub fn reset(&mut self, audio_action_rx: mpsc::UnboundedReceiver<AudioAction>, audio_error_tx: mpsc::UnboundedSender<AudioError>) {
         self.audio_action_rx = Some(audio_action_rx);
         self.audio_error_tx = audio_error_tx;
         if let Some(device) = &mut self.device {
@@ -56,8 +56,7 @@ impl AudioTask {
                         let file = match File::open(&path) {
                             Ok(f) => f,
                             Err(err) => {
-                                // if we do not panic, and the channel was lost this would hang
-                                audio_error_tx.send(SymphoniaError::IoError(err)).unwrap();
+                                let _ = audio_error_tx.send(AudioError::Decoder(SymphoniaError::IoError(err)));
                                 return;
                             }
                         };
@@ -85,8 +84,7 @@ impl AudioTask {
                         ) {
                             Ok(result) => result,
                             Err(err) => {
-                                // if we do not panic, and the channel was lost this would hang
-                                audio_error_tx.send(err).unwrap();
+                                let _ = audio_error_tx.send(AudioError::Decoder(err));
                                 return;
                             }
                         };

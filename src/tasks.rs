@@ -1,29 +1,31 @@
 pub mod audio;
+pub mod audio_error;
 pub mod display;
-pub mod event;
 pub mod state;
+pub mod terminal_event;
 
 use {
     crate::{
         config::Playlists,
-        either::{Either, EitherFuture},
         ext::command::{CommandChain, CommandExt},
         select::Select3,
         tasks::{
             audio::{AudioAction, AudioTask},
+            audio_error::AudioErrorTask,
             display::{
-                DisplayTask,
                 damage::{Damage, DamageList},
                 state::DisplayState,
+                DisplayTask,
             },
-            event::{Event, EventTask},
-            state::StateTask,
+            state::{Event, StateTask},
+            terminal_event::TerminalEventTask,
         },
     },
     bumpalo::Bump,
     crossterm::{
-        QueueableCommand, cursor,
-        terminal::{EnterAlternateScreen, LeaveAlternateScreen, disable_raw_mode, enable_raw_mode},
+        cursor,
+        terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen},
+        QueueableCommand,
     },
     enum_map::EnumMap,
     std::{
@@ -31,16 +33,15 @@ use {
         fmt::{self, Display, Formatter},
         io::{self, Write},
     },
-    symphonia::core::errors::Error as SymphoniaError,
     tokio::{io::AsyncWriteExt, sync::mpsc},
 };
 
 pub struct TaskManager<'a> {
     audio: AudioTask,
-    audio_error_rx: mpsc::UnboundedReceiver<SymphoniaError>,
+    audio_error: AudioErrorTask,
     display: DisplayTask<'a>,
-    event: EventTask<'a>,
     state: StateTask<'a>,
+    terminal_event: TerminalEventTask<'a>,
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
@@ -67,9 +68,8 @@ impl<'a> TaskManager<'a> {
 
         Ok(Self {
             audio: AudioTask::new(audio_action_rx, audio_error_tx),
-            audio_error_rx,
+            audio_error: AudioErrorTask::new(audio_error_rx, event_tx.clone()),
             display: DisplayTask::new(alloc, stdout, display_rx),
-            event: EventTask::new(event_tx),
             state: StateTask::new(
                 display_state,
                 playlists,
@@ -77,6 +77,7 @@ impl<'a> TaskManager<'a> {
                 display_tx,
                 event_rx,
             ),
+            terminal_event: TerminalEventTask::new(event_tx),
         })
     }
     fn recover_audio(&mut self, msg: Option<AudioAction>) {
@@ -88,12 +89,12 @@ impl<'a> TaskManager<'a> {
         }
 
         self.audio.reset(new_audio_action_rx, new_audio_error_tx);
-        self.audio_error_rx = new_audio_error_rx;
+        self.audio_error.audio_error_rx = new_audio_error_rx;
         self.state.audio_action_tx = new_audio_action_tx;
     }
     fn recover(&mut self, err: ChannelError<'a>) {
         fn recover_channel<T>(
-            tx: &mut mpsc::UnboundedSender<T>,
+            tx: &mut [&mut mpsc::UnboundedSender<T>],
             rx: &mut mpsc::UnboundedReceiver<T>,
             msg: Option<T>,
         ) {
@@ -102,7 +103,11 @@ impl<'a> TaskManager<'a> {
                 let result = new_tx.send(msg);
                 debug_assert!(result.is_ok());
             }
-            *tx = new_tx;
+            match tx {
+                [] => {}
+                [tx] => **tx = new_tx,
+                txs => txs.iter_mut().for_each(|tx| **tx = new_tx.clone()),
+            }
             *rx = new_rx;
         }
 
@@ -110,11 +115,17 @@ impl<'a> TaskManager<'a> {
             ChannelError::Audio(msg) => {
                 self.recover_audio(msg);
             }
-            ChannelError::Event(msg) => {
-                recover_channel(&mut self.event.event_tx, &mut self.state.event_rx, msg)
-            }
+            ChannelError::AudioError => self.recover_audio(None),
+            ChannelError::Event(msg) => recover_channel(
+                &mut [
+                    &mut self.audio_error.event_tx,
+                    &mut self.terminal_event.event_tx,
+                ],
+                &mut self.state.event_rx,
+                msg,
+            ),
             ChannelError::Display(msg) => recover_channel(
-                &mut self.state.display_tx,
+                &mut [&mut self.state.display_tx],
                 &mut self.display.display_rx,
                 msg,
             ),
@@ -128,21 +139,20 @@ impl<'a> TaskManager<'a> {
                     TaskError::Channel(err) => {
                         self.recover(err);
                         continue;
-                    },
+                    }
                     TaskError::OutputDevice(err) => break Err(err),
                 }
             }
 
-            match EitherFuture::new(self.audio_error_rx.recv(), Select3::new(
+            match Select3::new(
                 self.display.run(),
-                self.event.run(),
                 self.state.run(),
-            )).await {
-                Either::Left(_) => self.recover_audio(None),
-                Either::Right(result) => match result {
-                    Ok(()) => break Ok(()),
-                    Err(err) => self.recover(err),
-                }
+                self.terminal_event.run(),
+            )
+            .await
+            {
+                Ok(()) => break Ok(()),
+                Err(err) => self.recover(err),
             }
         }
     }
@@ -160,6 +170,7 @@ impl Drop for TaskManager<'_> {
 #[derive(Debug)]
 pub enum ChannelError<'a> {
     Audio(Option<AudioAction>),
+    AudioError,
     Event(Option<Event>),
     Display(Option<DamageList<'a>>),
 }
@@ -167,6 +178,7 @@ impl ChannelError<'_> {
     const fn as_str(&self) -> &str {
         match self {
             Self::Audio(_) => "audio",
+            Self::AudioError => "audio error",
             Self::Event(_) => "event",
             Self::Display(_) => "display",
         }

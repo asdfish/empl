@@ -1,12 +1,12 @@
 use {
     crate::{
-        config::{Config, KeyAction, SelectedConfig},
+        config::{Config, SelectedConfig},
         ext::iterator::IteratorExt,
-        tasks::{ChannelError, display::state::Area},
+        tasks::{ChannelError, display::state::Area, state},
     },
     arrayvec::ArrayVec,
     crossterm::event::{
-        Event as TermEvent, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
+        Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
     },
     futures_core::Stream,
     std::{cmp::Ordering, future::poll_fn, marker::PhantomData, num::NonZeroU16, pin::Pin},
@@ -14,14 +14,14 @@ use {
 };
 
 #[derive(Debug)]
-pub struct EventTask<'a> {
-    pub event_tx: mpsc::UnboundedSender<Event>,
+pub struct TerminalEventTask<'a> {
+    pub event_tx: mpsc::UnboundedSender<state::Event>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
     _marker: PhantomData<&'a ()>,
 }
-impl<'a> EventTask<'a> {
-    pub fn new(event_tx: mpsc::UnboundedSender<Event>) -> Self {
+impl<'a> TerminalEventTask<'a> {
+    pub fn new(event_tx: mpsc::UnboundedSender<state::Event>) -> Self {
         Self {
             event_tx,
             key_presses: ArrayVec::new(),
@@ -33,7 +33,7 @@ impl<'a> EventTask<'a> {
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             match poll_fn(|ctx| Pin::new(&mut self.stream).poll_next(ctx)).await {
-                Some(Ok(TermEvent::Key(KeyEvent {
+                Some(Ok(Event::Key(KeyEvent {
                     code,
                     modifiers,
                     kind: KeyEventKind::Press,
@@ -53,28 +53,22 @@ impl<'a> EventTask<'a> {
                         .max_by(|(_, l), (_, r)| l.cmp(r))
                     {
                         Some((action, Some(Ordering::Equal))) => {
-                            self.event_tx.send(Event::KeyBinding(*action))?;
+                            self.event_tx.send(state::Event::KeyBinding(*action))?;
                             self.key_presses.clear();
                         }
                         Some((_, Some(Ordering::Less))) => {}
                         _ => self.key_presses.clear(),
                     }
                 }
-                Some(Ok(TermEvent::Resize(width, height))) => {
+                Some(Ok(Event::Resize(width, height))) => {
                     if let (Some(width), Some(height)) =
                         (NonZeroU16::new(width), NonZeroU16::new(height))
                     {
-                        self.event_tx.send(Event::Resize(Area { width, height }))?;
+                        self.event_tx.send(state::Event::Resize(Area { width, height }))?;
                     }
                 }
                 _ => continue,
             }
         }
     }
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum Event {
-    KeyBinding(KeyAction),
-    Resize(Area),
 }

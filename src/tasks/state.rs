@@ -6,9 +6,8 @@ use {
             audio::AudioAction,
             display::{
                 damage::DamageList,
-                state::{DisplayState, Focus, Marker},
+                state::{Area, DisplayState, Focus, Marker},
             },
-            event::Event,
         },
     },
     tokio::sync::mpsc,
@@ -48,6 +47,7 @@ impl<'a> StateTask<'a> {
                     .await
                     .ok_or(ChannelError::Event(None))?
                 {
+                    Event::AudioFinished => todo!(),
                     Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                     Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
                         state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
@@ -113,4 +113,11 @@ impl<'a> StateTask<'a> {
             )?;
         }
     }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub enum Event {
+    AudioFinished,
+    KeyBinding(KeyAction),
+    Resize(Area),
 }
