@@ -11,7 +11,7 @@ use {
             meta::MetadataOptions,
             probe::{Hint, ProbeResult},
         },
-        default::get_probe,
+        default::{get_codecs, get_probe},
     },
     tinyaudio::{OutputDevice, OutputDeviceParameters, run_output_device},
     tokio::sync::mpsc,
@@ -106,9 +106,10 @@ impl AudioTask {
                             return;
                         };
 
-                        let decoder = match CodecRegistry::new().make(&track.codec_params, &DecoderOptions::default()) {
+                        let decoder = match get_codecs().make(&track.codec_params, &DecoderOptions::default()) {
                             Ok(d) => d,
                             Err(err) => {
+                                println!("{err}");
                                 let _ = audio_error_tx.send(AudioError::Decoder(err));
                                 return;
                             },

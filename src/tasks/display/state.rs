@@ -64,6 +64,10 @@ impl<'a> DisplayState<'a> {
         }
     }
 
+    pub fn playlists(&self) -> &'a Playlists {
+        self.playlists
+    }
+
     fn get(&self, focus: Focus, index: u16) -> Option<&str> {
         match focus {
             Focus::Playlists => self

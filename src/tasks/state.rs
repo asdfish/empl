@@ -10,6 +10,7 @@ use {
             },
         },
     },
+    std::sync::Arc,
     tokio::sync::mpsc,
 };
 
@@ -47,7 +48,7 @@ impl<'a> StateTask<'a> {
                     .await
                     .ok_or(ChannelError::Event(None))?
                 {
-                    Event::AudioFinished => todo!(),
+                    Event::AudioFinished => continue,
                     Event::KeyBinding(KeyAction::Quit) => break Ok(()),
                     Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
                         state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
@@ -101,6 +102,13 @@ impl<'a> StateTask<'a> {
                     Event::KeyBinding(KeyAction::Select)
                         if self.display_state.focus == Focus::Songs =>
                     {
+                        let Some(path) = self.display_state.playlists().get(usize::from(self.display_state.selected_menu))
+                            .and_then(|(_, playlist)| playlist.get(usize::from(self.display_state.cursors[Focus::Songs])))
+                            .map(|(_, path)| Arc::clone(&path)) else {
+                            continue;
+                        };
+                        self.audio_action_tx.send(AudioAction::Play(path))?;
+
                         self.display_state.write(|state| {
                             state.selected_song.index = state.cursors[Focus::Songs];
                         })

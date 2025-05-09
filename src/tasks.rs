@@ -31,6 +31,7 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         io::{self, Write},
+        sync::Arc,
     },
     tokio::{io::AsyncWriteExt, sync::mpsc},
 };
@@ -45,6 +46,7 @@ pub struct TaskManager<'a> {
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, io::Error> {
         let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
+        audio_action_tx.send(AudioAction::Play(Arc::clone(&playlists.first().1.first().1))).unwrap();
         let (audio_error_tx, audio_error_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let (display_tx, display_rx) = mpsc::unbounded_channel();
@@ -189,6 +191,11 @@ impl Display for ChannelError<'_> {
     }
 }
 impl Error for ChannelError<'_> {}
+impl From<mpsc::error::SendError<AudioAction>> for ChannelError<'_> {
+    fn from(err: mpsc::error::SendError<AudioAction>) -> Self {
+        Self::Audio(Some(err.0))
+    }
+}
 impl<'a> From<mpsc::error::SendError<DamageList<'a>>> for ChannelError<'a> {
     fn from(err: mpsc::error::SendError<DamageList<'a>>) -> Self {
         Self::Display(Some(err.0))
