@@ -3,6 +3,8 @@ use {
     std::{ffi::OsStr, fs::File, path::Path, sync::Arc},
     symphonia::{
         core::{
+            audio::SampleBuffer,
+            codecs::{CodecRegistry, DecoderOptions},
             errors::Error as SymphoniaError,
             formats::FormatOptions,
             io::{MediaSourceStream, MediaSourceStreamOptions},
@@ -56,7 +58,9 @@ impl AudioTask {
             channel_sample_count: 4_410,
         };
 
-        self.device = run_output_device(config, move |_output| {
+        let mut streamer = None;
+        let mut sample_buffer = None;
+        self.device = run_output_device(config, move |output| {
             if let Ok(action) = audio_action_rx.try_recv() {
                 match action {
                     AudioAction::Play(path) => {
@@ -80,7 +84,7 @@ impl AudioTask {
                         }
 
                         let ProbeResult {
-                            format: _format, ..
+                            format, ..
                         } = match get_probe().format(
                             &hint,
                             source,
@@ -96,9 +100,94 @@ impl AudioTask {
                                 return;
                             }
                         };
+
+                        let Some(track) = format.default_track() else {
+                            let _ = audio_error_tx.send(AudioError::NoTracks);
+                            return;
+                        };
+
+                        let decoder = match CodecRegistry::new().make(&track.codec_params, &DecoderOptions::default()) {
+                            Ok(d) => d,
+                            Err(err) => {
+                                let _ = audio_error_tx.send(AudioError::Decoder(err));
+                                return;
+                            },
+                        };
+
+                        streamer = Some((format, decoder));
                     }
                 }
             }
+
+            let Some((format, decoder)) = streamer.as_mut() else {
+                return
+            };
+            let packet = match format.next_packet() {
+                Ok(p) => p,
+                Err(SymphoniaError::ResetRequired) => {
+                    let Some(track) = format.default_track() else {
+                        let _ = audio_error_tx.send(AudioError::NoTracks);
+                        streamer = None;
+                        sample_buffer = None;
+                        return;
+                    };
+
+                    let new_decoder = match CodecRegistry::new()
+                        .make(&track.codec_params, &DecoderOptions::default()) {
+                            Ok(d) => d,
+                            Err(err) => {
+                                let _ = audio_error_tx.send(AudioError::Decoder(err));
+                                streamer = None;
+                                sample_buffer = None;
+                                return;
+                            },
+                        };
+                    *decoder = new_decoder;
+
+                    match format.next_packet() {
+                        Ok(p) => p,
+                        Err(err) => {
+                            let _ = audio_error_tx.send(AudioError::Decoder(err));
+                            streamer = None;
+                            sample_buffer = None;
+                            return;
+                        }
+                    }
+                },
+                Err(err) => {
+                    let _ = audio_error_tx.send(AudioError::Decoder(err));
+                    streamer = None;
+                    sample_buffer = None;
+                    return;
+                },
+            };
+
+            let decoded_packet = match decoder.decode(&packet) {
+                Ok(dp) => dp,
+                Err(SymphoniaError::DecodeError(_) | SymphoniaError::IoError(_)) => return,
+                Err(SymphoniaError::ResetRequired) => {
+                    decoder.reset();
+                    return;
+                },
+                Err(err) => {
+                    let _ = audio_error_tx.send(AudioError::Decoder(err));
+                    streamer = None;
+                    sample_buffer = None;
+                    return;
+                },
+            };
+
+            let sample_buffer = sample_buffer
+                .get_or_insert_with(|| {
+                    SampleBuffer::<f32>::new(decoded_packet.capacity() as u64, *decoded_packet.spec())
+                });
+            sample_buffer.copy_interleaved_ref(decoded_packet);
+
+            sample_buffer
+                .samples()
+                .iter()
+                .zip(output)
+                .for_each(|(sample, output)| *output = *sample);
         })
         .map(Some)?;
 
