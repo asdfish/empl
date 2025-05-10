@@ -5,7 +5,7 @@ use {
         argv::{ArgError, Argv, ArgvError},
         config::{Config, SelectedConfig},
         flag::{Arguments, ArgumentsError, Flag},
-        tasks::{NewTaskManagerError, TaskManager},
+        tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
     std::{
         error::Error,
@@ -52,8 +52,8 @@ Options:
                 .await
                 .map_err(MainError::NewTaskManager)?
                 .run()
-                .await;
-            Ok(())
+                .await
+                .map_err(MainError::Unrecoverable)
         })
     })() {
         Ok(()) => 0,
@@ -72,6 +72,7 @@ pub enum MainError {
     NewTaskManager(NewTaskManagerError),
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
+    Unrecoverable(UnrecoverableError),
 }
 impl Display for MainError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
@@ -82,6 +83,7 @@ impl Display for MainError {
             Self::NewTaskManager(e) => e.fmt(f),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
+            Self::Unrecoverable(e) => e.fmt(f),
         }
     }
 }

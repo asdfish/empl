@@ -1,6 +1,5 @@
-pub mod decoder;
+pub mod audio;
 pub mod display;
-pub mod player;
 pub mod state;
 pub mod terminal_event;
 
@@ -11,9 +10,9 @@ use {
             command::{CommandChain, CommandExt},
             future::FutureExt,
         },
-        select::Select4,
+        select::{Select, Select3},
         tasks::{
-            decoder::{DecoderAction, DecoderTask},
+            audio::{AudioAction, AudioTask},
             display::{
                 DisplayTask,
                 damage::{Damage, DamageList},
@@ -23,6 +22,7 @@ use {
             terminal_event::TerminalEventTask,
         },
     },
+    awedio::backends::CpalBackendError as AudioBackendError,
     bumpalo::Bump,
     crossterm::{
         QueueableCommand, cursor,
@@ -33,27 +33,22 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         io::{self, Write},
-        sync::{mpsc as std_mpsc},
     },
-    symphonia::core::audio::SampleBuffer,
-    tinyaudio::OutputDevice,
-    tokio::{io::AsyncWriteExt, sync::mpsc as tokio_mpsc, task::{self, JoinHandle}},
+    tokio::{io::{AsyncWriteExt, stdout}, sync::mpsc},
 };
 
 pub struct TaskManager<'a> {
-    decoder: JoinHandle<Result<(), ChannelError<'a>>>,
-    device: OutputDevice,
+    audio: AudioTask,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
     terminal_event: TerminalEventTask,
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
-        let (event_tx, event_rx) = tokio_mpsc::unbounded_channel();
-        let (decoder_action_tx, decoder_action_rx) = std_mpsc::channel();
-        let (decoder_idle_tx, decoder_idle_rx) = tokio_mpsc::unbounded_channel();
-        let (decoder_output_tx, decoder_output_rx) = std_mpsc::channel();
-        let (display_tx, display_rx) = tokio_mpsc::unbounded_channel();
+        let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
+        let (audio_completion_tx, audio_completion_rx) = mpsc::unbounded_channel();
+        let (event_tx, event_rx) = mpsc::unbounded_channel();
+        let (display_tx, display_rx) = mpsc::unbounded_channel();
         let display_state = DisplayState::new(playlists);
         let _ = display_tx.send(DamageList::new(
             EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
@@ -62,7 +57,7 @@ impl<'a> TaskManager<'a> {
         ));
 
         let alloc = Bump::new();
-        let mut stdout = tokio::io::stdout();
+        let mut stdout = stdout();
         enable_raw_mode()?;
         cursor::Hide
             .adapt()
@@ -72,14 +67,13 @@ impl<'a> TaskManager<'a> {
         stdout.flush().await?;
 
         Ok(Self {
-            decoder: task::spawn_blocking(move || DecoderTask::new(decoder_action_rx, decoder_idle_tx, decoder_output_tx).run()),
-            device: player::spawn(decoder_output_rx)?,
+            audio: AudioTask::new(audio_action_rx, audio_completion_tx)?,
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
                 display_state,
                 playlists,
-                decoder_action_tx,
-                decoder_idle_rx,
+                audio_action_tx,
+                audio_completion_rx,
                 display_tx,
                 event_rx,
             ),
@@ -88,11 +82,11 @@ impl<'a> TaskManager<'a> {
     }
     fn recover(&mut self, err: ChannelError<'a>) {
         fn recover_channel<T>(
-            tx: &mut [&mut tokio_mpsc::UnboundedSender<T>],
-            rx: &mut tokio_mpsc::UnboundedReceiver<T>,
+            tx: &mut [&mut mpsc::UnboundedSender<T>],
+            rx: &mut mpsc::UnboundedReceiver<T>,
             msg: Option<T>,
         ) {
-            let (new_tx, new_rx) = tokio_mpsc::unbounded_channel();
+            let (new_tx, new_rx) = mpsc::unbounded_channel();
             if let Some(msg) = msg {
                 let result = new_tx.send(msg);
                 debug_assert!(result.is_ok());
@@ -120,18 +114,21 @@ impl<'a> TaskManager<'a> {
         }
     }
 
-    pub async fn run(&mut self) {
+    pub async fn run(&mut self) -> Result<(), UnrecoverableError> {
         loop {
-            match Select4::new(
-                (&mut self.decoder).pipe(Result::unwrap),
-                self.display.run(),
-                self.state.run(),
-                self.terminal_event.run(),
+            match Select::new(
+                self.audio.run(),
+                Select3::new(
+                    self.display.run(),
+                    self.state.run(),
+                    self.terminal_event.run(),
+                )
+                    .pipe(|res| res.map_err(RecoverableError::Channel).map_err(TaskError::Recoverable)),
             )
             .await
             {
-                Ok(()) => break,
-                Err(err) => self.recover(err),
+                Ok(()) => break Ok(()),
+                Err(err) => err.try_recover(self)?,
             }
         }
     }
@@ -148,18 +145,16 @@ impl Drop for TaskManager<'_> {
 
 #[derive(Debug)]
 pub enum ChannelError<'a> {
-    DecoderAction(Option<DecoderAction>),
-    DecoderIdle,
-    DecoderOutput,
+    AudioAction(Option<AudioAction>),
+    AudioCompletion,
     Event(Option<Event>),
     Display(Option<DamageList<'a>>),
 }
 impl ChannelError<'_> {
     const fn as_str(&self) -> &str {
         match self {
-            Self::DecoderAction(_) => "decoder action",
-            Self::DecoderIdle => "decoder idle",
-            Self::DecoderOutput => "decoder output",
+            Self::AudioAction(_) => "audio action",
+            Self::AudioCompletion => "audio completion",
             Self::Event(_) => "event",
             Self::Display(_) => "display",
         }
@@ -171,38 +166,40 @@ impl Display for ChannelError<'_> {
     }
 }
 impl Error for ChannelError<'_> {}
-impl From<std_mpsc::SendError<DecoderAction>> for ChannelError<'_> {
-    fn from(err: std_mpsc::SendError<DecoderAction>) -> Self {
-        Self::DecoderAction(Some(err.0))
+impl From<mpsc::error::SendError<AudioAction>> for ChannelError<'_> {
+    fn from(err: mpsc::error::SendError<AudioAction>) -> Self {
+        Self::AudioAction(Some(err.0))
     }
 }
-impl<'a> From<tokio_mpsc::error::SendError<DamageList<'a>>> for ChannelError<'a> {
-    fn from(err: tokio_mpsc::error::SendError<DamageList<'a>>) -> Self {
+impl<'a> From<mpsc::error::SendError<DamageList<'a>>> for ChannelError<'a> {
+    fn from(err: mpsc::error::SendError<DamageList<'a>>) -> Self {
         Self::Display(Some(err.0))
     }
 }
-impl From<tokio_mpsc::error::SendError<Event>> for ChannelError<'_> {
-    fn from(err: tokio_mpsc::error::SendError<Event>) -> Self {
+impl From<mpsc::error::SendError<Event>> for ChannelError<'_> {
+    fn from(err: mpsc::error::SendError<Event>) -> Self {
         Self::Event(Some(err.0))
-    }
-}
-impl From<std_mpsc::SendError<SampleBuffer<f32>>> for ChannelError<'_> {
-    fn from(_: std_mpsc::SendError<SampleBuffer<f32>>) -> Self {
-        Self::DecoderOutput
     }
 }
 
 #[derive(Debug)]
 pub enum NewTaskManagerError {
+    AudioBackend(AudioBackendError),
     Setup(io::Error),
     OutputDevice(Box<dyn Error>),
 }
 impl Display for NewTaskManagerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
+            Self::AudioBackend(e) => write!(f, "failed to create audio backend: {e}"),
             Self::Setup(e) => write!(f, "failed to set up terminal: {e}"),
             Self::OutputDevice(e) => write!(f, "failed to get output device: {e}"),
         }
+    }
+}
+impl From<AudioBackendError> for NewTaskManagerError {
+    fn from(err: AudioBackendError) -> Self {
+        Self::AudioBackend(err)
     }
 }
 impl From<io::Error> for NewTaskManagerError {
@@ -216,3 +213,75 @@ impl From<Box<dyn Error>> for NewTaskManagerError {
     }
 }
 impl Error for NewTaskManagerError {}
+
+#[derive(Debug)]
+pub enum TaskError<'a> {
+    Recoverable(RecoverableError<'a>),
+    Unrecoverable(UnrecoverableError),
+}
+impl<'a> TaskError<'a> {
+    pub fn try_recover(self, task_manager: &mut TaskManager<'a>) -> Result<(), UnrecoverableError> {
+        match self {
+            Self::Recoverable(err) => Ok(err.recover(task_manager)),
+            Self::Unrecoverable(err) => Err(err),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum RecoverableError<'a> {
+    Channel(ChannelError<'a>),
+}
+impl<'a> From<ChannelError<'a>> for RecoverableError<'a> {
+    fn from(err: ChannelError<'a>) -> Self {
+        Self::Channel(err)
+    }
+}
+impl<'a> RecoverableError<'a> {
+    pub fn recover(self, tasks: &mut TaskManager<'a>) {
+        fn recover_channel<T>(
+            tx: &mut [&mut mpsc::UnboundedSender<T>],
+            rx: &mut mpsc::UnboundedReceiver<T>,
+            msg: Option<T>,
+        ) {
+            let (new_tx, new_rx) = mpsc::unbounded_channel();
+            if let Some(msg) = msg {
+                let result = new_tx.send(msg);
+                debug_assert!(result.is_ok());
+            }
+            match tx {
+                [] => {}
+                [tx] => **tx = new_tx,
+                txs => txs.iter_mut().for_each(|tx| **tx = new_tx.clone()),
+            }
+            *rx = new_rx;
+        }
+
+        match self {
+            Self::Channel(ChannelError::Event(msg)) => recover_channel(
+                &mut [&mut tasks.terminal_event.event_tx],
+                &mut tasks.state.event_rx,
+                msg,
+            ),
+            Self::Channel(ChannelError::Display(msg)) => recover_channel(
+                &mut [&mut tasks.state.display_tx],
+                &mut tasks.display.display_rx,
+                msg,
+            ),
+            Self::Channel(_) => todo!("channel recovery"),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum UnrecoverableError {
+    Stream,
+}
+impl Display for UnrecoverableError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Stream => f.write_str("failed to play stream"),
+        }
+    }
+}
+impl Error for UnrecoverableError {}

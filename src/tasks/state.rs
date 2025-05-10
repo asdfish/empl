@@ -3,39 +3,39 @@ use {
         config::{KeyAction, Playlists},
         tasks::{
             ChannelError,
-            decoder::DecoderAction,
+            audio::AudioAction,
             display::{
                 damage::DamageList,
                 state::{Area, DisplayState, Focus, Marker},
             },
         },
     },
-    std::sync::{Arc, mpsc as std_mpsc},
-    tokio::sync::mpsc as tokio_mpsc,
+    std::sync::Arc,
+    tokio::sync::mpsc,
 };
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
     cursor_cache: Box<[u16]>,
-    pub decoder_action_tx: std_mpsc::Sender<DecoderAction>,
-    pub decoder_idle_rx: tokio_mpsc::UnboundedReceiver<()>,
-    pub display_tx: tokio_mpsc::UnboundedSender<DamageList<'a>>,
+    pub audio_action_tx: mpsc::UnboundedSender<AudioAction>,
+    pub audio_completion_rx: mpsc::UnboundedReceiver<()>,
+    pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
     display_state: DisplayState<'a>,
-    pub event_rx: tokio_mpsc::UnboundedReceiver<Event>,
+    pub event_rx: mpsc::UnboundedReceiver<Event>,
 }
 impl<'a> StateTask<'a> {
     pub fn new(
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
-        decoder_action_tx: std_mpsc::Sender<DecoderAction>,
-        decoder_idle_rx: tokio_mpsc::UnboundedReceiver<()>,
-        display_tx: tokio_mpsc::UnboundedSender<DamageList<'a>>,
-        event_rx: tokio_mpsc::UnboundedReceiver<Event>,
+        audio_action_tx: mpsc::UnboundedSender<AudioAction>,
+        audio_completion_rx: mpsc::UnboundedReceiver<()>,
+        display_tx: mpsc::UnboundedSender<DamageList<'a>>,
+        event_rx: mpsc::UnboundedReceiver<Event>,
     ) -> Self {
         Self {
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
-            decoder_action_tx,
-            decoder_idle_rx,
+            audio_action_tx,
+            audio_completion_rx,
             display_tx,
             display_state,
             event_rx,
@@ -110,7 +110,7 @@ impl<'a> StateTask<'a> {
                             .map(|(_, path)| Arc::clone(&path)) else {
                             continue;
                         };
-                        self.decoder_action_tx.send(DecoderAction::Play(path))?;
+                        self.audio_action_tx.send(AudioAction::Play(path))?;
 
                         self.display_state.write(|state| {
                             state.selected_song.index = state.cursors[Focus::Songs];
