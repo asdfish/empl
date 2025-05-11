@@ -45,7 +45,7 @@ Options:
 
         let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
 
-        let runtime = runtime::Builder::new_current_thread() 
+        let runtime = runtime::Builder::new_current_thread()
             .build()
             .map_err(MainError::Runtime)?;
         runtime.block_on(async move {

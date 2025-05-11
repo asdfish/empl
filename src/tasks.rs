@@ -37,7 +37,10 @@ use {
         io::{self, Write},
         sync::Arc,
     },
-    tokio::{io::{AsyncWriteExt, stdout}, sync::{mpsc, oneshot}},
+    tokio::{
+        io::{AsyncWriteExt, stdout},
+        sync::{mpsc, oneshot},
+    },
 };
 
 pub struct TaskManager<'a> {
@@ -50,16 +53,22 @@ pub struct TaskManager<'a> {
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
         let (audio_action_tx, audio_action_rx) = mpsc::channel(1);
-        let _ = audio_action_tx.send(AudioAction::Play(Arc::clone(&playlists.first().1.first().1))).await;
+        let _ = audio_action_tx
+            .send(AudioAction::Play(Arc::clone(
+                &playlists.first().1.first().1,
+            )))
+            .await;
         let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::channel(1);
         let (event_tx, event_rx) = mpsc::channel(1);
         let (display_tx, display_rx) = mpsc::channel(1);
         let display_state = DisplayState::new(playlists);
-        let _ = display_tx.send(DamageList::new(
-            EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
-            display_state,
-            display_state,
-        )).await;
+        let _ = display_tx
+            .send(DamageList::new(
+                EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
+                display_state,
+                display_state,
+            ))
+            .await;
 
         let alloc = Bump::new();
         let mut stdout = stdout();
@@ -72,8 +81,15 @@ impl<'a> TaskManager<'a> {
         stdout.flush().await?;
 
         Ok(Self {
-            audio: AudioTask::new(audio_action_rx, change_completion_notifier_tx, event_tx.clone())?,
-            audio_completion: AudioCompletionTask::new(change_completion_notifier_rx, event_tx.clone()),
+            audio: AudioTask::new(
+                audio_action_rx,
+                change_completion_notifier_tx,
+                event_tx.clone(),
+            )?,
+            audio_completion: AudioCompletionTask::new(
+                change_completion_notifier_rx,
+                event_tx.clone(),
+            ),
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
                 display_state,
@@ -96,7 +112,10 @@ impl<'a> TaskManager<'a> {
                     self.state.run(),
                     self.terminal_event.run(),
                 )
-                    .pipe(|res| res.map_err(RecoverableError::Channel).map_err(TaskError::Recoverable)),
+                .pipe(|res| {
+                    res.map_err(RecoverableError::Channel)
+                        .map_err(TaskError::Recoverable)
+                }),
             )
             .await
             {
@@ -198,7 +217,10 @@ pub enum TaskError<'a> {
     Unrecoverable(UnrecoverableError),
 }
 impl<'a> TaskError<'a> {
-    pub async fn try_recover(self, task_manager: &mut TaskManager<'a>) -> Result<(), UnrecoverableError> {
+    pub async fn try_recover(
+        self,
+        task_manager: &mut TaskManager<'a>,
+    ) -> Result<(), UnrecoverableError> {
         match self {
             Self::Recoverable(err) => {
                 err.recover(task_manager).await;
@@ -249,26 +271,42 @@ impl<'a> RecoverableError<'a> {
         }
 
         match self {
-            Self::Channel(ChannelError::AudioAction(msg)) => recover_channel(
-                &mut [&mut tasks.state.audio_action_tx],
-                &mut tasks.audio.action_rx,
-                msg,
-            ).await,
-            Self::Channel(ChannelError::ChangeCompletionNotifier(msg)) => recover_channel(
-                &mut [&mut tasks.audio.change_completion_notifier_tx],
-                &mut tasks.audio_completion.change_completion_notifier_rx,
-                msg,
-            ).await,
-            Self::Channel(ChannelError::Event(msg)) => recover_channel(
-                &mut [&mut tasks.audio.event_tx, &mut tasks.audio_completion.event_tx, &mut tasks.terminal_event.event_tx],
-                &mut tasks.state.event_rx,
-                msg,
-            ).await,
-            Self::Channel(ChannelError::Display(msg)) => recover_channel(
-                &mut [&mut tasks.state.display_tx],
-                &mut tasks.display.display_rx,
-                msg,
-            ).await,
+            Self::Channel(ChannelError::AudioAction(msg)) => {
+                recover_channel(
+                    &mut [&mut tasks.state.audio_action_tx],
+                    &mut tasks.audio.action_rx,
+                    msg,
+                )
+                .await
+            }
+            Self::Channel(ChannelError::ChangeCompletionNotifier(msg)) => {
+                recover_channel(
+                    &mut [&mut tasks.audio.change_completion_notifier_tx],
+                    &mut tasks.audio_completion.change_completion_notifier_rx,
+                    msg,
+                )
+                .await
+            }
+            Self::Channel(ChannelError::Event(msg)) => {
+                recover_channel(
+                    &mut [
+                        &mut tasks.audio.event_tx,
+                        &mut tasks.audio_completion.event_tx,
+                        &mut tasks.terminal_event.event_tx,
+                    ],
+                    &mut tasks.state.event_rx,
+                    msg,
+                )
+                .await
+            }
+            Self::Channel(ChannelError::Display(msg)) => {
+                recover_channel(
+                    &mut [&mut tasks.state.display_tx],
+                    &mut tasks.display.display_rx,
+                    msg,
+                )
+                .await
+            }
         }
     }
 }

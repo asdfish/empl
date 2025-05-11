@@ -1,34 +1,16 @@
 use {
+    crate::{
+        either::{Either, EitherFuture},
+        tasks::{ChannelError, RecoverableError, TaskError, UnrecoverableError, state::Event},
+    },
     awedio::{
-        backends::{
-            CpalBackend as Backend,
-            CpalBackendError as AudioBackendError,
-        },
-        manager::Manager,
         Sound,
+        backends::{CpalBackend as Backend, CpalBackendError as AudioBackendError},
+        manager::Manager,
         sounds,
     },
-    crate::{
-        either::{
-            Either,
-            EitherFuture,
-        },
-        tasks::{
-            state::Event,
-            ChannelError,
-            RecoverableError,
-            TaskError,
-            UnrecoverableError,
-        },
-    },
-    std::{
-        path::Path,
-        sync::Arc,
-    },
-    tokio::sync::{
-        mpsc,
-        oneshot,
-    },
+    std::{path::Path, sync::Arc},
+    tokio::sync::{mpsc, oneshot},
 };
 
 #[derive(Debug)]
@@ -59,28 +41,29 @@ impl AudioTask {
             change_completion_notifier_tx,
             event_tx,
             error_rx,
-            manager: backend
-                .start(move |_| {
-                    let _ = error_tx.blocking_send(());
-                })?,
+            manager: backend.start(move |_| {
+                let _ = error_tx.blocking_send(());
+            })?,
             _backend: backend,
         })
     }
 
     async fn play<'a, P>(&mut self, path: &P) -> Result<(), ChannelError<'a>>
-    where P: AsRef<Path> + ?Sized {
+    where
+        P: AsRef<Path> + ?Sized,
+    {
         let (sound, completion_notifier) = match sounds::open_file(path) {
             Ok(s) => s,
             Err(_) => {
                 return Ok(());
-            },
+            }
         }
-            .with_async_completion_notifier();
-        self.change_completion_notifier_tx.send(completion_notifier).await?;
+        .with_async_completion_notifier();
+        self.change_completion_notifier_tx
+            .send(completion_notifier)
+            .await?;
 
-        self
-            .manager
-            .play(Box::new(sound));
+        self.manager.play(Box::new(sound));
         Ok(())
     }
 
@@ -93,9 +76,15 @@ impl AudioTask {
                         .await
                         .map_err(RecoverableError::Channel)
                         .map_err(TaskError::Recoverable)?;
-                },
-                Either::Left(None) => break Err(TaskError::Recoverable(RecoverableError::Channel(ChannelError::AudioAction(None)))),
-                Either::Right(_) => break Err(TaskError::Unrecoverable(UnrecoverableError::Stream)),
+                }
+                Either::Left(None) => {
+                    break Err(TaskError::Recoverable(RecoverableError::Channel(
+                        ChannelError::AudioAction(None),
+                    )));
+                }
+                Either::Right(_) => {
+                    break Err(TaskError::Unrecoverable(UnrecoverableError::Stream));
+                }
             }
         }
     }

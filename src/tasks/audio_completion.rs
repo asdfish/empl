@@ -1,10 +1,7 @@
 use {
     crate::{
         either::{Either, EitherFuture},
-        tasks::{
-            ChannelError,
-            state::Event,
-        },
+        tasks::{ChannelError, state::Event},
     },
     tokio::sync::{mpsc, oneshot},
 };
@@ -38,12 +35,7 @@ impl AudioCompletionTask {
                 {
                     Either::Left(Some(completion_rx)) => self.completion_rx = Some(completion_rx),
                     Either::Left(None) => break Err(ChannelError::ChangeCompletionNotifier(None)),
-                    Either::Right(_) => {
-                        self
-                            .event_tx
-                            .send(Event::AudioFinished)
-                            .await?
-                    }
+                    Either::Right(_) => self.event_tx.send(Event::AudioFinished).await?,
                 }
             } else {
                 self.completion_rx = Some(

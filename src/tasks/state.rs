@@ -2,12 +2,12 @@ use {
     crate::{
         config::{KeyAction, Playlists},
         tasks::{
+            ChannelError,
             audio::AudioAction,
             display::{
                 damage::DamageList,
                 state::{Area, DisplayState, Focus, Marker},
             },
-            ChannelError,
         },
     },
     fastrand::Rng,
@@ -70,10 +70,11 @@ impl<'a> StateTask<'a> {
 
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
-            let damage_list = match
-                self.event_rx
-                    .recv()
-                    .await.ok_or(ChannelError::Event(None))?
+            let damage_list = match self
+                .event_rx
+                .recv()
+                .await
+                .ok_or(ChannelError::Event(None))?
             {
                 Event::AudioFinished | Event::KeyBinding(KeyAction::SkipSong) => {
                     let Some(len) = self

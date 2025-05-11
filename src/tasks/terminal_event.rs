@@ -49,7 +49,9 @@ impl TerminalEventTask {
                         .max_by(|(_, l), (_, r)| l.cmp(r))
                     {
                         Some((action, Some(Ordering::Equal))) => {
-                            self.event_tx.send(state::Event::KeyBinding(*action)).await?;
+                            self.event_tx
+                                .send(state::Event::KeyBinding(*action))
+                                .await?;
                             self.key_presses.clear();
                         }
                         Some((_, Some(Ordering::Less))) => {}
@@ -61,7 +63,8 @@ impl TerminalEventTask {
                         (NonZeroU16::new(width), NonZeroU16::new(height))
                     {
                         self.event_tx
-                            .send(state::Event::Resize(Area { width, height })).await?;
+                            .send(state::Event::Resize(Area { width, height }))
+                            .await?;
                     }
                 }
                 _ => continue,
