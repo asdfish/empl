@@ -19,63 +19,63 @@ use {
 macro_rules! decl_either {
     (
         ($either_ident:ident, $either_future_ident:ident, $either_parser_ident:ident),
-        [$(($names_snake:ident, $names_pascal:ident, $generics:ident)),* $(,)? ],
-        ($last_name_snake:ident, $last_name_pascal:ident, $last_generic:ident)
+        [$(($snake:ident, $pascals:ident)),* $(,)? ],
+        ($last_snake:ident, $last_pascal:ident)
     ) => {
         #[derive(Clone, Copy, Debug, PartialEq)]
-        pub enum $either_ident<$($generics,)* $last_generic> {
-            $($names_pascal($generics),)*
-            $last_name_pascal($last_generic)
+        pub enum $either_ident<$($pascals,)* $last_pascal> {
+            $($pascals($pascals),)*
+            $last_pascal($last_pascal)
         }
-        impl<$($generics,)* $last_generic> Display for $either_ident<$($generics,)* $last_generic>
-        where $($generics: Display,)*
-            $last_generic: Display
+        impl<$($pascals,)* $last_pascal> Display for $either_ident<$($pascals,)* $last_pascal>
+        where $($pascals: Display,)*
+            $last_pascal: Display
         {
             fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
                 match self {
-                    Self::$last_name_pascal(d) => d.fmt(f),
-                    $(Self::$names_pascal(d) => d.fmt(f)),*
+                    Self::$last_pascal(d) => d.fmt(f),
+                    $(Self::$pascals(d) => d.fmt(f)),*
                 }
             }
         }
-        impl<$($generics,)* $last_generic> Error for $either_ident<$($generics,)* $last_generic>
-        where $($generics: Debug + Display,)* $last_generic: Debug + Display {}
+        impl<$($pascals,)* $last_pascal> Error for $either_ident<$($pascals,)* $last_pascal>
+        where $($pascals: Debug + Display,)* $last_pascal: Debug + Display {}
 
-        impl<$($generics,)* $last_generic> CommandChain for $either_ident<$($generics,)* $last_generic>
-        where $($generics: CommandChain,)*
-            $last_generic: CommandChain
+        impl<$($pascals,)* $last_pascal> CommandChain for $either_ident<$($pascals,)* $last_pascal>
+        where $($pascals: CommandChain,)*
+            $last_pascal: CommandChain
         {
             async fn execute<W>(self, alloc: &Bump, out: &mut W) -> Result<(), io::Error>
             where
             W: AsyncWriteExt + Unpin,
             {
                 match self {
-                    Self::$last_name_pascal(cmd) => cmd.execute(alloc, out).await,
-                    $(Self::$names_pascal(cmd) => cmd.execute(alloc, out).await),*
+                    Self::$last_pascal(cmd) => cmd.execute(alloc, out).await,
+                    $(Self::$pascals(cmd) => cmd.execute(alloc, out).await),*
                 }
             }
         }
 
         pin_project! {
             #[derive(Clone, Copy, Debug)]
-            pub struct $either_future_ident<$($generics,)* $last_generic> {
-                $(#[pin] $names_snake: $generics,)*
-                #[pin] $last_name_snake: $last_generic,
+            pub struct $either_future_ident<$($pascals,)* $last_pascal> {
+                $(#[pin] $snake: $pascals,)*
+                #[pin] $last_snake: $last_pascal,
             }
         }
-        impl<$($generics,)* $last_generic> $either_future_ident<$($generics,)* $last_generic>
-        where $($generics: Future,)* $last_generic: Future {
+        impl<$($pascals,)* $last_pascal> $either_future_ident<$($pascals,)* $last_pascal>
+        where $($pascals: Future,)* $last_pascal: Future {
             #[allow(clippy::too_many_arguments)]
-            pub const fn new($($names_snake: $generics,)* $last_name_snake: $last_generic) -> Self {
+            pub const fn new($($snake: $pascals,)* $last_snake: $last_pascal) -> Self {
                 Self {
-                    $last_name_snake,
-                    $($names_snake),*
+                    $last_snake,
+                    $($snake),*
                 }
             }
         }
-        impl<$($generics,)* $last_generic> Future for $either_future_ident<$($generics,)* $last_generic>
-        where $($generics: Future,)* $last_generic: Future {
-            type Output = $either_ident<$($generics::Output,)* $last_generic::Output>;
+        impl<$($pascals,)* $last_pascal> Future for $either_future_ident<$($pascals,)* $last_pascal>
+        where $($pascals: Future,)* $last_pascal: Future {
+            type Output = $either_ident<$($pascals::Output,)* $last_pascal::Output>;
 
             fn poll(self: Pin<&mut Self>, ctx: &mut Context<'_>) -> Poll<Self::Output> {
                 let this = self.project();
@@ -86,193 +86,193 @@ macro_rules! decl_either {
                         }     
                     }
                 }
-                $(check_ready!($names_snake, $names_pascal);)*
-                check_ready!($last_name_snake, $last_name_pascal);
+                $(check_ready!($snake, $pascals);)*
+                check_ready!($last_snake, $last_pascal);
 
                 Poll::Pending
             }
         }
 
         #[derive(Clone, Copy, Debug)]
-        pub struct $either_parser_ident<'a, Input, $($generics,)* $last_generic>
+        pub struct $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
         where
             Input: Parsable<'a>,
-            $($generics: Parser<'a, Input>,)*
-            $last_generic: Parser<'a, Input>
+            $($pascals: Parser<'a, Input>,)*
+            $last_pascal: Parser<'a, Input>
         {
             _marker: PhantomData<&'a Input>,
-            $($names_snake: $generics,)*
-            $last_name_snake: $last_generic,
+            $($snake: $pascals,)*
+            $last_snake: $last_pascal,
         }
 
-        impl<'a, Input, $($generics,)* $last_generic> $either_parser_ident<'a, Input, $($generics,)* $last_generic>
+        impl<'a, Input, $($pascals,)* $last_pascal> $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
         where
             Input: Parsable<'a>,
-            $($generics: Parser<'a, Input>,)*
-            $last_generic: Parser<'a, Input>
+            $($pascals: Parser<'a, Input>,)*
+            $last_pascal: Parser<'a, Input>
         {
             #[allow(clippy::too_many_arguments)]
-            pub const fn new($($names_snake: $generics,)* $last_name_snake: $last_generic) -> Self {
+            pub const fn new($($snake: $pascals,)* $last_snake: $last_pascal) -> Self {
                 Self {
                     _marker: PhantomData,
-                    $last_name_snake,
-                    $($names_snake),*
+                    $last_snake,
+                    $($snake),*
                 }
             }
         }
 
-        impl<'a, Input, $($generics,)* $last_generic> Parser<'a, Input> for $either_parser_ident<'a, Input, $($generics,)* $last_generic>
+        impl<'a, Input, $($pascals,)* $last_pascal> Parser<'a, Input> for $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
         where
             Input: Parsable<'a>,
-            $($generics: Parser<'a, Input>,)*
-            $last_generic: Parser<'a, Input>
+            $($pascals: Parser<'a, Input>,)*
+            $last_pascal: Parser<'a, Input>
         {
-            type Output = $either_ident<$($generics::Output,)* $last_generic::Output>;
-            type Error = $last_generic::Error;
+            type Output = $either_ident<$($pascals::Output,)* $last_pascal::Output>;
+            type Error = $last_pascal::Error;
 
             fn parse(
                 self,
                 input: Input,
             ) -> Result<ParserOutput<'a, Input, Self::Output>, ParserError<Input::Item, Self::Error>> {
-                $(if let Ok(po) = self.$names_snake.parse(input).map(|po| po.map_output($either_ident::$names_pascal)) {
+                $(if let Ok(po) = self.$snake.parse(input).map(|po| po.map_output($either_ident::$pascals)) {
                     return Ok(po);
                 })*
 
-                self.$last_name_snake.parse(input)
-                    .map(|po| po.map_output($either_ident::$last_name_pascal))
+                self.$last_snake.parse(input)
+                    .map(|po| po.map_output($either_ident::$last_pascal))
             }
         }
     }
 }
 decl_either!(
     (Either, EitherFuture, EitherParser),
-    [(left, Left, A)],
-    (right, Right, B)
+    [(left, Left)],
+    (right, Right)
 );
 decl_either!(
     (Either3, EitherFuture3, EitherParser3),
     [
-        (first, First, A),
-        (second, Second, B)
+        (first, First),
+        (second, Second)
     ],
-    (third, Third, C)
+    (third, Third)
 );
 decl_either!(
     (Either4, EitherFuture4, EitherParser4),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C)
+        (first, First),
+        (second, Second),
+        (third, Third)
     ],
-    (fourth, Fourth, D)
+    (fourth, Fourth)
 );
 decl_either!(
     (Either5, EitherFuture5, EitherParser5),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth)
     ],
-    (fifth, Fifth, E)
+    (fifth, Fifth)
 );
 decl_either!(
     (Either6, EitherFuture6, EitherParser6),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth)
     ],
-    (sixth, Sixth, F)
+    (sixth, Sixth)
 );
 decl_either!(
     (Either7, EitherFuture7, EitherParser7),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth)
     ],
-    (seventh, Seventh, G)
+    (seventh, Seventh)
 );
 decl_either!(
     (Either8, EitherFuture8, EitherParser8),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F),
-        (seventh, Seventh, G)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth),
+        (seventh, Seventh)
     ],
-    (eighth, Eighth, H)
+    (eighth, Eighth)
 );
 decl_either!(
     (Either9, EitherFuture9, EitherParser9),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F),
-        (seventh, Seventh, G),
-        (eighth, Eighth, H)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth),
+        (seventh, Seventh),
+        (eighth, Eighth)
     ],
-    (nineth, Nineth, I)
+    (nineth, Nineth)
 );
 decl_either!(
     (Either10, EitherFuture10, EitherParser10),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F),
-        (seventh, Seventh, G),
-        (eighth, Eighth, H),
-        (nineth, Nineth, I)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth),
+        (seventh, Seventh),
+        (eighth, Eighth),
+        (nineth, Nineth)
     ],
-    (tenth, Tenth, J)
+    (tenth, Tenth)
 );
 decl_either!(
     (Either11, EitherFuture11, EitherParser11),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F),
-        (seventh, Seventh, G),
-        (eighth, Eighth, H),
-        (nineth, Nineth, I),
-        (tenth, Tenth, J)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth),
+        (seventh, Seventh),
+        (eighth, Eighth),
+        (nineth, Nineth),
+        (tenth, Tenth)
     ],
-    (eleventh, Eleventh, K)
+    (eleventh, Eleventh)
 );
 decl_either!(
     (Either12, EitherFuture12, EitherParser12),
     [
-        (first, First, A),
-        (second, Second, B),
-        (third, Third, C),
-        (fourth, Fourth, D),
-        (fifth, Fifth, E),
-        (sixth, Sixth, F),
-        (seventh, Seventh, G),
-        (eighth, Eighth, H),
-        (nineth, Nineth, I),
-        (tenth, Tenth, J),
-        (eleventh, Eleventh, K)
+        (first, First),
+        (second, Second),
+        (third, Third),
+        (fourth, Fourth),
+        (fifth, Fifth),
+        (sixth, Sixth),
+        (seventh, Seventh),
+        (eighth, Eighth),
+        (nineth, Nineth),
+        (tenth, Tenth),
+        (eleventh, Eleventh)
     ],
-    (twelveth, Twelveth, L)
+    (twelveth, Twelveth)
 );
 
 #[derive(Clone, Copy, Debug)]
