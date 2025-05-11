@@ -112,3 +112,34 @@ where
         Ok(ParserOutput::new(I::recover(r), self.seq))
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct Select<T>(pub T);
+macro_rules! impl_select {
+    ($car:ident) => {};
+    ($car:ident, $($cdr:ident),* $(,)?) => {
+        #[expect(non_camel_case_types)]
+        impl<'a, Input, Output, $car, $($cdr),*> Parser<'a, Input> for Select<($($cdr,)* $car)>
+        where
+            Input: Parsable<'a>,
+            $car: Parser<'a, Input, Output = Output>,
+            $($cdr: Parser<'a, Input, Output = Output>),*
+        {
+            type Error = $car::Error;
+            type Output = Output;
+
+            fn parse(self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, ParserError<Input::Item, Self::Error>> {
+                let Select(($($cdr,)* $car)) = self;
+
+                $(if let Ok(output) = $cdr.parse(input) {
+                    return Ok(output);
+                })*
+
+                $car.parse(input)
+            }
+        }
+
+        impl_select!($($cdr),*);
+    };
+}
+impl_select![a, b, c, d, e, f, g, h, i, j, k, l];
