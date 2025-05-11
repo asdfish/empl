@@ -1,7 +1,7 @@
 use {
     crate::{
         either::{Either, EitherFuture},
-        ext::{future::FutureExt, option::OptionExt},
+        ext::future::FutureExt,
         tasks::ChannelError,
     },
     tokio::sync::{mpsc, oneshot},
