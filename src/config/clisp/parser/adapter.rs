@@ -1,0 +1,94 @@
+use {
+    crate::{
+        config::clisp::parser::{
+            Parsable,
+            Parser,
+            ParserError,
+            ParserOutput,
+        },
+        either::Either,
+    },
+    std::{
+        marker::PhantomData,
+    },
+};
+
+/// [Parser] created by [Parser::either_or]
+#[derive(Clone, Copy, Debug)]
+pub struct EitherOr<'a, I, L, R>
+where
+    I: Parsable<'a> ,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    pub(super) l: L,
+    pub(super)r: R,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, L, R> Parser<'a, I> for EitherOr<'a, I, L, R>
+where
+    I: Parsable<'a> ,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    type Error = R::Error;
+    type Output = Either<L::Output, R::Output>;
+
+    fn parse(
+        self,
+        input: I,
+    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        if let Ok(po) = self.l.parse(input).map(|po| po.map_output(Either::Left)) {
+            return Ok(po);
+        }
+
+        self.r.parse(input).map(|po| po.map_output(Either::Right))
+    }
+}
+
+/// [Parser] created by [Parser::then]
+#[derive(Clone, Copy, Debug)]
+pub struct Then<'a, I, L, R>
+where
+    I: Parsable<'a> ,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    pub(super) l: L,
+    pub(super) r: R,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, L, R> Parser<'a, I> for Then<'a, I, L, R>
+where
+    I: Parsable<'a> ,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    type Error = Either<L::Error, R::Error>;
+    type Output = (L::Output, R::Output);
+
+    fn parse(
+        self,
+        input: I,
+    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        let items = input.items();
+        let ParserOutput {
+            next: items,
+            output: l,
+            ..
+        } = self
+            .l
+            .parse(I::recover(items))
+            .map_err(|err| err.map_custom(Either::Left))?;
+        let ParserOutput {
+            next: items,
+            output: r,
+            ..
+        } = self
+            .r
+            .parse(items)
+            .map_err(|err| err.map_custom(Either::Right))?;
+
+        Ok(ParserOutput::new(items, (l, r)))
+    }
+}
