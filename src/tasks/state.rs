@@ -1,8 +1,6 @@
 use {
     crate::{
         config::{KeyAction, Playlists},
-        ext::future::FutureExt,
-        select::Select,
         tasks::{
             audio::AudioAction,
             display::{
@@ -25,7 +23,6 @@ use {
 pub struct StateTask<'a> {
     cursor_cache: Box<[u16]>,
     pub audio_action_tx: mpsc::Sender<AudioAction>,
-    pub audio_completion_rx: mpsc::Receiver<()>,
     pub display_tx: mpsc::Sender<DamageList<'a>>,
     display_state: DisplayState<'a>,
     pub event_rx: mpsc::Receiver<Event>,
@@ -36,14 +33,12 @@ impl<'a> StateTask<'a> {
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
         audio_action_tx: mpsc::Sender<AudioAction>,
-        audio_completion_rx: mpsc::Receiver<()>,
         display_tx: mpsc::Sender<DamageList<'a>>,
         event_rx: mpsc::Receiver<Event>,
     ) -> Self {
         Self {
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
             audio_action_tx,
-            audio_completion_rx,
             display_tx,
             display_state,
             event_rx,
@@ -57,15 +52,13 @@ impl<'a> StateTask<'a> {
     }
 
     async fn play(&mut self, song_index: u16) -> Option<Result<DamageList<'a>, ChannelError<'a>>> {
-        let Some(path) = self
+        let path = self
             .display_state
             .playlists()
             .get(usize::from(self.display_state.selected_menu))
             .and_then(|(_, playlist)| playlist.get(usize::from(song_index)))
-            .map(|(_, path)| Arc::clone(path))
-        else {
-            return None;
-        };
+            .map(|(_, path)| Arc::clone(path))?;
+
         if let Err(err) = self.audio_action_tx.send(AudioAction::Play(path)).await {
             return Some(Err(ChannelError::from(err)));
         }
@@ -77,17 +70,10 @@ impl<'a> StateTask<'a> {
 
     pub async fn run(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
-            let damage_list = match Select::new(
+            let damage_list = match
                 self.event_rx
                     .recv()
-                    .pipe(|event| event.ok_or(ChannelError::Event(None))),
-                self.audio_completion_rx.recv().pipe(|event| {
-                    event
-                        .map(|_| Event::AudioFinished)
-                        .ok_or(ChannelError::AudioCompletion(None))
-                }),
-            )
-            .await?
+                    .await.ok_or(ChannelError::Event(None))?
             {
                 Event::AudioFinished | Event::KeyBinding(KeyAction::SkipSong) => {
                     let Some(len) = self

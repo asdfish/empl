@@ -14,6 +14,7 @@ use {
             EitherFuture,
         },
         tasks::{
+            state::Event,
             ChannelError,
             RecoverableError,
             TaskError,
@@ -36,10 +37,10 @@ pub enum AudioAction {
 }
 
 pub struct AudioTask {
-    action_rx: mpsc::Receiver<AudioAction>,
-    change_completion_notifier_tx: mpsc::Sender<oneshot::Receiver<()>>,
-    completion_notifier_tx: mpsc::Sender<()>,
-    error_rx: mpsc::Receiver<()>,
+    pub action_rx: mpsc::Receiver<AudioAction>,
+    pub change_completion_notifier_tx: mpsc::Sender<oneshot::Receiver<()>>,
+    pub event_tx: mpsc::Sender<Event>,
+    pub error_rx: mpsc::Receiver<()>,
     manager: Manager,
     _backend: Backend,
 }
@@ -47,7 +48,7 @@ impl AudioTask {
     pub fn new(
         action_rx: mpsc::Receiver<AudioAction>,
         change_completion_notifier_tx: mpsc::Sender<oneshot::Receiver<()>>,
-        completion_notifier_tx: mpsc::Sender<()>,
+        event_tx: mpsc::Sender<Event>,
     ) -> Result<Self, AudioBackendError> {
         let mut backend = Backend::with_defaults().ok_or(AudioBackendError::NoDevice)?;
         let (error_tx, error_rx) = mpsc::channel(1);
@@ -56,7 +57,7 @@ impl AudioTask {
         Ok(Self {
             action_rx,
             change_completion_notifier_tx,
-            completion_notifier_tx,
+            event_tx,
             error_rx,
             manager: backend
                 .start(move |_| {
@@ -68,8 +69,12 @@ impl AudioTask {
 
     async fn play<'a, P>(&mut self, path: &P) -> Result<(), ChannelError<'a>>
     where P: AsRef<Path> + ?Sized {
-        let (sound, completion_notifier) = sounds::open_file(path)
-            .map_err(|_| ChannelError::AudioCompletion(Some(())))?
+        let (sound, completion_notifier) = match sounds::open_file(path) {
+            Ok(s) => s,
+            Err(_) => {
+                return Ok(());
+            },
+        }
             .with_async_completion_notifier();
         self.change_completion_notifier_tx.send(completion_notifier).await?;
 

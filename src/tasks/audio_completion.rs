@@ -1,26 +1,29 @@
 use {
     crate::{
         either::{Either, EitherFuture},
-        tasks::ChannelError,
+        tasks::{
+            ChannelError,
+            state::Event,
+        },
     },
     tokio::sync::{mpsc, oneshot},
 };
 
 #[derive(Debug)]
 pub struct AudioCompletionTask {
-    change_completion_notifier_rx: mpsc::Receiver<oneshot::Receiver<()>>,
-    completion_rx: Option<oneshot::Receiver<()>>,
-    completion_tx: mpsc::Sender<()>,
+    pub change_completion_notifier_rx: mpsc::Receiver<oneshot::Receiver<()>>,
+    pub completion_rx: Option<oneshot::Receiver<()>>,
+    pub event_tx: mpsc::Sender<Event>,
 }
 impl AudioCompletionTask {
     pub const fn new(
         change_completion_notifier_rx: mpsc::Receiver<oneshot::Receiver<()>>,
-        completion_tx: mpsc::Sender<()>,
+        event_tx: mpsc::Sender<Event>,
     ) -> Self {
         Self {
             change_completion_notifier_rx,
             completion_rx: None,
-            completion_tx,
+            event_tx,
         }
     }
 
@@ -37,10 +40,9 @@ impl AudioCompletionTask {
                     Either::Left(None) => break Err(ChannelError::ChangeCompletionNotifier(None)),
                     Either::Right(_) => {
                         self
-                            .completion_tx
-                            .send(())
-                            .await
-                            .map_err(|_| ChannelError::AudioCompletion(Some(())))?
+                            .event_tx
+                            .send(Event::AudioFinished)
+                            .await?
                     }
                 }
             } else {
