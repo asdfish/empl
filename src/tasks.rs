@@ -262,12 +262,22 @@ impl<'a> RecoverableError<'a> {
                 let result = new_tx.send(msg).await;
                 debug_assert!(result.is_ok());
             }
+            *rx = new_rx;
             match tx {
                 [] => {}
                 [tx] => **tx = new_tx,
-                txs => txs.iter_mut().for_each(|tx| **tx = new_tx.clone()),
+                txs => {
+                    let mut txs = txs.iter_mut().peekable();
+                    while let Some(tx) = txs.next() {
+                        if txs.peek().is_none() {
+                            **tx = new_tx;
+                            return;
+                        }
+
+                        **tx = new_tx.clone();
+                    }
+                }
             }
-            *rx = new_rx;
         }
 
         match self {
