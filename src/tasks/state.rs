@@ -64,6 +64,7 @@ impl<'a> StateTask<'a> {
         }
 
         Some(Ok(self.display_state.write(|state| {
+            state.selected_song.playlist = state.selected_menu;
             state.selected_song.index = song_index;
         })))
     }
