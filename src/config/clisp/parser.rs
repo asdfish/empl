@@ -68,7 +68,7 @@ where
 
 pub trait Parser<'a, I>: Sized
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
 {
     type Error;
     type Output;
@@ -134,7 +134,7 @@ where
     T: PartialEq;
 impl<'a, I, T> Parser<'a, I> for Just<T>
 where
-    I: Parsable<'a, Item = T> + ?Sized,
+    I: Parsable<'a, Item = T> ,
     T: PartialEq,
 {
     type Error = Infallible;
@@ -167,7 +167,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct Sequence<'a, T>
 where
-    T: Parsable<'a> + ?Sized,
+    T: Parsable<'a> ,
     T::Item: PartialEq,
 {
     seq: T,
@@ -175,7 +175,7 @@ where
 }
 impl<'a, T> Sequence<'a, T>
 where
-    T: Parsable<'a> + ?Sized,
+    T: Parsable<'a> ,
     T::Item: PartialEq,
 {
     pub const fn new(seq: T) -> Self {
@@ -187,7 +187,7 @@ where
 }
 impl<'a, I> Parser<'a, I> for Sequence<'a, I>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     I::Item: PartialEq,
 {
     type Error = Infallible;
@@ -222,7 +222,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct EitherOr<'a, I, L, R>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     L: Parser<'a, I>,
     R: Parser<'a, I>,
 {
@@ -232,7 +232,7 @@ where
 }
 impl<'a, I, L, R> Parser<'a, I> for EitherOr<'a, I, L, R>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     L: Parser<'a, I>,
     R: Parser<'a, I>,
 {
@@ -255,7 +255,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct Then<'a, I, L, R>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     L: Parser<'a, I>,
     R: Parser<'a, I>,
 {
@@ -265,7 +265,7 @@ where
 }
 impl<'a, I, L, R> Parser<'a, I> for Then<'a, I, L, R>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     L: Parser<'a, I>,
     R: Parser<'a, I>,
 {
@@ -301,7 +301,7 @@ where
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
 {
     pub next: I,
     pub output: O,
@@ -309,7 +309,7 @@ where
 }
 impl<'a, I, O> PartialEq<O> for ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
     O: PartialEq,
 {
     fn eq(&self, r: &O) -> bool {
@@ -318,7 +318,7 @@ where
 }
 impl<'a, I, O> ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> + ?Sized,
+    I: Parsable<'a> ,
 {
     pub const fn new(next: I, output: O) -> Self {
         Self {
