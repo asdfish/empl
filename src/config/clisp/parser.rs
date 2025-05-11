@@ -1,14 +1,16 @@
 //! Parser combinators
 
 use {
-    crate::either::Either,
-    std::{error::Error, marker::PhantomData, slice, str},
+    crate::either::{Either, EitherOrBoth},
+    std::{convert::Infallible, marker::PhantomData, slice::{self, SliceIndex}, str},
 };
 
 pub trait Parsable<'a> {
     type Item;
     type Iter: Iterator<Item = Self::Item>;
 
+    fn index<I>(&'a self, _: I) -> Option<&'a <I as SliceIndex<Self>>::Output>
+    where I: SliceIndex<Self>;
     fn item_len(_: Self::Item) -> usize;
     fn items(&'a self) -> Self::Iter;
     fn recover(_: Self::Iter) -> &'a Self;
@@ -17,6 +19,10 @@ impl<'a> Parsable<'a> for str {
     type Item = char;
     type Iter = str::Chars<'a>;
 
+    fn index<I>(&'a self, index: I) -> Option<&'a <I as SliceIndex<Self>>::Output>
+    where I: SliceIndex<Self> {
+        self.get(index)
+    }
     fn item_len(ch: Self::Item) -> usize {
         ch.len_utf8()
     }
@@ -34,6 +40,10 @@ where
     type Item = &'a T;
     type Iter = slice::Iter<'a, T>;
 
+    fn index<I>(&'a self, index: I) -> Option<&'a <I as SliceIndex<Self>>::Output>
+    where I: SliceIndex<Self> {
+        self.get(index)
+    }
     fn item_len(_: Self::Item) -> usize {
         1
     }
@@ -67,7 +77,9 @@ where
     /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(ParserError::Match { expected: 'i', found: 'o' }));
     /// ```
     fn then<R>(self, r: R) -> Then<'a, I, Self, R>
-    where R: Parser<'a, I> {
+    where
+        R: Parser<'a, I>,
+    {
         Then {
             l: self,
             r,
@@ -94,7 +106,7 @@ where
     I: Parsable<'a, Item = T> + ?Sized,
     T: PartialEq,
 {
-    type Error = ();
+    type Error = Infallible;
     type Output = T;
 
     fn parse(
@@ -113,6 +125,49 @@ where
                 found: item,
             }),
         }
+    }
+}
+
+/// Identity parser for sequences
+///
+/// # Examples
+/// ```
+/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Sequence};
+/// assert_eq!(Sequence("hello").parse("hello world"), Ok(ParserOutput { next: " world", output: "hello" }));
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct Sequence<'a, T>(pub &'a T)
+where
+    T: Parsable<'a> + ?Sized,
+    T::Item: PartialEq;
+impl<'a, I> Parser<'a, I> for Sequence<'a, I>
+where
+    I: Parsable<'a> + ?Sized,
+    I::Item: PartialEq,
+{
+    type Error = Infallible;
+    type Output = &'a I;
+
+    fn parse(
+        self,
+        input: &'a I,
+    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        let mut l = self.0.items();
+        let mut r = input.items();
+
+        while let Some(state) = EitherOrBoth::new_lazy_left(|| l.next(), || r.next()) {
+            match state {
+                EitherOrBoth::Left(_) => return Err(ParserError::Eof),
+                EitherOrBoth::Right(_) => break,
+                EitherOrBoth::Both(l, r) if l == r => continue,
+                EitherOrBoth::Both(l, r) => return Err(ParserError::Match { expected: l, found: r }),
+            }
+        }
+
+        Ok(ParserOutput {
+            next: I::recover(r),
+            output: self.0,
+        })
     }
 }
 

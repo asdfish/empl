@@ -217,4 +217,19 @@ impl<L, R> EitherOrBoth<L, R> {
             (None, None) => None,
         }
     }
+
+    /// Lazy constructor that executes the left function first.
+    ///
+    /// Never constructs [Self::Right].
+    ///
+    /// Returns [None] if `l` returns [None].
+    pub fn new_lazy_left<F, G>(l: F, r: G) -> Option<Self>
+    where F: FnOnce() -> Option<L>,
+    G: FnOnce() -> Option<R> {
+        let l = l()?;
+        match r() {
+            Some(r) => Some(Self::Both(l, r)),
+            None => Some(Self::Left(l)),
+        }
+    }
 }
