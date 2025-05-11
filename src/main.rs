@@ -13,7 +13,7 @@ use {
         fmt::{self, Display, Formatter},
         io,
     },
-    tokio::runtime::Runtime,
+    tokio::runtime,
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
@@ -45,7 +45,8 @@ Options:
 
         let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
 
-        let runtime = Runtime::new() 
+        let runtime = runtime::Builder::new_current_thread() 
+            .build()
             .map_err(MainError::Runtime)?;
         runtime.block_on(async move {
             TaskManager::new(&playlists)

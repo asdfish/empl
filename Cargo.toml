@@ -13,5 +13,5 @@ enum-map = { version = "2.7.3", default-features = false }
 futures-core = { version = "0.3.31", default-features = false }
 nonempty-collections = { version = "0.3.0", default-features = false }
 pin-project-lite = { version = "0.2.16", default-features = false }
-tokio = { version = "1.45.0", default-features = false, features = ["io-std", "io-util", "rt-multi-thread", "sync"] }
+tokio = { version = "1.45.0", default-features = false, features = ["io-std", "io-util", "rt", "sync"] }
 unicode-width = { version = "0.2.0", default-features = false }
