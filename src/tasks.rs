@@ -1,4 +1,5 @@
 pub mod audio;
+pub mod audio_completion;
 pub mod display;
 pub mod state;
 pub mod terminal_event;
@@ -10,9 +11,10 @@ use {
             command::{CommandChain, CommandExt},
             future::FutureExt,
         },
-        select::{Select, Select3},
+        select::{Select, Select4},
         tasks::{
             audio::{AudioAction, AudioTask},
+            audio_completion::AudioCompletionTask,
             display::{
                 DisplayTask,
                 damage::{Damage, DamageList},
@@ -34,11 +36,12 @@ use {
         fmt::{self, Display, Formatter},
         io::{self, Write},
     },
-    tokio::{io::{AsyncWriteExt, stdout}, sync::mpsc},
+    tokio::{io::{AsyncWriteExt, stdout}, sync::{mpsc, oneshot}},
 };
 
 pub struct TaskManager<'a> {
     audio: AudioTask,
+    audio_completion: AudioCompletionTask,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
     terminal_event: TerminalEventTask,
@@ -47,6 +50,7 @@ impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
         let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
         let (audio_completion_tx, audio_completion_rx) = mpsc::unbounded_channel();
+        let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::unbounded_channel();
         let (display_tx, display_rx) = mpsc::unbounded_channel();
         let display_state = DisplayState::new(playlists);
@@ -67,7 +71,8 @@ impl<'a> TaskManager<'a> {
         stdout.flush().await?;
 
         Ok(Self {
-            audio: AudioTask::new(audio_action_rx, audio_completion_tx)?,
+            audio: AudioTask::new(audio_action_rx, change_completion_notifier_tx, audio_completion_tx.clone())?,
+            audio_completion: AudioCompletionTask::new(change_completion_notifier_rx, audio_completion_tx),
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
                 display_state,
@@ -80,45 +85,13 @@ impl<'a> TaskManager<'a> {
             terminal_event: TerminalEventTask::new(event_tx),
         })
     }
-    fn recover(&mut self, err: ChannelError<'a>) {
-        fn recover_channel<T>(
-            tx: &mut [&mut mpsc::UnboundedSender<T>],
-            rx: &mut mpsc::UnboundedReceiver<T>,
-            msg: Option<T>,
-        ) {
-            let (new_tx, new_rx) = mpsc::unbounded_channel();
-            if let Some(msg) = msg {
-                let result = new_tx.send(msg);
-                debug_assert!(result.is_ok());
-            }
-            match tx {
-                [] => {}
-                [tx] => **tx = new_tx,
-                txs => txs.iter_mut().for_each(|tx| **tx = new_tx.clone()),
-            }
-            *rx = new_rx;
-        }
-
-        match err {
-            ChannelError::Event(msg) => recover_channel(
-                &mut [&mut self.terminal_event.event_tx],
-                &mut self.state.event_rx,
-                msg,
-            ),
-            ChannelError::Display(msg) => recover_channel(
-                &mut [&mut self.state.display_tx],
-                &mut self.display.display_rx,
-                msg,
-            ),
-            _ => todo!("channel recovery"),
-        }
-    }
 
     pub async fn run(&mut self) -> Result<(), UnrecoverableError> {
         loop {
             match Select::new(
                 self.audio.run(),
-                Select3::new(
+                Select4::new(
+                    self.audio_completion.run(),
                     self.display.run(),
                     self.state.run(),
                     self.terminal_event.run(),
@@ -146,7 +119,8 @@ impl Drop for TaskManager<'_> {
 #[derive(Debug)]
 pub enum ChannelError<'a> {
     AudioAction(Option<AudioAction>),
-    AudioCompletion,
+    AudioCompletion(Option<()>),
+    ChangeCompletionNotifier(Option<oneshot::Receiver<()>>),
     Event(Option<Event>),
     Display(Option<DamageList<'a>>),
 }
@@ -154,7 +128,8 @@ impl ChannelError<'_> {
     const fn as_str(&self) -> &str {
         match self {
             Self::AudioAction(_) => "audio action",
-            Self::AudioCompletion => "audio completion",
+            Self::AudioCompletion(_) => "audio completion",
+            Self::ChangeCompletionNotifier(_) => "change completion notifier",
             Self::Event(_) => "event",
             Self::Display(_) => "display",
         }
@@ -169,6 +144,11 @@ impl Error for ChannelError<'_> {}
 impl From<mpsc::error::SendError<AudioAction>> for ChannelError<'_> {
     fn from(err: mpsc::error::SendError<AudioAction>) -> Self {
         Self::AudioAction(Some(err.0))
+    }
+}
+impl From<mpsc::error::SendError<oneshot::Receiver<()>>> for ChannelError<'_> {
+    fn from(err: mpsc::error::SendError<oneshot::Receiver<()>>) -> Self {
+        Self::ChangeCompletionNotifier(Some(err.0))
     }
 }
 impl<'a> From<mpsc::error::SendError<DamageList<'a>>> for ChannelError<'a> {
@@ -225,6 +205,16 @@ impl<'a> TaskError<'a> {
             Self::Recoverable(err) => Ok(err.recover(task_manager)),
             Self::Unrecoverable(err) => Err(err),
         }
+    }
+}
+impl<'a> From<RecoverableError<'a>> for TaskError<'a> {
+    fn from(err: RecoverableError<'a>) -> Self {
+        Self::Recoverable(err)
+    }
+}
+impl From<UnrecoverableError> for TaskError<'_> {
+    fn from(err: UnrecoverableError) -> Self {
+        Self::Unrecoverable(err)
     }
 }
 
