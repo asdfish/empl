@@ -1,7 +1,7 @@
 use {
     awedio::{
         backends::{
-            CpalBackend,
+            CpalBackend as Backend,
             CpalBackendError as AudioBackendError,
         },
         manager::Manager,
@@ -39,8 +39,9 @@ pub struct AudioTask {
     action_rx: mpsc::UnboundedReceiver<AudioAction>,
     change_completion_notifier_tx: mpsc::UnboundedSender<oneshot::Receiver<()>>,
     completion_notifier_tx: mpsc::UnboundedSender<()>,
-    error_rx: oneshot::Receiver<()>,
+    error_rx: mpsc::UnboundedReceiver<()>,
     manager: Manager,
+    _backend: Backend,
 }
 impl AudioTask {
     pub fn new(
@@ -48,20 +49,20 @@ impl AudioTask {
         change_completion_notifier_tx: mpsc::UnboundedSender<oneshot::Receiver<()>>,
         completion_notifier_tx: mpsc::UnboundedSender<()>,
     ) -> Result<Self, AudioBackendError> {
-        let (error_tx, error_rx) = oneshot::channel();
-        let mut error_tx = Some(error_tx);
+        let mut backend = Backend::with_defaults().ok_or(AudioBackendError::NoDevice)?;
+        let (error_tx, error_rx) = mpsc::unbounded_channel();
+        let mut error_tx = error_tx;
 
         Ok(Self {
             action_rx,
             change_completion_notifier_tx,
             completion_notifier_tx,
             error_rx,
-            manager: CpalBackend::with_defaults().ok_or(AudioBackendError::NoDevice)?
+            manager: backend
                 .start(move |_| {
-                    if let Some(error_tx) = error_tx.take() {
-                        let _ = error_tx.send(());
-                    }
+                    let _ = error_tx.send(());
                 })?,
+            _backend: backend,
         })
     }
 
@@ -80,11 +81,11 @@ impl AudioTask {
 
     pub async fn run<'a>(&mut self) -> Result<(), TaskError<'a>> {
         loop {
-            match EitherFuture::new(self.action_rx.recv(), &mut self.error_rx).await {
+            match EitherFuture::new(self.action_rx.recv(), self.error_rx.recv()).await {
                 Either::Left(Some(AudioAction::Play(path))) => {
                     self.play(&path)
                         .map_err(RecoverableError::Channel)
-                        .map_err(TaskError::Recoverable);
+                        .map_err(TaskError::Recoverable)?;
                 },
                 Either::Left(None) => break Err(TaskError::Recoverable(RecoverableError::Channel(ChannelError::AudioAction(None)))),
                 Either::Right(_) => break Err(TaskError::Unrecoverable(UnrecoverableError::Stream)),
