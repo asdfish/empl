@@ -36,10 +36,13 @@ impl AudioCompletionTask {
                 {
                     Either::Left(Some(completion_rx)) => self.completion_rx = Some(completion_rx),
                     Either::Left(None) => break Err(ChannelError::ChangeCompletionNotifier(None)),
-                    Either::Right(_) => self
-                        .completion_tx
-                        .send(())
-                        .map_err(|_| ChannelError::AudioCompletion(Some(())))?,
+                    Either::Right(_) => {
+                        self.completion_rx = Some(completion_rx);
+                        self
+                            .completion_tx
+                            .send(())
+                            .map_err(|_| ChannelError::AudioCompletion(Some(())))?
+                    }
                 }
             } else {
                 self.completion_rx = Some(

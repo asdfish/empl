@@ -35,6 +35,7 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         io::{self, Write},
+        sync::Arc,
     },
     tokio::{io::{AsyncWriteExt, stdout}, sync::{mpsc, oneshot}},
 };
@@ -49,6 +50,7 @@ pub struct TaskManager<'a> {
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
         let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
+        let _ = audio_action_tx.send(AudioAction::Play(Arc::clone(&playlists.first().1.first().1)));
         let (audio_completion_tx, audio_completion_rx) = mpsc::unbounded_channel();
         let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::unbounded_channel();
         let (event_tx, event_rx) = mpsc::unbounded_channel();
