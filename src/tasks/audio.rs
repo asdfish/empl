@@ -1,6 +1,6 @@
 use {
     crate::{
-        either::{Either, EitherFuture},
+        either::{Either, EitherOutput},
         tasks::{ChannelError, RecoverableError, TaskError, UnrecoverableError, state::Event},
     },
     awedio::{
@@ -69,7 +69,7 @@ impl AudioTask {
 
     pub async fn run<'a>(&mut self) -> Result<(), TaskError<'a>> {
         loop {
-            match EitherFuture::new(self.action_rx.recv(), self.error_rx.recv()).await {
+            match EitherOutput::new(self.action_rx.recv(), self.error_rx.recv()).await {
                 Either::Left(Some(AudioAction::Play(path))) => {
                     self.manager.clear();
                     self.play(&path)

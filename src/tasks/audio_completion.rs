@@ -1,6 +1,6 @@
 use {
     crate::{
-        either::{Either, EitherFuture},
+        either::{Either, EitherOutput},
         tasks::{ChannelError, state::Event},
     },
     tokio::sync::{mpsc, oneshot},
@@ -27,7 +27,7 @@ impl AudioCompletionTask {
     pub async fn run<'a>(&mut self) -> Result<(), ChannelError<'a>> {
         loop {
             if let Some(mut completion_rx) = self.completion_rx.take() {
-                match EitherFuture::new(
+                match EitherOutput::new(
                     self.change_completion_notifier_rx.recv(),
                     &mut completion_rx,
                 )

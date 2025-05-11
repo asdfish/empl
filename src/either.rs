@@ -9,7 +9,7 @@ use {
         error::Error,
         fmt::{self, Debug, Display, Formatter},
         io,
-        marker::{PhantomData, Unpin},
+        marker::Unpin,
         pin::Pin,
         task::{Context, Poll},
     },
@@ -18,7 +18,7 @@ use {
 
 macro_rules! decl_either {
     (
-        ($either_ident:ident, $either_future_ident:ident, $either_parser_ident:ident),
+        ($either_ident:ident, $either_output:ident),
         [$(($snake:ident, $pascals:ident)),* $(,)? ],
         ($last_snake:ident, $last_pascal:ident)
     ) => {
@@ -58,12 +58,12 @@ macro_rules! decl_either {
 
         pin_project! {
             #[derive(Clone, Copy, Debug)]
-            pub struct $either_future_ident<$($pascals,)* $last_pascal> {
+            pub struct $either_output<$($pascals,)* $last_pascal> {
                 $(#[pin] $snake: $pascals,)*
                 #[pin] $last_snake: $last_pascal,
             }
         }
-        impl<$($pascals,)* $last_pascal> $either_future_ident<$($pascals,)* $last_pascal>
+        impl<$($pascals,)* $last_pascal> $either_output<$($pascals,)* $last_pascal>
         where $($pascals: Future,)* $last_pascal: Future {
             #[allow(clippy::too_many_arguments)]
             pub const fn new($($snake: $pascals,)* $last_snake: $last_pascal) -> Self {
@@ -73,7 +73,7 @@ macro_rules! decl_either {
                 }
             }
         }
-        impl<$($pascals,)* $last_pascal> Future for $either_future_ident<$($pascals,)* $last_pascal>
+        impl<$($pascals,)* $last_pascal> Future for $either_output<$($pascals,)* $last_pascal>
         where $($pascals: Future,)* $last_pascal: Future {
             type Output = $either_ident<$($pascals::Output,)* $last_pascal::Output>;
 
@@ -93,35 +93,7 @@ macro_rules! decl_either {
             }
         }
 
-        #[derive(Clone, Copy, Debug)]
-        pub struct $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
-        where
-            Input: Parsable<'a>,
-            $($pascals: Parser<'a, Input>,)*
-            $last_pascal: Parser<'a, Input>
-        {
-            _marker: PhantomData<&'a Input>,
-            $($snake: $pascals,)*
-            $last_snake: $last_pascal,
-        }
-
-        impl<'a, Input, $($pascals,)* $last_pascal> $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
-        where
-            Input: Parsable<'a>,
-            $($pascals: Parser<'a, Input>,)*
-            $last_pascal: Parser<'a, Input>
-        {
-            #[allow(clippy::too_many_arguments)]
-            pub const fn new($($snake: $pascals,)* $last_snake: $last_pascal) -> Self {
-                Self {
-                    _marker: PhantomData,
-                    $last_snake,
-                    $($snake),*
-                }
-            }
-        }
-
-        impl<'a, Input, $($pascals,)* $last_pascal> Parser<'a, Input> for $either_parser_ident<'a, Input, $($pascals,)* $last_pascal>
+        impl<'a, Input, $($pascals,)* $last_pascal> Parser<'a, Input> for $either_output<$($pascals,)* $last_pascal>
         where
             Input: Parsable<'a>,
             $($pascals: Parser<'a, Input>,)*
@@ -145,12 +117,12 @@ macro_rules! decl_either {
     }
 }
 decl_either!(
-    (Either, EitherFuture, EitherParser),
+    (Either, EitherOutput),
     [(left, Left)],
     (right, Right)
 );
 decl_either!(
-    (Either3, EitherFuture3, EitherParser3),
+    (Either3, EitherOutput3),
     [
         (first, First),
         (second, Second)
@@ -158,7 +130,7 @@ decl_either!(
     (third, Third)
 );
 decl_either!(
-    (Either4, EitherFuture4, EitherParser4),
+    (Either4, EitherOutput4),
     [
         (first, First),
         (second, Second),
@@ -167,7 +139,7 @@ decl_either!(
     (fourth, Fourth)
 );
 decl_either!(
-    (Either5, EitherFuture5, EitherParser5),
+    (Either5, EitherOutput5),
     [
         (first, First),
         (second, Second),
@@ -177,7 +149,7 @@ decl_either!(
     (fifth, Fifth)
 );
 decl_either!(
-    (Either6, EitherFuture6, EitherParser6),
+    (Either6, EitherOutput6),
     [
         (first, First),
         (second, Second),
@@ -188,7 +160,7 @@ decl_either!(
     (sixth, Sixth)
 );
 decl_either!(
-    (Either7, EitherFuture7, EitherParser7),
+    (Either7, EitherOutput7),
     [
         (first, First),
         (second, Second),
@@ -200,7 +172,7 @@ decl_either!(
     (seventh, Seventh)
 );
 decl_either!(
-    (Either8, EitherFuture8, EitherParser8),
+    (Either8, EitherOutput8),
     [
         (first, First),
         (second, Second),
@@ -213,7 +185,7 @@ decl_either!(
     (eighth, Eighth)
 );
 decl_either!(
-    (Either9, EitherFuture9, EitherParser9),
+    (Either9, EitherOutput9),
     [
         (first, First),
         (second, Second),
@@ -227,7 +199,7 @@ decl_either!(
     (nineth, Nineth)
 );
 decl_either!(
-    (Either10, EitherFuture10, EitherParser10),
+    (Either10, EitherOutput10),
     [
         (first, First),
         (second, Second),
@@ -242,7 +214,7 @@ decl_either!(
     (tenth, Tenth)
 );
 decl_either!(
-    (Either11, EitherFuture11, EitherParser11),
+    (Either11, EitherOutput11),
     [
         (first, First),
         (second, Second),
@@ -258,7 +230,7 @@ decl_either!(
     (eleventh, Eleventh)
 );
 decl_either!(
-    (Either12, EitherFuture12, EitherParser12),
+    (Either12, EitherOutput12),
     [
         (first, First),
         (second, Second),
