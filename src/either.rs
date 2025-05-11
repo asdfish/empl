@@ -4,6 +4,8 @@ use {
     pin_project_lite::pin_project,
     std::{
         io,
+        error::Error,
+        fmt::{self, Debug, Display, Formatter},
         marker::Unpin,
         pin::Pin,
         task::{Context, Poll},
@@ -13,10 +15,20 @@ use {
 
 macro_rules! decl_either {
     (($either_ident:ident, $either_future_ident:ident), [$(($names_snake:ident, $names_pascal:ident, $generics:ident, $out_generics:ident)),* $(,)?]) => {
-        #[derive(Clone, Copy, Debug)]
+        #[derive(Clone, Copy, Debug, PartialEq)]
         pub enum $either_ident<$($generics),*> {
             $($names_pascal($generics)),*
         }
+        impl<$($generics),*> Display for $either_ident<$($generics),*>
+        where $($generics: Display),* {
+            fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+                match self {
+                    $(Self::$names_pascal(d) => d.fmt(f)),*
+                }
+            }
+        }
+        impl<$($generics),*> Error for $either_ident<$($generics),*>
+        where $($generics: Debug + Display),* {}
 
         impl<$($generics),*> CommandChain for $either_ident<$($generics),*>
         where $($generics: CommandChain),* {

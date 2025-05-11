@@ -221,7 +221,7 @@ pub struct Song {
 
 #[cfg(test)]
 mod tests {
-    use {super::*, nonempty_collections::NEVec, std::path::PathBuf};
+    use {super::*, nonempty_collections::NEVec, std::{path::PathBuf, sync::Arc}};
 
     #[test]
     fn display_state_is_visible() {
@@ -235,10 +235,14 @@ mod tests {
                 })
             },
             cursors: EnumMap::default(),
-            selected_song: None,
+            selected_menu: 0,
+            selected_song: Song {
+                playlist: 0,
+                index: 0,
+            },
             playlists: &NEVec::new((
                 String::from(""),
-                NEVec::new((String::from(""), PathBuf::new())),
+                NEVec::new((String::from(""), Arc::from(PathBuf::from("")))),
             )),
         };
 

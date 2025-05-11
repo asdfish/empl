@@ -1,4 +1,4 @@
-//! Configuration file inspired by suckless programs.
+pub mod clisp;
 
 use {
     crossterm::{
