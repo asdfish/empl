@@ -3,6 +3,7 @@ authors = ["asdfish"]
 description = "terminal music player"
 edition = "2024"
 license = "GPL-3.0-or-later"
+readme = "README.md"
 name = "empl"
 repository = "https://github.com/asdfish/empl"
 version = "1.0.0"
