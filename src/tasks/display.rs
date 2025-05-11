@@ -17,13 +17,13 @@ use {
 pub struct DisplayTask<'a> {
     alloc: Bump,
     stdout: Stdout,
-    pub display_rx: mpsc::UnboundedReceiver<DamageList<'a>>,
+    pub display_rx: mpsc::Receiver<DamageList<'a>>,
 }
 impl<'a> DisplayTask<'a> {
     pub fn new(
         alloc: Bump,
         stdout: Stdout,
-        display_rx: mpsc::UnboundedReceiver<DamageList<'a>>,
+        display_rx: mpsc::Receiver<DamageList<'a>>,
     ) -> Self {
         Self {
             alloc,

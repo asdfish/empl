@@ -1,7 +1,6 @@
 use {
     crate::{
         either::{Either, EitherFuture},
-        ext::future::FutureExt,
         tasks::ChannelError,
     },
     tokio::sync::{mpsc, oneshot},
@@ -9,14 +8,14 @@ use {
 
 #[derive(Debug)]
 pub struct AudioCompletionTask {
-    change_completion_notifier_rx: mpsc::UnboundedReceiver<oneshot::Receiver<()>>,
+    change_completion_notifier_rx: mpsc::Receiver<oneshot::Receiver<()>>,
     completion_rx: Option<oneshot::Receiver<()>>,
-    completion_tx: mpsc::UnboundedSender<()>,
+    completion_tx: mpsc::Sender<()>,
 }
 impl AudioCompletionTask {
     pub const fn new(
-        change_completion_notifier_rx: mpsc::UnboundedReceiver<oneshot::Receiver<()>>,
-        completion_tx: mpsc::UnboundedSender<()>,
+        change_completion_notifier_rx: mpsc::Receiver<oneshot::Receiver<()>>,
+        completion_tx: mpsc::Sender<()>,
     ) -> Self {
         Self {
             change_completion_notifier_rx,
@@ -41,6 +40,7 @@ impl AudioCompletionTask {
                         self
                             .completion_tx
                             .send(())
+                            .await
                             .map_err(|_| ChannelError::AudioCompletion(Some(())))?
                     }
                 }

@@ -17,20 +17,20 @@ use {
 #[derive(Debug)]
 pub struct StateTask<'a> {
     cursor_cache: Box<[u16]>,
-    pub audio_action_tx: mpsc::UnboundedSender<AudioAction>,
-    pub audio_completion_rx: mpsc::UnboundedReceiver<()>,
-    pub display_tx: mpsc::UnboundedSender<DamageList<'a>>,
+    pub audio_action_tx: mpsc::Sender<AudioAction>,
+    pub audio_completion_rx: mpsc::Receiver<()>,
+    pub display_tx: mpsc::Sender<DamageList<'a>>,
     display_state: DisplayState<'a>,
-    pub event_rx: mpsc::UnboundedReceiver<Event>,
+    pub event_rx: mpsc::Receiver<Event>,
 }
 impl<'a> StateTask<'a> {
     pub fn new(
         display_state: DisplayState<'a>,
         playlists: &'a Playlists,
-        audio_action_tx: mpsc::UnboundedSender<AudioAction>,
-        audio_completion_rx: mpsc::UnboundedReceiver<()>,
-        display_tx: mpsc::UnboundedSender<DamageList<'a>>,
-        event_rx: mpsc::UnboundedReceiver<Event>,
+        audio_action_tx: mpsc::Sender<AudioAction>,
+        audio_completion_rx: mpsc::Receiver<()>,
+        display_tx: mpsc::Sender<DamageList<'a>>,
+        event_rx: mpsc::Receiver<Event>,
     ) -> Self {
         Self {
             cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
@@ -107,10 +107,10 @@ impl<'a> StateTask<'a> {
                     {
                         let Some(path) = self.display_state.playlists().get(usize::from(self.display_state.selected_menu))
                             .and_then(|(_, playlist)| playlist.get(usize::from(self.display_state.cursors[Focus::Songs])))
-                            .map(|(_, path)| Arc::clone(&path)) else {
+                            .map(|(_, path)| Arc::clone(path)) else {
                             continue;
                         };
-                        self.audio_action_tx.send(AudioAction::Play(path))?;
+                        self.audio_action_tx.send(AudioAction::Play(path)).await?;
 
                         self.display_state.write(|state| {
                             state.selected_song.index = state.cursors[Focus::Songs];
@@ -121,7 +121,7 @@ impl<'a> StateTask<'a> {
                         state.terminal_area = Some(area);
                     }),
                 },
-            )?;
+            ).await?;
         }
     }
 }

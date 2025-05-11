@@ -36,22 +36,22 @@ pub enum AudioAction {
 }
 
 pub struct AudioTask {
-    action_rx: mpsc::UnboundedReceiver<AudioAction>,
-    change_completion_notifier_tx: mpsc::UnboundedSender<oneshot::Receiver<()>>,
-    completion_notifier_tx: mpsc::UnboundedSender<()>,
-    error_rx: mpsc::UnboundedReceiver<()>,
+    action_rx: mpsc::Receiver<AudioAction>,
+    change_completion_notifier_tx: mpsc::Sender<oneshot::Receiver<()>>,
+    completion_notifier_tx: mpsc::Sender<()>,
+    error_rx: mpsc::Receiver<()>,
     manager: Manager,
     _backend: Backend,
 }
 impl AudioTask {
     pub fn new(
-        action_rx: mpsc::UnboundedReceiver<AudioAction>,
-        change_completion_notifier_tx: mpsc::UnboundedSender<oneshot::Receiver<()>>,
-        completion_notifier_tx: mpsc::UnboundedSender<()>,
+        action_rx: mpsc::Receiver<AudioAction>,
+        change_completion_notifier_tx: mpsc::Sender<oneshot::Receiver<()>>,
+        completion_notifier_tx: mpsc::Sender<()>,
     ) -> Result<Self, AudioBackendError> {
         let mut backend = Backend::with_defaults().ok_or(AudioBackendError::NoDevice)?;
-        let (error_tx, error_rx) = mpsc::unbounded_channel();
-        let mut error_tx = error_tx;
+        let (error_tx, error_rx) = mpsc::channel(1);
+        let error_tx = error_tx;
 
         Ok(Self {
             action_rx,
@@ -60,18 +60,18 @@ impl AudioTask {
             error_rx,
             manager: backend
                 .start(move |_| {
-                    let _ = error_tx.send(());
+                    let _ = error_tx.blocking_send(());
                 })?,
             _backend: backend,
         })
     }
 
-    fn play<'a, P>(&mut self, path: &P) -> Result<(), ChannelError<'a>>
+    async fn play<'a, P>(&mut self, path: &P) -> Result<(), ChannelError<'a>>
     where P: AsRef<Path> + ?Sized {
         let (sound, completion_notifier) = sounds::open_file(path)
             .map_err(|_| ChannelError::AudioCompletion(Some(())))?
             .with_async_completion_notifier();
-        self.change_completion_notifier_tx.send(completion_notifier)?;
+        self.change_completion_notifier_tx.send(completion_notifier).await?;
 
         self
             .manager
@@ -83,7 +83,9 @@ impl AudioTask {
         loop {
             match EitherFuture::new(self.action_rx.recv(), self.error_rx.recv()).await {
                 Either::Left(Some(AudioAction::Play(path))) => {
+                    self.manager.clear();
                     self.play(&path)
+                        .await
                         .map_err(RecoverableError::Channel)
                         .map_err(TaskError::Recoverable)?;
                 },

@@ -13,12 +13,12 @@ use {
 
 #[derive(Debug)]
 pub struct TerminalEventTask {
-    pub event_tx: mpsc::UnboundedSender<state::Event>,
+    pub event_tx: mpsc::Sender<state::Event>,
     key_presses: ArrayVec<(KeyModifiers, KeyCode), { SelectedConfig::MAX_KEY_BINDING_LEN.get() }>,
     stream: EventStream,
 }
 impl TerminalEventTask {
-    pub fn new(event_tx: mpsc::UnboundedSender<state::Event>) -> Self {
+    pub fn new(event_tx: mpsc::Sender<state::Event>) -> Self {
         Self {
             event_tx,
             key_presses: ArrayVec::new(),
@@ -49,7 +49,7 @@ impl TerminalEventTask {
                         .max_by(|(_, l), (_, r)| l.cmp(r))
                     {
                         Some((action, Some(Ordering::Equal))) => {
-                            self.event_tx.send(state::Event::KeyBinding(*action))?;
+                            self.event_tx.send(state::Event::KeyBinding(*action)).await?;
                             self.key_presses.clear();
                         }
                         Some((_, Some(Ordering::Less))) => {}
@@ -61,7 +61,7 @@ impl TerminalEventTask {
                         (NonZeroU16::new(width), NonZeroU16::new(height))
                     {
                         self.event_tx
-                            .send(state::Event::Resize(Area { width, height }))?;
+                            .send(state::Event::Resize(Area { width, height })).await?;
                     }
                 }
                 _ => continue,

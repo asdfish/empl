@@ -49,18 +49,18 @@ pub struct TaskManager<'a> {
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
-        let (audio_action_tx, audio_action_rx) = mpsc::unbounded_channel();
-        let _ = audio_action_tx.send(AudioAction::Play(Arc::clone(&playlists.first().1.first().1)));
-        let (audio_completion_tx, audio_completion_rx) = mpsc::unbounded_channel();
-        let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::unbounded_channel();
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
-        let (display_tx, display_rx) = mpsc::unbounded_channel();
+        let (audio_action_tx, audio_action_rx) = mpsc::channel(1);
+        let _ = audio_action_tx.send(AudioAction::Play(Arc::clone(&playlists.first().1.first().1))).await;
+        let (audio_completion_tx, audio_completion_rx) = mpsc::channel(1);
+        let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::channel(1);
+        let (event_tx, event_rx) = mpsc::channel(1);
+        let (display_tx, display_rx) = mpsc::channel(1);
         let display_state = DisplayState::new(playlists);
         let _ = display_tx.send(DamageList::new(
             EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
             display_state,
             display_state,
-        ));
+        )).await;
 
         let alloc = Bump::new();
         let mut stdout = stdout();
@@ -103,7 +103,7 @@ impl<'a> TaskManager<'a> {
             .await
             {
                 Ok(()) => break Ok(()),
-                Err(err) => err.try_recover(self)?,
+                Err(err) => err.try_recover(self).await?,
             }
         }
     }
@@ -202,9 +202,12 @@ pub enum TaskError<'a> {
     Unrecoverable(UnrecoverableError),
 }
 impl<'a> TaskError<'a> {
-    pub fn try_recover(self, task_manager: &mut TaskManager<'a>) -> Result<(), UnrecoverableError> {
+    pub async fn try_recover(self, task_manager: &mut TaskManager<'a>) -> Result<(), UnrecoverableError> {
         match self {
-            Self::Recoverable(err) => Ok(err.recover(task_manager)),
+            Self::Recoverable(err) => {
+                err.recover(task_manager).await;
+                Ok(())
+            }
             Self::Unrecoverable(err) => Err(err),
         }
     }
@@ -230,15 +233,15 @@ impl<'a> From<ChannelError<'a>> for RecoverableError<'a> {
     }
 }
 impl<'a> RecoverableError<'a> {
-    pub fn recover(self, tasks: &mut TaskManager<'a>) {
-        fn recover_channel<T>(
-            tx: &mut [&mut mpsc::UnboundedSender<T>],
-            rx: &mut mpsc::UnboundedReceiver<T>,
+    pub async fn recover(self, tasks: &mut TaskManager<'a>) {
+        async fn recover_channel<T>(
+            tx: &mut [&mut mpsc::Sender<T>],
+            rx: &mut mpsc::Receiver<T>,
             msg: Option<T>,
         ) {
-            let (new_tx, new_rx) = mpsc::unbounded_channel();
+            let (new_tx, new_rx) = mpsc::channel(1);
             if let Some(msg) = msg {
-                let result = new_tx.send(msg);
+                let result = new_tx.send(msg).await;
                 debug_assert!(result.is_ok());
             }
             match tx {
@@ -254,12 +257,12 @@ impl<'a> RecoverableError<'a> {
                 &mut [&mut tasks.terminal_event.event_tx],
                 &mut tasks.state.event_rx,
                 msg,
-            ),
+            ).await,
             Self::Channel(ChannelError::Display(msg)) => recover_channel(
                 &mut [&mut tasks.state.display_tx],
                 &mut tasks.display.display_rx,
                 msg,
-            ),
+            ).await,
             Self::Channel(_) => todo!("channel recovery"),
         }
     }
