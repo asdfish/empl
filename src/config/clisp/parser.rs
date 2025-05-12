@@ -81,7 +81,7 @@ where
         _: I,
     ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>>;
 
-    /// Chain two parsers together with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
+    /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
     ///
     /// # Examples
     /// ```
@@ -95,6 +95,25 @@ where
         R: Parser<'a, I>,
     {
         EitherOr {
+            l: self,
+            r,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
+    ///
+    /// # Examples
+    /// ```
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just}, either::Either};
+    /// let a_or_b = Just('a').or(Just('b'));
+    /// assert_eq!(a_or_b.parse("a"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(a_or_b.parse("b"), Ok(ParserOutput::new("", 'b')));
+    /// assert_eq!(a_or_b.parse("c"), Err(ParserError::Match { expected: 'b', found: 'c' }));
+    /// ```
+    fn or<R>(self, r: R) -> Or<'a, I, Self::Output, Self, R>
+    where R: Parser<'a, I, Output = Self::Output> {
+        Or {
             l: self,
             r,
             _marker: PhantomData,

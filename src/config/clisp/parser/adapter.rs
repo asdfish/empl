@@ -46,6 +46,35 @@ where
     }
 }
 
+/// [Parser] created by [Parser::or]
+#[derive(Clone, Copy, Debug)]
+pub struct Or<'a, I, O, L, R>
+where I: Parsable<'a>,
+    L: Parser<'a, I, Output = O>,
+    R: Parser<'a, I, Output = O>
+{
+    pub(super) l: L,
+    pub(super) r: R,
+    pub(super) _marker: PhantomData<&'a (I, O)>,
+}
+impl<'a, I, O, L, R> Parser<'a, I> for Or<'a, I, O, L, R>
+where I: Parsable<'a>,
+    L: Parser<'a, I, Output = O>,
+    R: Parser<'a, I, Output = O>
+{
+    type Error = R::Error;
+    type Output = O;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        if let Ok(output) = self.l.parse(input) {
+            Ok(output)
+        } else {
+            self.r.parse(input)
+        }
+    }
+}
+
+
 /// [Parser] created by [Parser::then]
 #[derive(Clone, Copy, Debug)]
 pub struct Then<'a, I, L, R>
