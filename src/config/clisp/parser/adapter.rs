@@ -46,6 +46,34 @@ where
     }
 }
 
+/// [Parser] created by [Parser::map]
+#[derive(Clone, Copy, Debug)]
+pub struct Map<'a, I, O, P, F>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+    F: FnOnce(P::Output) -> O
+{
+    pub(super) parser: P,
+    pub(super) map: F,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, O, P, F> Parser<'a, I> for Map<'a, I, O, P, F>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+    F: FnOnce(P::Output) -> O
+{
+    type Error = P::Error;
+    type Output = O;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        self
+            .parser.parse(input)
+            .map(move |output| output.map_output(self.map))
+    }
+}
+
 /// [Parser] created by [Parser::or]
 #[derive(Clone, Copy, Debug)]
 pub struct Or<'a, I, O, L, R>

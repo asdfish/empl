@@ -1,18 +1,39 @@
 use {
     crate::{
-        config::clisp::parser::{
-            Parsable,
-            Parser,
-            ParserError,
-            ParserOutput,
-        },
+        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput},
         either::EitherOrBoth,
     },
-    std::{
-        convert::Infallible,
-        marker::PhantomData,
-    },
+    std::{convert::Infallible, marker::PhantomData},
 };
+
+#[derive(Clone, Copy, Debug, Default)]
+#[repr(transparent)]
+pub struct Any<'a, I, T>(PhantomData<&'a (I, T)>)
+where I: Parsable<'a, Item = T>;
+impl<'a, I, T> Any<'a, I, T>
+where I: Parsable<'a, Item = T> {
+    pub const fn new() -> Self {
+        Self(PhantomData)
+    }
+}
+
+impl<'a, I, T> Parser<'a, I> for Any<'a, I, T>
+where
+    I: Parsable<'a, Item = T>,
+{
+    type Error = Infallible;
+    type Output = T;
+
+    fn parse(
+        self,
+        input: I,
+    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+        let mut items = input.items();
+        let item = items.next().ok_or(ParserError::Eof)?;
+
+        Ok(ParserOutput::new(I::recover(items), item))
+    }
+}
 
 /// Identity parser that returns `self.0`
 ///
@@ -29,7 +50,7 @@ where
     T: PartialEq;
 impl<'a, I, T> Parser<'a, I> for Just<T>
 where
-    I: Parsable<'a, Item = T> ,
+    I: Parsable<'a, Item = T>,
     T: PartialEq,
 {
     type Error = Infallible;
@@ -62,7 +83,7 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct Sequence<'a, T>
 where
-    T: Parsable<'a> ,
+    T: Parsable<'a>,
     T::Item: PartialEq,
 {
     seq: T,
@@ -70,7 +91,7 @@ where
 }
 impl<'a, T> Sequence<'a, T>
 where
-    T: Parsable<'a> ,
+    T: Parsable<'a>,
     T::Item: PartialEq,
 {
     pub const fn new(seq: T) -> Self {
@@ -82,7 +103,7 @@ where
 }
 impl<'a, I> Parser<'a, I> for Sequence<'a, I>
 where
-    I: Parsable<'a> ,
+    I: Parsable<'a>,
     I::Item: PartialEq,
 {
     type Error = Infallible;
@@ -104,7 +125,7 @@ where
                     return Err(ParserError::Match {
                         expected: l,
                         found: r,
-                    })
+                    });
                 }
             }
         }

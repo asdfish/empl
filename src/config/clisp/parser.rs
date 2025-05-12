@@ -101,6 +101,24 @@ where
         }
     }
 
+    /// Transform the output of the current [Parser].
+    ///
+    /// # Examples
+    /// ```
+    /// # use empl::{config::clisp::parser::{Any, Parser, ParserOutput, ParserError, Just}, either::Either};
+    /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
+    /// assert_eq!(lowercase.parse("a"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
+    /// ```
+    fn map<F, O>(self, map: F) -> Map<'a, I, O, Self, F>
+    where F: FnOnce(Self::Output) -> O {
+        Map {
+            parser: self,
+            map,
+            _marker: PhantomData,
+        }
+    }
+
     /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
     ///
     /// # Examples
