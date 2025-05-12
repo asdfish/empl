@@ -40,15 +40,11 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct FlattenErr<'a, I, E, O, P>
-where
-    I: Parsable<'a>,
-    P: Parser<'a, I, Output = Result<O, E>>
+pub struct FlattenErr<P>
 {
     pub(super) parser: P,
-    pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<'a, I, E, O, P>
+impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I, Output = Result<O, E>>

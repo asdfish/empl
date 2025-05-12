@@ -82,13 +82,12 @@ where
     /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
     /// assert_eq!(answer_to_life.parse("1"), Err(Either::Left(ParserError::Match { expected: '4', found: '1' })));
     /// ```
-    fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
+    fn flatten_err<E, O>(self) -> FlattenErr<Self>
     where
         Self: Parser<'a, I, Output = Result<O, E>>,
     {
         FlattenErr {
             parser: self,
-            _marker: PhantomData,
         }
     }
 
