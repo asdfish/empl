@@ -1,20 +1,23 @@
 //! Parser combinators
 
-mod adapter;
+pub mod adapter;
 pub use adapter::*;
-mod token;
+pub mod token;
 pub use token::*;
 
-use std::{
-    marker::PhantomData,
-    ops::Deref,
-    slice::{self, SliceIndex},
-    str,
+use {
+    crate::config::clisp::parser::adapter::repeated::Repeated,
+    std::{
+        marker::PhantomData,
+        ops::Deref,
+        slice::{self, SliceIndex},
+        str,
+    },
 };
 
 pub trait Parsable<'a>: Copy + Deref + Sized {
     type Item;
-    type Iter: Iterator<Item = Self::Item>;
+    type Iter: DoubleEndedIterator + Iterator<Item = Self::Item>;
 
     fn index<I>(self, _: I) -> Option<&'a <I as SliceIndex<Self::Target>>::Output>
     where
@@ -136,6 +139,27 @@ where
         Or {
             l: self,
             r,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Repeat the current parser to enable some operations that can only be executed on repeating parsers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Just};
+    /// let count_a = Just('a').repeated().try_map(|iter| iter.try_fold(0, |state, item| {
+    ///     item.map(move |_| state + 1)
+    /// }));
+    /// assert_eq!(count_a.parse("aaa"), Ok(ParserOutput::new("", 3)));
+    /// ```
+    fn repeated(self) -> Repeated<'a, I, Self>
+    where
+        Self: Clone
+    {
+        Repeated {
+            parser: self,
             _marker: PhantomData,
         }
     }

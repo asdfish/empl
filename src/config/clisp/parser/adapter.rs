@@ -1,3 +1,5 @@
+pub mod repeated;
+
 use {
     crate::{
         config::clisp::parser::{Parsable, Parser, ParserOutput},
