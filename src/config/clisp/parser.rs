@@ -19,10 +19,6 @@ pub trait Parsable<'a>: Copy + Deref + Sized {
     type Item;
     type Iter: DoubleEndedIterator + Iterator<Item = Self::Item>;
 
-    fn index<I>(self, _: I) -> Option<&'a <I as SliceIndex<Self::Target>>::Output>
-    where
-        I: SliceIndex<Self::Target>;
-    fn item_len(_: Self::Item) -> usize;
     fn items(self) -> Self::Iter;
     fn recover(_: Self::Iter) -> Self;
 }
@@ -30,15 +26,6 @@ impl<'a> Parsable<'a> for &'a str {
     type Item = char;
     type Iter = str::Chars<'a>;
 
-    fn index<I>(self, index: I) -> Option<&'a <I as SliceIndex<Self::Target>>::Output>
-    where
-        I: SliceIndex<Self::Target>,
-    {
-        self.get(index)
-    }
-    fn item_len(ch: Self::Item) -> usize {
-        ch.len_utf8()
-    }
     fn items(self) -> Self::Iter {
         self.chars()
     }
@@ -53,15 +40,6 @@ where
     type Item = &'a T;
     type Iter = slice::Iter<'a, T>;
 
-    fn index<I>(self, index: I) -> Option<&'a <I as SliceIndex<Self::Target>>::Output>
-    where
-        I: SliceIndex<Self::Target>,
-    {
-        self.get(index)
-    }
-    fn item_len(_: Self::Item) -> usize {
-        1
-    }
     fn items(self) -> Self::Iter {
         self.iter()
     }
