@@ -4,12 +4,7 @@ pub mod adapter;
 pub mod token;
 
 use {
-    crate::config::clisp::parser::{
-        adapter::{
-            *,
-            repeated::Repeated,
-        },
-    },
+    crate::config::clisp::parser::adapter::*,
     std::{
         marker::PhantomData,
         ops::Deref,
@@ -102,6 +97,28 @@ where
         }
     }
 
+    /// Repeat the current parser to enable some operations that can only be executed on repeating parsers.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
+    /// let count_a = Just('a').map_iter(|iter| iter.count());
+    /// assert_eq!(count_a.parse("aaa"), Ok(ParserOutput::new("", 3)));
+    /// assert_eq!(count_a.parse("aaabbb"), Ok(ParserOutput::new("bbb", 3)));
+    /// ```
+    fn map_iter<F, O>(self, map: F) -> MapIter<'a, I, F, O, Self>
+    where
+        Self: Clone,
+        F: FnOnce(&mut Iter<'a, I, Self>) -> O
+    {
+        MapIter {
+            parser: self,
+            map,
+            _marker: PhantomData,
+        }
+    }
+
     /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
     ///
     /// # Examples
@@ -120,27 +137,6 @@ where
         Or {
             l: self,
             r,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Repeat the current parser to enable some operations that can only be executed on repeating parsers.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
-    /// let count_a = Just('a').repeated().try_map(|iter| iter.try_fold(0, |state, item| {
-    ///     item.map(move |_| state + 1)
-    /// }));
-    /// assert_eq!(count_a.parse("aaa"), Ok(ParserOutput::new("", 3)));
-    /// ```
-    fn repeated(self) -> Repeated<'a, I, Self>
-    where
-        Self: Clone
-    {
-        Repeated {
-            parser: self,
             _marker: PhantomData,
         }
     }

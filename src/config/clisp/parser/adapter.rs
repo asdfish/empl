@@ -1,11 +1,12 @@
-pub mod repeated;
-
 use {
     crate::{
         config::clisp::parser::{Parsable, Parser, ParserOutput},
         either::Either,
     },
-    std::marker::PhantomData,
+    std::{
+        convert::Infallible,
+        marker::PhantomData,
+    },
 };
 
 /// [Parser] created by [Parser::either_or]
@@ -38,6 +39,35 @@ where
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Iter<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Clone + Parser<'a, I>,
+{
+    input: I,
+    parser: P,
+    _marker: PhantomData<&'a ()>,
+}
+impl<'a, I, P> Iterator for Iter<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Clone + Parser<'a, I>,
+{
+    type Item = P::Output;
+
+    fn next(&mut self) -> Option<P::Output> {
+        self.parser
+            .clone()
+            .parse(self.input)
+            .map(|ParserOutput { next, output, .. }| {
+                self.input = next;
+                output
+            })
+            .ok()
+    }
+}
+
 /// [Parser] created by [Parser::map]
 #[derive(Clone, Copy, Debug)]
 pub struct Map<'a, I, O, P, F>
@@ -65,6 +95,42 @@ where
             .map(move |output| output.map_output(self.map))
     }
 }
+
+#[derive(Clone, Copy, Debug)]
+pub struct MapIter<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(&mut Iter<'a, I, P>) -> O,
+    P: Clone + Parser<'a, I>,
+{
+    pub(super) parser: P,
+    pub(super) map: F,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, F, O, P> Parser<'a, I> for MapIter<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(&mut Iter<'a, I, P>) -> O,
+    P: Clone + Parser<'a, I>,
+{
+    type Error = Infallible;
+    type Output = O;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let mut iter = Iter {
+            input,
+            parser: self.parser,
+            _marker: PhantomData,
+        };
+
+        Ok(ParserOutput {
+            output: (self.map)(&mut iter),
+            next: iter.input,
+            _marker: PhantomData,
+        })
+    }
+}
+
 
 /// [Parser] created by [Parser::or]
 #[derive(Clone, Copy, Debug)]
