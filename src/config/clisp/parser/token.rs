@@ -78,6 +78,7 @@ where
 /// assert_eq!(Sequence::new("hello").parse("goodbye world"), Err(ParserError::Match { expected: 'h', found: 'g' }));
 /// ```
 #[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
 pub struct Sequence<'a, T>
 where
     T: Parsable<'a>,

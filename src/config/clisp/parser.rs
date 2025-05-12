@@ -145,9 +145,9 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Just};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just}, either::Either};
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Ok(ParserOutput::new("", ('h', 'i'))));
-    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(ParserError::Match { expected: 'i', found: 'o' }));
+    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(Either::Right(ParserError::Match { expected: 'i', found: 'o' })));
     /// ```
     fn then<R>(self, r: R) -> Then<'a, I, Self, R>
     where
@@ -174,6 +174,27 @@ where
         To {
             parser: self,
             to,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Map the output of a parser that may fail
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Sequence};
+    /// # use std::str::FromStr;
+    /// let answer_to_life = Sequence::new("42").try_map(u32::from_str);
+    /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
+    /// ```
+    fn try_map<F, E, T>(self, map: F) -> TryMap<'a, I, E, F, T, Self>
+    where
+        F: FnOnce(Self::Output) -> Result<T, E>,
+    {
+        TryMap {
+            parser: self,
+            map,
             _marker: PhantomData,
         }
     }
@@ -214,6 +235,21 @@ where
         F: FnOnce(O) -> T,
     {
         ParserOutput::new(self.next, f(self.output))
+    }
+}
+impl<'a, I, E, T> ParserOutput<'a, I, Result<T, E>>
+where
+    I: Parsable<'a>,
+{
+    pub fn transpose(self) -> Result<ParserOutput<'a, I, T>, E> {
+        match self.output {
+            Ok(output) => Ok(ParserOutput {
+                next: self.next,
+                output,
+                _marker: PhantomData,
+            }),
+            Err(err) => Err(err),
+        }
     }
 }
 
