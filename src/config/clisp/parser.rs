@@ -1,16 +1,19 @@
 //! Parser combinators
 
 pub mod adapter;
-pub use adapter::*;
 pub mod token;
-pub use token::*;
 
 use {
-    crate::config::clisp::parser::adapter::repeated::Repeated,
+    crate::config::clisp::parser::{
+        adapter::{
+            *,
+            repeated::Repeated,
+        },
+    },
     std::{
         marker::PhantomData,
         ops::Deref,
-        slice::{self, SliceIndex},
+        slice,
         str,
     },
 };
@@ -62,7 +65,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just, Sequence}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Just, Sequence}}, either::Either};
     /// let abc = Just('a').either_or(Sequence::new("bc"));
     /// assert_eq!(abc.parse("a"), Ok(ParserOutput::new("", Either::Left('a'))));
     /// assert_eq!(abc.parse("bc"), Ok(ParserOutput::new("", Either::Right("bc"))));
@@ -83,7 +86,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Any, Parser, ParserOutput, ParserError, Just}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}}, either::Either};
     /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
     /// assert_eq!(lowercase.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
@@ -104,7 +107,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
     /// let a_or_b = Just('a').or(Just('b'));
     /// assert_eq!(a_or_b.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(a_or_b.parse("b"), Ok(ParserOutput::new("", 'b')));
@@ -126,7 +129,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Just};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
     /// let count_a = Just('a').repeated().try_map(|iter| iter.try_fold(0, |state, item| {
     ///     item.map(move |_| state + 1)
     /// }));
@@ -147,7 +150,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Ok(ParserOutput::new("", ('h', 'i'))));
     /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(Either::Right(ParserError::Match { expected: 'i', found: 'o' })));
     /// ```
@@ -167,7 +170,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Any, Parser, ParserOutput, ParserError, Just};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}};
     /// let is_a = Just('a').to(true).or(Any::new().to(false));
     /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", true)));
     /// assert_eq!(is_a.parse("b"), Ok(ParserOutput::new("", false)));
@@ -185,7 +188,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Sequence};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence};
     /// # use std::str::FromStr;
     /// let answer_to_life = Sequence::new("42").try_map(u32::from_str);
     /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));

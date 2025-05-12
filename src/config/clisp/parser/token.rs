@@ -40,7 +40,7 @@ where
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Just};
+/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
 /// assert_eq!(Just('h').parse("hello"), Ok(ParserOutput::new("ello", 'h')));
 /// assert_eq!(Just('h').parse("goodbye"), Err(ParserError::Match { expected: 'h', found: 'g' }));
 /// ```
@@ -73,7 +73,7 @@ where
 ///
 /// # Examples
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, Sequence};
+/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence};
 /// assert_eq!(Sequence::new("hello").parse("hello world"), Ok(ParserOutput::new(" world", "hello")));
 /// assert_eq!(Sequence::new("hello").parse("goodbye world"), Err(ParserError::Match { expected: 'h', found: 'g' }));
 /// ```
