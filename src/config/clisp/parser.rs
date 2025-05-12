@@ -74,10 +74,7 @@ where
     type Error;
     type Output;
 
-    fn parse(
-        self,
-        _: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>>;
+    fn parse(self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
 
     /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
     ///
@@ -221,20 +218,10 @@ where
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ParserError<T, E> {
-    Custom(E),
-    Eof,
+pub struct EofError;
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum ParserError<T> {
+    Eof(EofError),
     Match { expected: T, found: T },
-}
-impl<T, E> ParserError<T, E> {
-    pub fn map_custom<F, O>(self, f: F) -> ParserError<T, O>
-    where
-        F: FnOnce(E) -> O,
-    {
-        match self {
-            Self::Custom(err) => ParserError::Custom(f(err)),
-            Self::Eof => ParserError::Eof,
-            Self::Match { expected, found } => ParserError::Match { expected, found },
-        }
-    }
 }

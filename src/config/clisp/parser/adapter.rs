@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput},
+        config::clisp::parser::{Parsable, Parser, ParserOutput},
         either::Either,
     },
     std::marker::PhantomData,
@@ -27,10 +27,7 @@ where
     type Error = R::Error;
     type Output = Either<L::Output, R::Output>;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         if let Ok(po) = self.l.parse(input).map(|po| po.map_output(Either::Left)) {
             return Ok(po);
         }
@@ -60,10 +57,7 @@ where
     type Error = P::Error;
     type Output = O;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         self.parser
             .parse(input)
             .map(move |output| output.map_output(self.map))
@@ -91,10 +85,7 @@ where
     type Error = R::Error;
     type Output = O;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         if let Ok(output) = self.l.parse(input) {
             Ok(output)
         } else {
@@ -124,27 +115,18 @@ where
     type Error = Either<L::Error, R::Error>;
     type Output = (L::Output, R::Output);
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let items = input.items();
         let ParserOutput {
             next: items,
             output: l,
             ..
-        } = self
-            .l
-            .parse(I::recover(items))
-            .map_err(|err| err.map_custom(Either::Left))?;
+        } = self.l.parse(I::recover(items)).map_err(Either::Left)?;
         let ParserOutput {
             next: items,
             output: r,
             ..
-        } = self
-            .r
-            .parse(items)
-            .map_err(|err| err.map_custom(Either::Right))?;
+        } = self.r.parse(items).map_err(Either::Right)?;
 
         Ok(ParserOutput::new(items, (l, r)))
     }
@@ -169,10 +151,7 @@ where
     type Error = P::Error;
     type Output = T;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         self.parser
             .parse(input)
             .map(move |output| output.map_output(move |_| self.to))

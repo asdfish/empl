@@ -1,9 +1,9 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput},
+        config::clisp::parser::{EofError, Parsable, Parser, ParserError, ParserOutput},
         either::EitherOrBoth,
     },
-    std::{convert::Infallible, marker::PhantomData},
+    std::marker::PhantomData,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -24,15 +24,12 @@ impl<'a, I, T> Parser<'a, I> for Any<'a, I, T>
 where
     I: Parsable<'a, Item = T>,
 {
-    type Error = Infallible;
+    type Error = EofError;
     type Output = T;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut items = input.items();
-        let item = items.next().ok_or(ParserError::Eof)?;
+        let item = items.next().ok_or(EofError)?;
 
         Ok(ParserOutput::new(I::recover(items), item))
     }
@@ -56,16 +53,13 @@ where
     I: Parsable<'a, Item = T>,
     T: PartialEq,
 {
-    type Error = Infallible;
+    type Error = ParserError<T>;
     type Output = T;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut items = input.items();
 
-        match items.next().ok_or(ParserError::Eof)? {
+        match items.next().ok_or(ParserError::Eof(EofError))? {
             item if item == self.0 => Ok(ParserOutput::new(I::recover(items), item)),
             item => Err(ParserError::Match {
                 expected: self.0,
@@ -109,19 +103,16 @@ where
     I: Parsable<'a>,
     I::Item: PartialEq,
 {
-    type Error = Infallible;
+    type Error = ParserError<I::Item>;
     type Output = I;
 
-    fn parse(
-        self,
-        input: I,
-    ) -> Result<ParserOutput<'a, I, Self::Output>, ParserError<I::Item, Self::Error>> {
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut l = self.seq.items();
         let mut r = input.items();
 
         while let Some(state) = EitherOrBoth::new_lazy_left(|| l.next(), || r.next()) {
             match state {
-                EitherOrBoth::Left(_) => return Err(ParserError::Eof),
+                EitherOrBoth::Left(_) => return Err(ParserError::Eof(EofError)),
                 EitherOrBoth::Right(_) => break,
                 EitherOrBoth::Both(l, r) if l == r => continue,
                 EitherOrBoth::Both(l, r) => {
@@ -152,7 +143,7 @@ macro_rules! impl_select {
             type Error = $car::Error;
             type Output = Output;
 
-            fn parse(self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, ParserError<Input::Item, Self::Error>> {
+            fn parse(self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
                 let Select(($($cdr,)* $car)) = self;
 
                 $(if let Ok(output) = $cdr.parse(input) {

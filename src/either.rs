@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput},
+        config::clisp::parser::{Parsable, Parser, ParserOutput},
         ext::command::CommandChain,
     },
     bumpalo::Bump,
@@ -105,7 +105,7 @@ macro_rules! decl_either {
             fn parse(
                 self,
                 input: Input,
-            ) -> Result<ParserOutput<'a, Input, Self::Output>, ParserError<Input::Item, Self::Error>> {
+            ) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
                 $(if let Ok(po) = self.$snake.parse(input).map(|po| po.map_output($either_ident::$pascals)) {
                     return Ok(po);
                 })*
