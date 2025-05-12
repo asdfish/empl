@@ -9,9 +9,12 @@ use {
 #[derive(Clone, Copy, Debug, Default)]
 #[repr(transparent)]
 pub struct Any<'a, I, T>(PhantomData<&'a (I, T)>)
-where I: Parsable<'a, Item = T>;
+where
+    I: Parsable<'a, Item = T>;
 impl<'a, I, T> Any<'a, I, T>
-where I: Parsable<'a, Item = T> {
+where
+    I: Parsable<'a, Item = T>,
+{
     pub const fn new() -> Self {
         Self(PhantomData)
     }

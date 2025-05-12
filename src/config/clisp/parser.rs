@@ -5,13 +5,11 @@ pub use adapter::*;
 mod token;
 pub use token::*;
 
-use {
-    std::{
-        marker::PhantomData,
-        ops::Deref,
-        slice::{self, SliceIndex},
-        str,
-    },
+use std::{
+    marker::PhantomData,
+    ops::Deref,
+    slice::{self, SliceIndex},
+    str,
 };
 
 pub trait Parsable<'a>: Copy + Deref + Sized {
@@ -71,7 +69,7 @@ where
 
 pub trait Parser<'a, I>: Sized
 where
-    I: Parsable<'a> ,
+    I: Parsable<'a>,
 {
     type Error;
     type Output;
@@ -84,6 +82,7 @@ where
     /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
     ///
     /// # Examples
+    ///
     /// ```
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just, Sequence}, either::Either};
     /// let abc = Just('a').either_or(Sequence::new("bc"));
@@ -104,6 +103,7 @@ where
     /// Transform the output of the current [Parser].
     ///
     /// # Examples
+    ///
     /// ```
     /// # use empl::{config::clisp::parser::{Any, Parser, ParserOutput, ParserError, Just}, either::Either};
     /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
@@ -111,7 +111,9 @@ where
     /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
     /// ```
     fn map<F, O>(self, map: F) -> Map<'a, I, O, Self, F>
-    where F: FnOnce(Self::Output) -> O {
+    where
+        F: FnOnce(Self::Output) -> O,
+    {
         Map {
             parser: self,
             map,
@@ -122,6 +124,7 @@ where
     /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
     ///
     /// # Examples
+    ///
     /// ```
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, Just}, either::Either};
     /// let a_or_b = Just('a').or(Just('b'));
@@ -130,7 +133,9 @@ where
     /// assert_eq!(a_or_b.parse("c"), Err(ParserError::Match { expected: 'b', found: 'c' }));
     /// ```
     fn or<R>(self, r: R) -> Or<'a, I, Self::Output, Self, R>
-    where R: Parser<'a, I, Output = Self::Output> {
+    where
+        R: Parser<'a, I, Output = Self::Output>,
+    {
         Or {
             l: self,
             r,
@@ -157,12 +162,30 @@ where
             _marker: PhantomData,
         }
     }
+
+    /// Set the output of a parser
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Any, Parser, ParserOutput, ParserError, Just};
+    /// let is_a = Just('a').to(true).or(Any::new().to(false));
+    /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", true)));
+    /// assert_eq!(is_a.parse("b"), Ok(ParserOutput::new("", false)));
+    /// ```
+    fn to<T>(self, to: T) -> To<'a, I, Self, T> {
+        To {
+            parser: self,
+            to,
+            _marker: PhantomData,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> ,
+    I: Parsable<'a>,
 {
     pub next: I,
     pub output: O,
@@ -170,7 +193,7 @@ where
 }
 impl<'a, I, O> PartialEq<O> for ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> ,
+    I: Parsable<'a>,
     O: PartialEq,
 {
     fn eq(&self, r: &O) -> bool {
@@ -179,7 +202,7 @@ where
 }
 impl<'a, I, O> ParserOutput<'a, I, O>
 where
-    I: Parsable<'a> ,
+    I: Parsable<'a>,
 {
     pub const fn new(next: I, output: O) -> Self {
         Self {

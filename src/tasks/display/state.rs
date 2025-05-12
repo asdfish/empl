@@ -221,7 +221,11 @@ pub struct Song {
 
 #[cfg(test)]
 mod tests {
-    use {super::*, nonempty_collections::NEVec, std::{path::PathBuf, sync::Arc}};
+    use {
+        super::*,
+        nonempty_collections::NEVec,
+        std::{path::PathBuf, sync::Arc},
+    };
 
     #[test]
     fn display_state_is_visible() {

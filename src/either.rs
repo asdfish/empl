@@ -83,7 +83,7 @@ macro_rules! decl_either {
                     ($ident_snake:ident, $ident_pascal:ident) => {
                         if let Poll::Ready(output) = this.$ident_snake.poll(ctx) {
                             return Poll::Ready($either_ident::$ident_pascal(output));
-                        }     
+                        }
                     }
                 }
                 $(check_ready!($snake, $pascals);)*
@@ -116,26 +116,15 @@ macro_rules! decl_either {
         }
     }
 }
-decl_either!(
-    (Either, EitherOutput),
-    [(left, Left)],
-    (right, Right)
-);
+decl_either!((Either, EitherOutput), [(left, Left)], (right, Right));
 decl_either!(
     (Either3, EitherOutput3),
-    [
-        (first, First),
-        (second, Second)
-    ],
+    [(first, First), (second, Second)],
     (third, Third)
 );
 decl_either!(
     (Either4, EitherOutput4),
-    [
-        (first, First),
-        (second, Second),
-        (third, Third)
-    ],
+    [(first, First), (second, Second), (third, Third)],
     (fourth, Fourth)
 );
 decl_either!(
