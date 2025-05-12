@@ -5,12 +5,7 @@ pub mod token;
 
 use {
     crate::config::clisp::parser::adapter::*,
-    std::{
-        marker::PhantomData,
-        ops::Deref,
-        slice,
-        str,
-    },
+    std::{marker::PhantomData, ops::Deref, slice, str},
 };
 
 pub trait Parsable<'a>: Copy + Deref + Sized {
@@ -76,6 +71,27 @@ where
         }
     }
 
+    /// Convert a `Result<T, E>` to a `T` by making the error part of the parser.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence}, either::Either};
+    /// # use std::str::FromStr;
+    /// let answer_to_life = Sequence::new("42").map(u32::from_str).flatten_err();
+    /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
+    /// assert_eq!(answer_to_life.parse("1"), Err(Either::Left(ParserError::Match { expected: '4', found: '1' })));
+    /// ```
+    fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
+    where
+        Self: Parser<'a, I, Output = Result<O, E>>,
+    {
+        FlattenErr {
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
+
     /// Transform the output of the current [Parser].
     ///
     /// # Examples
@@ -86,14 +102,13 @@ where
     /// assert_eq!(lowercase.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
     /// ```
-    fn map<F, O>(self, map: F) -> Map<'a, I, O, Self, F>
+    fn map<F, O>(self, map: F) -> Map<F, Self>
     where
         F: FnOnce(Self::Output) -> O,
     {
         Map {
             parser: self,
             map,
-            _marker: PhantomData,
         }
     }
 
@@ -110,7 +125,7 @@ where
     fn map_iter<F, O>(self, map: F) -> MapIter<'a, I, F, O, Self>
     where
         Self: Clone,
-        F: FnOnce(&mut Iter<'a, I, Self>) -> O
+        F: FnOnce(&mut Iter<'a, I, Self>) -> O,
     {
         MapIter {
             parser: self,
@@ -175,27 +190,6 @@ where
         To {
             parser: self,
             to,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Map the output of a parser that may fail
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence};
-    /// # use std::str::FromStr;
-    /// let answer_to_life = Sequence::new("42").try_map(u32::from_str);
-    /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
-    /// ```
-    fn try_map<F, E, T>(self, map: F) -> TryMap<'a, I, E, F, T, Self>
-    where
-        F: FnOnce(Self::Output) -> Result<T, E>,
-    {
-        TryMap {
-            parser: self,
-            map,
             _marker: PhantomData,
         }
     }

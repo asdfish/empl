@@ -40,6 +40,30 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
+pub struct FlattenErr<'a, I, E, O, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I, Output = Result<O, E>>
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<'a, I, E, O, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I, Output = Result<O, E>>
+{
+    type Error = Either<P::Error, E>;
+    type Output = O;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        self.parser.parse(input)
+            .map_err(Either::Left)
+            .and_then(|output| output.transpose().map_err(Either::Right))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 pub struct Iter<'a, I, P>
 where
     I: Parsable<'a>,
@@ -70,22 +94,17 @@ where
 
 /// [Parser] created by [Parser::map]
 #[derive(Clone, Copy, Debug)]
-pub struct Map<'a, I, O, P, F>
-where
-    I: Parsable<'a>,
-    P: Parser<'a, I>,
-    F: FnOnce(P::Output) -> O,
-{
-    pub(super) parser: P,
+pub struct Map<F, P> {
     pub(super) map: F,
-    pub(super) _marker: PhantomData<&'a I>,
+    pub(super) parser: P,
 }
-impl<'a, I, O, P, F> Parser<'a, I> for Map<'a, I, O, P, F>
+impl<'a, I, O, F, P> Parser<'a, I> for Map<F, P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I>,
     F: FnOnce(P::Output) -> O,
 {
+    
     type Error = P::Error;
     type Output = O;
 
@@ -223,39 +242,5 @@ where
         self.parser
             .parse(input)
             .map(move |output| output.map_output(move |_| self.to))
-    }
-}
-
-/// [Parser] created by [Parser::try_map]
-#[derive(Clone, Copy, Debug)]
-pub struct TryMap<'a, I, E, F, O, P>
-where
-    I: Parsable<'a>,
-    F: FnOnce(P::Output) -> Result<O, E>,
-    P: Parser<'a, I>,
-{
-    pub(super) parser: P,
-    pub(super) map: F,
-    pub(super) _marker: PhantomData<&'a I>,
-}
-impl<'a, I, E, F, O, P> Parser<'a, I> for TryMap<'a, I, E, F, O, P>
-where
-    I: Parsable<'a>,
-    F: FnOnce(P::Output) -> Result<O, E>,
-    P: Parser<'a, I>,
-{
-    type Error = Either<P::Error, E>;
-    type Output = O;
-
-    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser
-            .parse(input)
-            .map_err(Either::Left)
-            .and_then(move |output| {
-                output
-                    .map_output(self.map)
-                    .transpose()
-                    .map_err(Either::Right)
-            })
     }
 }
