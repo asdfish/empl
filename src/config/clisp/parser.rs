@@ -5,17 +5,19 @@ pub mod token;
 
 use {
     crate::config::clisp::parser::adapter::*,
-    std::{marker::PhantomData, ops::Deref, slice, str},
+    std::{marker::PhantomData, slice, str},
 };
 
-pub trait Parsable<'a>: Copy + Deref + Sized {
+/// Trait for types that can be used by a [Parser].
+pub trait Parsable<'a>: Copy + Sized {
     type Item;
-    type Iter: DoubleEndedIterator + Iterator<Item = Self::Item>;
+    type Iter: Iterator<Item = Self::Item>;
 
     fn item_len(_: Self::Item) -> usize;
     fn items(self) -> Self::Iter;
     fn items_len(self) -> usize;
     fn split_at(self, _: usize) -> (Self, Self);
+    /// Convert [Self::Iter] back into [Self].
     fn recover(_: Self::Iter) -> Self;
 }
 impl<'a> Parsable<'a> for &'a str {
@@ -215,10 +217,28 @@ where
     }
 }
 
+/// Marker trait for [Parser]s where the output of the parser does not transform its input.
+///
+/// See [PureParser::output_len] for more details.
 pub unsafe trait PureParser<'a, I>: Parser<'a, I>
 where I: Parsable<'a> {
+    /// Get the length of the current [Parser]'s output.
+    ///
+    /// # Safety
+    ///
+    /// - The returned length must be accurate to its output.
+    /// - The returned length must be safe to index into.
     fn output_len(_: Self::Output) -> usize;
 
+    /// Repeat a [Parser] and return it as a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
+    /// let a_s = Just('a').repeated();
+    /// assert_eq!(a_s.parse("aaabbb"), Ok(ParserOutput::new("bbb", "aaa")));
+    /// ```
     fn repeated(self) -> Repeated<'a, I, Self>
     where Self: Clone {
         Repeated {

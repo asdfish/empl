@@ -50,6 +50,7 @@ where
     }
 }
 
+/// [Parser] created by [Parser::flatten_err]
 #[derive(Clone, Copy, Debug)]
 pub struct FlattenErr<P> {
     pub(super) parser: P,
@@ -70,6 +71,7 @@ where
     }
 }
 
+/// [Iterator] for [Parser]s
 #[derive(Clone, Copy, Debug)]
 pub struct Iter<'a, I, P>
 where
@@ -121,6 +123,7 @@ where
     }
 }
 
+/// [Parser] created by [Parser::map_iter]
 #[derive(Clone, Copy, Debug)]
 pub struct MapIter<'a, I, F, O, P>
 where
