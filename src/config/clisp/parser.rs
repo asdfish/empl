@@ -5,7 +5,7 @@ pub mod token;
 
 use {
     crate::config::clisp::parser::adapter::*,
-    std::{marker::PhantomData, slice, str},
+    std::{error::Error, fmt::{self, Display, Formatter}, marker::PhantomData, slice, str},
 };
 
 /// Trait for types that can be used by a [Parser].
@@ -303,9 +303,28 @@ where
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct EofError;
+impl Display for EofError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        f.write_str("end of file")
+    }
+}
+impl Error for EofError {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum ParserError<T> {
     Eof(EofError),
     Match { expected: T, found: T },
 }
+impl<T> Display for ParserError<T>
+where
+    T: Display
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Eof(e) => e.fmt(f),
+            Self::Match { expected, found } => write!(f, "found `{found}` when expecting `{expected}`"),
+        }
+    }
+}
+impl<T> Error for ParserError<T>
+where T: fmt::Debug + Display {}
