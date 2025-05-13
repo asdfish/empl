@@ -321,6 +321,7 @@ dependencies = [
  "nonempty-collections",
  "pin-project-lite",
  "tokio",
+ "unicode-ident",
  "unicode-width",
 ]
 

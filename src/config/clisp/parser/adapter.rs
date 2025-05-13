@@ -170,6 +170,28 @@ where
     }
 }
 
+/// [Parser] created by [Parser::map_err]
+#[derive(Clone, Copy, Debug)]
+pub struct MapErr<F, P>
+{
+    pub(super) map: F,
+    pub(super) parser: P,
+}
+impl<'a, I, F, O, P> Parser<'a, I> for MapErr<F, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(P::Error) -> O,
+    P: Parser<'a, I>
+{
+    type Error = O;
+    type Output = P::Output;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        self.parser.parse(input)
+            .map_err(self.map)
+    }
+}
+
 /// [Parser] created by [Parser::map_iter]
 #[derive(Clone, Copy, Debug)]
 pub struct MapIter<'a, I, F, O, P>

@@ -149,10 +149,34 @@ where
     fn map<F, O>(self, map: F) -> Map<F, Self>
     where
         F: FnOnce(Self::Output) -> O,
+        Map<F, Self>: Parser<'a, I, Error = Self::Error, Output = O>,
     {
         Map {
             parser: self,
             map,
+        }
+    }
+
+    /// Transform the error of the current [Parser].
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
+    /// #[derive(Debug, PartialEq)]
+    /// struct NotAError;
+    /// let a = <Just<char> as Parser<'_, &str>>::map_err(Just('a'), |_: ParserError<char>| NotAError);
+    /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(a.parse("b"), Err(NotAError));
+    /// ```
+    fn map_err<F, O>(self, map: F) -> MapErr<F, Self>
+    where
+        F: FnOnce(Self::Error) -> O,
+        MapErr<F, Self>: Parser<'a, I, Error = O, Output = Self::Output>,
+    {
+        MapErr {
+            map,
+            parser: self,
         }
     }
 
@@ -241,15 +265,13 @@ where
 
 /// Marker trait for [Parser]s where the output of the parser does not transform its input.
 ///
-/// See [PureParser::output_len] for more details.
+/// # Safety
+///
+/// - The returned length of [PureParser::output_len] must be accurate to its output.
+/// - The returned length of [PureParser::output_len] must be safe to index into.
 pub unsafe trait PureParser<'a, I>: Parser<'a, I>
 where I: Parsable<'a> {
     /// Get the length of the current [Parser]'s output.
-    ///
-    /// # Safety
-    ///
-    /// - The returned length must be accurate to its output.
-    /// - The returned length must be safe to index into.
     fn output_len(_: Self::Output) -> usize;
 
     /// Return the current [Parser] as a slice.
@@ -357,6 +379,16 @@ pub enum ParserError<T> {
         rule: &'static str,
     },
 }
+impl<T> ParserError<T> {
+    pub fn map<F, O>(self, mut f: F) -> ParserError<O>
+    where F: FnMut(T) -> O {
+        match self {
+            Self::Eof(e) => ParserError::Eof(e),
+            Self::Match { expected, found } => ParserError::Match { expected: f(expected), found: f(found) },
+            Self::Rule { item, rule } => ParserError::Rule { item: f(item), rule },
+        }
+    }
+}
 impl<T> Display for ParserError<T>
 where
     T: Display
@@ -371,3 +403,8 @@ where
 }
 impl<T> Error for ParserError<T>
 where T: fmt::Debug + Display {}
+impl<T> From<EofError> for ParserError<T> {
+    fn from(err: EofError) -> Self {
+        Self::Eof(err)
+    }
+}

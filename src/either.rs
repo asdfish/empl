@@ -41,6 +41,20 @@ macro_rules! decl_either {
         impl<$($pascals,)* $last_pascal> Error for $either_ident<$($pascals,)* $last_pascal>
         where $($pascals: Debug + Display,)* $last_pascal: Debug + Display {}
 
+        impl<$last_pascal, $($pascals),*> $either_ident<$($pascals,)* $last_pascal>
+        {
+            /// Get the inner value if all branches can be converted.
+            pub fn into_inner<Output>(self) -> Output
+            where
+                $last_pascal: Into<Output>,
+                $($pascals: Into<Output>),* {
+                match self {
+                    Self::$last_pascal(branch) => branch.into(),
+                    $(Self::$pascals(branch) => branch.into()),*
+                }
+            }
+        }
+
         impl<$($pascals,)* $last_pascal> CommandChain for $either_ident<$($pascals,)* $last_pascal>
         where $($pascals: CommandChain,)*
             $last_pascal: CommandChain
