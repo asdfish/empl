@@ -321,7 +321,7 @@ impl<'a> RecoverableError<'a> {
     }
 }
 
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum UnrecoverableError {
     Stream,
 }

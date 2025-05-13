@@ -191,6 +191,17 @@ where
             .map_err(self.map)
     }
 }
+// SAFETY: should be safe if `P` is pure
+unsafe impl<'a, I, F, O, P> PureParser<'a, I> for MapErr<F, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(P::Error) -> O,
+    P: Parser<'a, I> + PureParser<'a, I>
+{
+    fn output_len(output: Self::Output) -> usize {
+        P::output_len(output)
+    }
+}
 
 /// [Parser] created by [Parser::map_iter]
 #[derive(Clone, Copy, Debug)]
