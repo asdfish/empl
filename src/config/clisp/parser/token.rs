@@ -3,10 +3,7 @@ use {
         config::clisp::parser::{EofError, Parsable, Parser, ParserError, ParserOutput, PureParser},
         either::EitherOrBoth,
     },
-    std::{
-        marker::PhantomData,
-        num::NonZeroUsize,
-    },
+    std::marker::PhantomData,
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -41,7 +38,7 @@ unsafe impl<'a, I, T> PureParser<'a, I> for Any<'a, I, T>
 where
     I: Parsable<'a, Item = T>
 {
-    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+    fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
     }
 }
@@ -85,7 +82,7 @@ where
     I: Parsable<'a, Item = T>,
     T: PartialEq
 {
-    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+    fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
     }
 }
@@ -154,8 +151,8 @@ where
     I: Parsable<'a>,
     I::Item: PartialEq
 {
-    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(I::items_len(output))
+    fn output_len(output: Self::Output) -> usize {
+        I::items_len(output)
     }
 }
 
@@ -193,7 +190,7 @@ macro_rules! impl_select {
             $car: Parser<'a, Input, Output = Output> + PureParser<'a, Input>,
             $($cdr: Parser<'a, Input, Output = Output> + PureParser<'a, Input>),*
         {
-            fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+            fn output_len(output: Self::Output) -> usize {
                 $car::output_len(output)
             }
         }

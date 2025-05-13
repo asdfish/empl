@@ -3,7 +3,7 @@ use {
         config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::Either,
     },
-    std::{convert::Infallible, marker::PhantomData, num::NonZeroUsize},
+    std::{convert::Infallible, marker::PhantomData},
 };
 
 /// [Parser] created by [Parser::either_or]
@@ -42,7 +42,7 @@ where
     L: Parser<'a, I> + PureParser<'a, I>,
     R: Parser<'a, I> + PureParser<'a, I>,
 {
-    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+    fn output_len(output: Self::Output) -> usize {
         match output {
             Either::Left(output) => L::output_len(output),
             Either::Right(output) => R::output_len(output),
@@ -192,7 +192,7 @@ where
     L: Parser<'a, I, Output = O> + PureParser<'a, I>,
     R: Parser<'a, I, Output = O> + PureParser<'a, I>,
 {
-    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+    fn output_len(output: Self::Output) -> usize {
         L::output_len(output)
     }
 }
@@ -241,14 +241,10 @@ where
     L: Parser<'a, I> + PureParser<'a, I>,
     R: Parser<'a, I> + PureParser<'a, I>,
 {
-    fn output_len((l, r): Self::Output) -> Option<NonZeroUsize> {
-        NonZeroUsize::new(
-            [L::output_len(l), R::output_len(r)]
-                .into_iter()
-                .flatten()
-                .map(NonZeroUsize::get)
-                .sum::<usize>(),
-        )
+    fn output_len((l, r): Self::Output) -> usize {
+        [L::output_len(l), R::output_len(r)]
+            .into_iter()
+            .sum::<usize>()
     }
 }
 
