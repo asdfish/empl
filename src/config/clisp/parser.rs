@@ -15,6 +15,7 @@ pub trait Parsable<'a>: Copy + Deref + Sized {
     fn item_len(_: Self::Item) -> usize;
     fn items(self) -> Self::Iter;
     fn items_len(self) -> usize;
+    fn split_at(self, _: usize) -> (Self, Self);
     fn recover(_: Self::Iter) -> Self;
 }
 impl<'a> Parsable<'a> for &'a str {
@@ -29,6 +30,9 @@ impl<'a> Parsable<'a> for &'a str {
     }
     fn items_len(self) -> usize {
         self.len()
+    }
+    fn split_at(self, at: usize) -> (Self, Self) {
+        self.split_at(at)
     }
     fn recover(chars: Self::Iter) -> &'a str {
         chars.as_str()
@@ -49,6 +53,9 @@ where
     }
     fn items_len(self) -> usize {
         self.len()
+    }
+    fn split_at(self, at: usize) -> (Self, Self) {
+        self.split_at(at)
     }
     fn recover(items: Self::Iter) -> &'a [T] {
         items.as_slice()
@@ -211,6 +218,14 @@ where
 pub unsafe trait PureParser<'a, I>: Parser<'a, I>
 where I: Parsable<'a> {
     fn output_len(_: Self::Output) -> usize;
+
+    fn repeated(self) -> Repeated<'a, I, Self>
+    where Self: Clone {
+        Repeated {
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

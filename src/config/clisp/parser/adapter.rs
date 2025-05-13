@@ -197,6 +197,50 @@ where
     }
 }
 
+/// [Parser] created by [PureParser::repeated]
+#[derive(Clone, Copy, Debug)]
+pub struct Repeated<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Clone + PureParser<'a, I>,
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, P> Parser<'a, I> for Repeated<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Clone + PureParser<'a, I>,
+{
+    type Error = Infallible;
+    type Output = I;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        // SAFETY: should not panic if all parsers are pure
+        let (output, next) = input.split_at(Iter {
+            input,
+            parser: self.parser,
+            _marker: PhantomData,
+        }
+            .map(P::output_len)
+            .sum::<usize>());
+
+        Ok(ParserOutput::new(
+            next,
+            output,
+        ))
+    }
+}
+unsafe impl<'a, I, P> PureParser<'a, I> for Repeated<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Clone + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        output.items_len()
+    }
+}
+
 /// [Parser] created by [Parser::then]
 #[derive(Clone, Copy, Debug)]
 pub struct Then<'a, I, L, R>
