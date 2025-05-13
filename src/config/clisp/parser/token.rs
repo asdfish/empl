@@ -1,9 +1,12 @@
 use {
     crate::{
-        config::clisp::parser::{EofError, Parsable, Parser, ParserError, ParserOutput},
+        config::clisp::parser::{EofError, Parsable, Parser, ParserError, ParserOutput, PureParser},
         either::EitherOrBoth,
     },
-    std::marker::PhantomData,
+    std::{
+        marker::PhantomData,
+        num::NonZeroUsize,
+    },
 };
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -19,7 +22,6 @@ where
         Self(PhantomData)
     }
 }
-
 impl<'a, I, T> Parser<'a, I> for Any<'a, I, T>
 where
     I: Parsable<'a, Item = T>,
@@ -34,6 +36,16 @@ where
         Ok(ParserOutput::new(I::recover(items), item))
     }
 }
+// SAFETY: [Parsable::item_len] should be accurate
+unsafe impl<'a, I, T> PureParser<'a, I> for Any<'a, I, T>
+where
+    I: Parsable<'a, Item = T>
+{
+    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+        I::item_len(output)
+    }
+}
+
 
 /// Identity parser that returns `self.0`
 ///
@@ -66,6 +78,15 @@ where
                 found: item,
             }),
         }
+    }
+}
+unsafe impl<'a, I, T> PureParser<'a, I> for Just<T>
+where
+    I: Parsable<'a, Item = T>,
+    T: PartialEq
+{
+    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+        I::item_len(output)
     }
 }
 
@@ -128,6 +149,15 @@ where
         Ok(ParserOutput::new(I::recover(r), self.seq))
     }
 }
+unsafe impl<'a, I> PureParser<'a, I> for Sequence<'a, I>
+where
+    I: Parsable<'a>,
+    I::Item: PartialEq
+{
+    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+        NonZeroUsize::new(I::items_len(output))
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct Select<T>(pub T);
@@ -152,6 +182,19 @@ macro_rules! impl_select {
                 })*
 
                 $car.parse(input)
+            }
+        }
+
+        // SAFETY: should be safe if all parsers are pure
+        #[expect(non_camel_case_types)]
+        unsafe impl<'a, Input, Output, $car, $($cdr),*> PureParser<'a, Input> for Select<($($cdr,)* $car)>
+        where
+            Input: Parsable<'a>,
+            $car: Parser<'a, Input, Output = Output> + PureParser<'a, Input>,
+            $($cdr: Parser<'a, Input, Output = Output> + PureParser<'a, Input>),*
+        {
+            fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+                $car::output_len(output)
             }
         }
 

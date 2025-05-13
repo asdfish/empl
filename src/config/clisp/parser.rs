@@ -5,22 +5,30 @@ pub mod token;
 
 use {
     crate::config::clisp::parser::adapter::*,
-    std::{marker::PhantomData, ops::Deref, slice, str},
+    std::{marker::PhantomData, num::NonZeroUsize, ops::Deref, slice, str},
 };
 
 pub trait Parsable<'a>: Copy + Deref + Sized {
     type Item;
     type Iter: DoubleEndedIterator + Iterator<Item = Self::Item>;
 
+    fn item_len(_: Self::Item) -> Option<NonZeroUsize>;
     fn items(self) -> Self::Iter;
+    fn items_len(self) -> usize;
     fn recover(_: Self::Iter) -> Self;
 }
 impl<'a> Parsable<'a> for &'a str {
     type Item = char;
     type Iter = str::Chars<'a>;
 
+    fn item_len(ch: Self::Item) -> Option<NonZeroUsize> {
+        NonZeroUsize::new(ch.len_utf8())
+    }
     fn items(self) -> Self::Iter {
         self.chars()
+    }
+    fn items_len(self) -> usize {
+        self.len()
     }
     fn recover(chars: Self::Iter) -> &'a str {
         chars.as_str()
@@ -33,8 +41,14 @@ where
     type Item = &'a T;
     type Iter = slice::Iter<'a, T>;
 
+    fn item_len(_: Self::Item) -> Option<NonZeroUsize> {
+        const { NonZeroUsize::new(1) }
+    }
     fn items(self) -> Self::Iter {
         self.iter()
+    }
+    fn items_len(self) -> usize {
+        self.len()
     }
     fn recover(items: Self::Iter) -> &'a [T] {
         items.as_slice()
@@ -192,6 +206,11 @@ where
             _marker: PhantomData,
         }
     }
+}
+
+pub unsafe trait PureParser<'a, I>: Parser<'a, I>
+where I: Parsable<'a> {
+    fn output_len(_: Self::Output) -> Option<NonZeroUsize>;
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]

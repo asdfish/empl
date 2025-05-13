@@ -1,12 +1,9 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserOutput},
+        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::Either,
     },
-    std::{
-        convert::Infallible,
-        marker::PhantomData,
-    },
+    std::{convert::Infallible, marker::PhantomData, num::NonZeroUsize},
 };
 
 /// [Parser] created by [Parser::either_or]
@@ -38,22 +35,36 @@ where
         self.r.parse(input).map(|po| po.map_output(Either::Right))
     }
 }
+// SAFETY: both parsers must be pure
+unsafe impl<'a, I, L, R> PureParser<'a, I> for EitherOr<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I> + PureParser<'a, I>,
+    R: Parser<'a, I> + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+        match output {
+            Either::Left(output) => L::output_len(output),
+            Either::Right(output) => R::output_len(output),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
-pub struct FlattenErr<P>
-{
+pub struct FlattenErr<P> {
     pub(super) parser: P,
 }
 impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<P>
 where
     I: Parsable<'a>,
-    P: Parser<'a, I, Output = Result<O, E>>
+    P: Parser<'a, I, Output = Result<O, E>>,
 {
     type Error = Either<P::Error, E>;
     type Output = O;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser.parse(input)
+        self.parser
+            .parse(input)
             .map_err(Either::Left)
             .and_then(|output| output.transpose().map_err(Either::Right))
     }
@@ -100,7 +111,6 @@ where
     P: Parser<'a, I>,
     F: FnOnce(P::Output) -> O,
 {
-    
     type Error = P::Error;
     type Output = O;
 
@@ -146,7 +156,6 @@ where
     }
 }
 
-
 /// [Parser] created by [Parser::or]
 #[derive(Clone, Copy, Debug)]
 pub struct Or<'a, I, O, L, R>
@@ -174,6 +183,17 @@ where
         } else {
             self.r.parse(input)
         }
+    }
+}
+// SAFETY: Assuming the left parser implements [PureParser] correctly, this should be fine.
+unsafe impl<'a, I, O, L, R> PureParser<'a, I> for Or<'a, I, O, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I, Output = O> + PureParser<'a, I>,
+    R: Parser<'a, I, Output = O> + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> Option<NonZeroUsize> {
+        L::output_len(output)
     }
 }
 
@@ -212,6 +232,23 @@ where
         } = self.r.parse(items).map_err(Either::Right)?;
 
         Ok(ParserOutput::new(items, (l, r)))
+    }
+}
+// SAFETY: should be fine if both parsers are pure
+unsafe impl<'a, I, L, R> PureParser<'a, I> for Then<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I> + PureParser<'a, I>,
+    R: Parser<'a, I> + PureParser<'a, I>,
+{
+    fn output_len((l, r): Self::Output) -> Option<NonZeroUsize> {
+        NonZeroUsize::new(
+            [L::output_len(l), R::output_len(r)]
+                .into_iter()
+                .flatten()
+                .map(NonZeroUsize::get)
+                .sum::<usize>(),
+        )
     }
 }
 
