@@ -6,6 +6,26 @@ use {
 };
 
 pub trait CommandExt: Command + Sized {
+    /// Convert a [Command] to something that implements [CommandChain]
+    ///
+    /// # Examples
+    ///
+    /// ```compile_fail
+    /// # use empl::ext::command::CommandChain;
+    /// # use crossterm::cursor;
+    /// fn take_cmd_chain<C>(_: C)
+    /// where C: CommandChain {}
+    ///
+    /// take_cmd_chain(cursor::Show);
+    /// ```
+    ///
+    /// ```
+    /// # use empl::ext::command::{CommandChain, CommandExt};
+    /// # use crossterm::cursor;
+    /// fn take_cmd_chain<C>(_: C)
+    /// where C: CommandChain {}
+    ///
+    /// take_cmd_chain(cursor::Show.adapt());
     fn adapt(self) -> Adapter<Self> {
         Adapter(self)
     }
@@ -13,11 +33,29 @@ pub trait CommandExt: Command + Sized {
 impl<T> CommandExt for T where T: Command {}
 
 pub trait CommandChain: Sized {
-    /// Should not flush the buffer
+    /// Execute the current command chain.
+    ///
+    /// Does not flush the buffer.
     fn execute<W>(self, _: &Bump, _: &mut W) -> impl Future<Output = Result<(), io::Error>>
     where
         W: AsyncWriteExt + Unpin;
 
+    /// Chain two commands together sequentially.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use empl::ext::command::{CommandChain, CommandExt};
+    /// # use bumpalo::Bump;
+    /// # use crossterm::cursor;
+    /// # use tokio::io::stdout;
+    /// # async {
+    /// cursor::Show.adapt()
+    ///     .then(cursor::MoveTo(0, 0).adapt())
+    ///     .execute(&Bump::new(), &mut stdout()).await?;
+    /// # Ok::<(), std::io::Error>(())
+    /// # };
+    /// ```
     fn then<R>(self, r: R) -> Then<Self, R>
     where
         R: CommandChain,
