@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
+        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput, PureParser},
         either::Either,
     },
     std::{convert::Infallible, marker::PhantomData},
@@ -47,6 +47,53 @@ where
             Either::Left(output) => L::output_len(output),
             Either::Right(output) => R::output_len(output),
         }
+    }
+}
+
+/// [Parser] created by [Parser::filter]
+#[derive(Clone, Copy, Debug)]
+pub struct Filter<'a, F, I, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(&P::Output) -> bool,
+    P: Parser<'a, I>,
+{
+    pub(super) filter: F,
+    pub(super) parser: P,
+    pub(super) rule: &'static str,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, F, I, P> Parser<'a, I> for Filter<'a, F, I, P>
+where
+    F: FnOnce(&P::Output) -> bool,
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+{
+    type Error = Either<P::Error, ParserError<P::Output>>;
+    type Output = P::Output;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let output = self.parser.parse(input).map_err(Either::Left)?;
+
+        if (self.filter)(&output.output) {
+            Ok(output)
+        } else {
+            Err(Either::Right(ParserError::Rule {
+                item: output.output,
+                rule: self.rule,
+            }))
+        }
+    }
+}
+// SAFETY: should be safe if `P` is a [PureParser]
+unsafe impl<'a, F, I, P> PureParser<'a, I> for Filter<'a, F, I, P>
+where
+    F: FnOnce(&P::Output) -> bool,
+    I: Parsable<'a>,
+    P: Parser<'a, I> + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        P::output_len(output)
     }
 }
 
@@ -197,6 +244,42 @@ where
 {
     fn output_len(output: Self::Output) -> usize {
         L::output_len(output)
+    }
+}
+
+/// [Parser] created by [PureParser::restore]
+#[derive(Clone, Copy, Debug)]
+pub struct Restore<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, P> Parser<'a, I> for Restore<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>
+{
+    type Error = P::Error;
+    type Output = I;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        self.parser.parse(input)
+            .map(|ParserOutput { output, .. }| output)
+            .map(P::output_len)
+            .map(|split| input.split_at(split))
+            .map(|(output, next)| ParserOutput::new(next, output))
+    }
+}
+unsafe impl<'a, I, P> PureParser<'a, I> for Restore<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        I::items_len(output)
     }
 }
 

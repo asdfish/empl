@@ -94,6 +94,28 @@ where
         }
     }
 
+    /// Filter the output of the current parser.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}}, either::Either};
+    /// let is_a = Any::new().filter(|ch| 'a'.eq(ch), "is a");
+    /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(is_a.parse("b"), Err(Either::Right(ParserError::Rule { item: 'b', rule: "is a" })));
+    /// ```
+    fn filter<F>(self, filter: F, rule: &'static str) -> Filter<'a, F, I, Self>
+    where
+        F: FnOnce(&Self::Output) -> bool
+    {
+        Filter {
+            filter,
+            parser: self,
+            rule,
+            _marker: PhantomData,
+        }
+    }
+
     /// Convert a `Result<T, E>` to a `T` by making the error part of the parser.
     ///
     /// # Examples
@@ -230,6 +252,22 @@ where I: Parsable<'a> {
     /// - The returned length must be safe to index into.
     fn output_len(_: Self::Output) -> usize;
 
+    /// Return the current [Parser] as a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
+    /// let a = Just('a').restore();
+    /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", "a")));
+    /// ```
+    fn restore(self) -> Restore<'a, I, Self> {
+        Restore {
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
+
     /// Repeat a [Parser] and return it as a slice.
     ///
     /// # Examples
@@ -314,6 +352,10 @@ impl Error for EofError {}
 pub enum ParserError<T> {
     Eof(EofError),
     Match { expected: T, found: T },
+    Rule {
+        item: T,
+        rule: &'static str,
+    },
 }
 impl<T> Display for ParserError<T>
 where
@@ -323,6 +365,7 @@ where
         match self {
             Self::Eof(e) => e.fmt(f),
             Self::Match { expected, found } => write!(f, "found `{found}` when expecting `{expected}`"),
+            Self::Rule { item, rule } => write!(f, "`{item}` does not meet `{rule}`"),
         }
     }
 }
