@@ -9,7 +9,7 @@ use {
     unicode_ident::{is_xid_continue, is_xid_start},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Lexeme<'a> {
     LParen,
     RParen,
@@ -17,6 +17,14 @@ pub enum Lexeme<'a> {
 }
 
 /// [Parser] for [Lexeme]s
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::{Lexeme, LexemeParser}, parser::{Parser, ParserOutput}};
+/// assert_eq!(LexemeParser.parse("("), Ok(ParserOutput::new("", Lexeme::LParen)));
+/// assert_eq!(LexemeParser.parse(")"), Ok(ParserOutput::new("", Lexeme::RParen)));
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct LexemeParser;
 impl<'a> Parser<'a, &'a str> for LexemeParser {
@@ -33,12 +41,20 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Literal<'a> {
     Ident(&'a str),
 }
 
 /// [Parser] for [Literal]s
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::{Literal, LiteralParser}, parser::{Parser, ParserOutput}};
+/// assert_eq!(LiteralParser.parse("foo"), Ok(ParserOutput::new("", Literal::Ident("foo"))));
+/// assert!(LiteralParser.parse("9001").is_err());
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct LiteralParser;
 impl<'a> Parser<'a, &'a str> for LiteralParser {
