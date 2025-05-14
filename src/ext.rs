@@ -3,4 +3,5 @@
 pub mod colors;
 pub mod command;
 pub mod future;
+pub mod integer;
 pub mod iterator;

@@ -5,6 +5,7 @@ use {
             token::{Any, Just, Select},
         },
         either::Either,
+        ext::integer::IntegerExt,
     },
     std::{
         error::Error,
@@ -39,6 +40,7 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
 #[derive(Clone, Copy, Debug)]
 pub enum Literal<'a> {
     Ident(&'a str),
+    Int(i32),
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -66,9 +68,12 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     type Output = Literal<'a>;
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
-        IdentParser
-            .map(Literal::Ident)
-            .map_err(LiteralError::Ident)
+        Select((
+            IntParser.map(Literal::Int),
+            IdentParser
+                .map(Literal::Ident)
+                .map_err(LiteralError::Ident)
+        ))
             .parse(input)
     }
 }
@@ -112,9 +117,97 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
         Any::new()
             .filter(IdentError::NotXidStart, |ch| is_xid_start(*ch))
-            .then(Any::new().filter(|_| (), |ch| is_xid_continue(*ch)).repeated())
+            .then(
+                Any::new()
+                    .filter(|_| (), |ch| is_xid_continue(*ch))
+                    .repeated(),
+            )
             .restore()
             .map_err(|Either::Left(e)| e.into_inner())
+            .parse(input)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum IntError {
+    Eof(EofError),
+    NonDigit(char),
+    Overflow,
+}
+impl Display for IntError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Eof(e) => e.fmt(f),
+            Self::NonDigit(ch) => write!(f, "`{ch}` is not a digit"),
+            Self::Overflow => f.write_str("integer is too large"),
+        }
+    }
+}
+impl Error for IntError {}
+impl From<EofError> for IntError {
+    fn from(err: EofError) -> Self {
+        Self::Eof(err)
+    }
+}
+
+/// Integer parser
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
+/// assert_eq!(IntParser.parse("10"), Ok(ParserOutput::new("", 10)));
+/// assert_eq!(IntParser.parse("01"), Ok(ParserOutput::new("", 1)));
+/// assert_eq!(IntParser.parse("1"), Ok(ParserOutput::new("", 1)));
+/// assert_eq!(IntParser.parse("0"), Ok(ParserOutput::new("", 0)));
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct IntParser;
+impl<'a> Parser<'a, &'a str> for IntParser {
+    type Error = IntError;
+    type Output = i32;
+
+    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+        let digit_parser = Any::new()
+            .filter_map(|ch: char| ch.to_digit(10).ok_or(IntError::NonDigit(ch)))
+            .map(|digit| {
+                i32::try_from(digit).expect(
+                    "digits in the range `0..=9` should always be convertible into an `i32`",
+                )
+            })
+            .map_err(|err| err.into_inner::<IntError>());
+
+        digit_parser
+            .then(
+                digit_parser
+                    .map_iter(|iter| {
+                        let mut iter = iter.peekable();
+                        iter.peek()?;
+
+                        Some(iter.try_fold(0_i32, |mut accum, i| {
+                            accum = accum.checked_mul(10).ok_or(IntError::Overflow)?;
+                            accum = accum.checked_add(i).ok_or(IntError::Overflow)?;
+
+                            Ok::<i32, IntError>(accum)
+                        }))
+                    })
+            )
+            .map(|(car, cdr)| {
+                match cdr.transpose()? {
+                    Some(cdr) => car.checked_mul(
+                        10_i32.checked_pow(cdr.checked_digits().ok_or(IntError::Overflow)?)
+                            .ok_or(IntError::Overflow)?,
+                    )
+                        .ok_or(IntError::Overflow)?
+                        .checked_add(cdr).ok_or(IntError::Overflow),
+                    None => Ok(car),
+                }
+            })
+            .map_err(|err| match err {
+                Either::Left(e) => e,
+            })
+            .flatten_err()
+            .map_err(|err| err.into_inner::<IntError>())
             .parse(input)
     }
 }
