@@ -184,7 +184,8 @@ where
     I: Parsable<'a>,
     M: Clone + Copy + FnOnce(P::Output) -> Result<T, E>,
     P: Clone + Copy + Parser<'a, I>,
-{}
+{
+}
 impl<'a, E, I, M, P, T> Parser<'a, I> for FilterMap<'a, E, I, M, P, T>
 where
     I: Parsable<'a>,
@@ -195,7 +196,9 @@ where
     type Output = T;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser.parse(input).map_err(Either::Left)?
+        self.parser
+            .parse(input)
+            .map_err(Either::Left)?
             .map_output(self.map)
             .transpose()
             .map_err(Either::Right)

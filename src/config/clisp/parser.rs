@@ -145,7 +145,9 @@ where
     /// assert_eq!(digit.parse("a"), Err(Either::Right(NonDigitError)));
     /// ```
     fn filter_map<E, M, T>(self, map: M) -> FilterMap<'a, E, I, M, Self, T>
-    where M: FnOnce(Self::Output) -> Result<T, E> {
+    where
+        M: FnOnce(Self::Output) -> Result<T, E>,
+    {
         FilterMap {
             map,
             parser: self,

@@ -69,11 +69,9 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
             IntParser.map(Literal::Int),
-            IdentParser
-                .map(Literal::Ident)
-                .map_err(LiteralError::Ident)
+            IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
         ))
-            .parse(input)
+        .parse(input)
     }
 }
 
@@ -169,7 +167,11 @@ impl<'a> Parser<'a, &'a str> for IntParser {
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Any::new()
-            .filter_map(|ch: char| ch.to_digit(10).map(|ch| ch as i32).ok_or(IntError::NonDigit(ch)))
+            .filter_map(|ch: char| {
+                ch.to_digit(10)
+                    .map(|ch| ch as i32)
+                    .ok_or(IntError::NonDigit(ch))
+            })
             .map_iter(|iter| {
                 let mut iter = iter.peekable();
                 iter.peek().ok_or(IntError::Eof(EofError))?;
