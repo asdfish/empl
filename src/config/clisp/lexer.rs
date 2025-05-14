@@ -73,7 +73,7 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum IdentError {
     Eof(EofError),
     NotXidStart(char),
@@ -93,6 +93,16 @@ impl From<EofError> for IdentError {
     }
 }
 
+/// Identifier parser.
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::{IdentError, IdentParser}, parser::{EofError, Parser, ParserOutput}};
+/// assert_eq!(IdentParser.parse(""), Err(IdentError::Eof(EofError)));
+/// assert_eq!(IdentParser.parse("foo"), Ok(ParserOutput::new("", "foo")));
+/// assert_eq!(IdentParser.parse("1foo"), Err(IdentError::NotXidStart('1')));
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct IdentParser;
 impl<'a> Parser<'a, &'a str> for IdentParser {
