@@ -101,24 +101,8 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
         Any::new()
-            .filter(|ch| {
-                if is_xid_start(*ch) {
-                    Ok(())
-                } else {
-                    Err(IdentError::NotXidStart(*ch))
-                }
-            })
-            .then(
-                Any::new()
-                    .filter(|ch| {
-                        if is_xid_continue(*ch) {
-                            Ok(())
-                        } else {
-                            Err(())
-                        }
-                    })
-                    .repeated(),
-            )
+            .filter(IdentError::NotXidStart, |ch| is_xid_start(*ch))
+            .then(Any::new().filter(|_| (), |ch| is_xid_continue(*ch)).repeated())
             .restore()
             .map_err(|Either::Left(e)| e.into_inner())
             .parse(input)

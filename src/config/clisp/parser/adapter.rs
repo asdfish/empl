@@ -80,41 +80,47 @@ where
 
 /// [Parser] created by [Parser::filter]
 #[derive(Debug)]
-pub struct Filter<'a, E, F, I, P>
+pub struct Filter<'a, E, EF, F, I, P>
 where
     I: Parsable<'a>,
-    F: FnOnce(&P::Output) -> Result<(), E>,
+    EF: FnOnce(P::Output) -> E,
+    F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I>,
 {
+    pub(super) error: EF,
     pub(super) parser: P,
     pub(super) predicate: F,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, E, F, I, P> Clone for Filter<'a, E, F, I, P>
+impl<'a, E, EF, F, I, P> Clone for Filter<'a, E, EF, F, I, P>
 where
     I: Parsable<'a>,
-    F: Clone + FnOnce(&P::Output) -> Result<(), E>,
+    EF: Clone + FnOnce(P::Output) -> E,
+    F: Clone + FnOnce(&P::Output) -> bool,
     P: Clone + Parser<'a, I>,
 {
     fn clone(&self) -> Self {
         Self {
+            error: self.error.clone(),
             parser: self.parser.clone(),
             predicate: self.predicate.clone(),
             _marker: PhantomData,
         }
     }
 }
-impl<'a, E, F, I, P> Copy for Filter<'a, E, F, I, P>
+impl<'a, E, EF, F, I, P> Copy for Filter<'a, E, EF, F, I, P>
 where
     I: Parsable<'a>,
-    F: Clone + Copy + FnOnce(&P::Output) -> Result<(), E>,
+    EF: Clone + Copy + FnOnce(P::Output) -> E,
+    F: Clone + Copy + FnOnce(&P::Output) -> bool,
     P: Clone + Copy + Parser<'a, I>,
 {
 }
-impl<'a, E, F, I, P> Parser<'a, I> for Filter<'a, E, F, I, P>
+impl<'a, E, EF, F, I, P> Parser<'a, I> for Filter<'a, E, EF, F, I, P>
 where
     I: Parsable<'a>,
-    F: FnOnce(&P::Output) -> Result<(), E>,
+    EF: FnOnce(P::Output) -> E,
+    F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I>,
 {
     type Error = Either<P::Error, E>;
@@ -122,15 +128,18 @@ where
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let output = self.parser.parse(input).map_err(Either::Left)?;
-        (self.predicate)(&output.output).map_err(Either::Right)?;
-
-        Ok(output)
+        if (self.predicate)(&output.output) {
+            Ok(output)
+        } else {
+            Err(Either::Right((self.error)(output.output)))
+        }
     }
 }
-unsafe impl<'a, E, F, I, P> PureParser<'a, I> for Filter<'a, E, F, I, P>
+unsafe impl<'a, E, EF, F, I, P> PureParser<'a, I> for Filter<'a, E, EF, F, I, P>
 where
     I: Parsable<'a>,
-    F: FnOnce(&P::Output) -> Result<(), E>,
+    EF: FnOnce(P::Output) -> E,
+    F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I> + PureParser<'a, I>,
 {
     fn output_len(output: Self::Output) -> usize {

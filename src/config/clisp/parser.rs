@@ -115,19 +115,17 @@ where
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Any}, either::Either};
     /// #[derive(Debug, PartialEq)]
     /// struct NotAError;
-    /// let is_a = Any::new().filter(|ch| if 'a'.eq(ch) {
-    ///     Ok(())
-    /// } else {
-    ///     Err(NotAError)
-    /// });
+    /// let is_a = Any::new().filter(NotAError, |ch| 'a'.eq(ch));
     /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(is_a.parse("b"), Err(Either::Right(NotAError)));
     /// ```
-    fn filter<E, F>(self, predicate: F) -> Filter<'a, E, F, I, Self>
+    fn filter<E, EF, F>(self, error: EF, predicate: F) -> Filter<'a, E, EF, F, I, Self>
     where
-        F: FnOnce(&Self::Output) -> Result<(), E>,
+        EF: FnOnce(Self::Output) -> E,
+        F: FnOnce(&Self::Output) -> bool,
     {
         Filter {
+            error,
             parser: self,
             predicate,
             _marker: PhantomData,
