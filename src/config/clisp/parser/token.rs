@@ -1,6 +1,8 @@
 use {
     crate::{
-        config::clisp::parser::{EofError, Parsable, Parser, ParserError, ParserOutput, PureParser},
+        config::clisp::parser::{
+            EofError, Parsable, Parser, ParserError, ParserOutput, PureParser,
+        },
         either::EitherOrBoth,
     },
     std::marker::PhantomData,
@@ -36,13 +38,12 @@ where
 // SAFETY: [Parsable::item_len] should be accurate
 unsafe impl<'a, I, T> PureParser<'a, I> for Any<'a, I, T>
 where
-    I: Parsable<'a, Item = T>
+    I: Parsable<'a, Item = T>,
 {
     fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
     }
 }
-
 
 /// Identity parser that returns `self.0`
 ///
@@ -80,7 +81,7 @@ where
 unsafe impl<'a, I, T> PureParser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: PartialEq
+    T: PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
@@ -149,7 +150,7 @@ where
 unsafe impl<'a, I> PureParser<'a, I> for Sequence<'a, I>
 where
     I: Parsable<'a>,
-    I::Item: PartialEq
+    I::Item: PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
         I::items_len(output)

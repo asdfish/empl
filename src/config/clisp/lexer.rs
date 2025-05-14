@@ -32,7 +32,7 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
             Just(')').to(Lexeme::RParen),
             LiteralParser.map(Lexeme::Literal),
         ))
-            .parse(input)
+        .parse(input)
     }
 }
 
@@ -82,7 +82,7 @@ impl Display for IdentError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Eof(e) => e.fmt(f),
-            Self::NotXidStart(ch) => write!(f, "`{ch}` is not `Xid_Start`")
+            Self::NotXidStart(ch) => write!(f, "`{ch}` is not `Xid_Start`"),
         }
     }
 }
