@@ -73,6 +73,14 @@ where
 
     fn parse(self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
 
+    /// Get the error of the parser as a result, so that you can use it to recover.
+    fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self> {
+        CoFlattenErr {
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
+
     /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
     ///
     /// # Examples

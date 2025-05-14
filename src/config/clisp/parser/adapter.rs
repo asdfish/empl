@@ -6,6 +6,32 @@ use {
     std::{convert::Infallible, marker::PhantomData},
 };
 
+/// [Parser] created by [Parser::co_flatten_err]
+#[derive(Clone, Copy, Debug)]
+pub struct CoFlattenErr<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, P> Parser<'a, I> for CoFlattenErr<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+{
+    type Error = Infallible;
+    type Output = Result<P::Output, P::Error>;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        Ok(self.parser.parse(input)
+            .map(|output| output.map_output(Ok))
+            .map_err(Err)
+            .unwrap_or_else(|err| ParserOutput::new(input, err)))
+    }
+}
+
 /// [Parser] created by [Parser::either_or]
 #[derive(Clone, Copy, Debug)]
 pub struct EitherOr<'a, I, L, R>

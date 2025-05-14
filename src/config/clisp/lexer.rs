@@ -33,8 +33,12 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Select((
-            Just('(').to(Lexeme::LParen).map_err(|err| err.map(Either::<char, &'a str>::Left)),
-            Just(')').to(Lexeme::RParen).map_err(|err| err.map(Either::<char, &'a str>::Left)),
+            Just('(')
+                .to(Lexeme::LParen)
+                .map_err(|err| err.map(Either::<char, &'a str>::Left)),
+            Just(')')
+                .to(Lexeme::RParen)
+                .map_err(|err| err.map(Either::<char, &'a str>::Left)),
             LiteralParser.map(Lexeme::Literal),
         ))
         .parse(input)
@@ -44,6 +48,7 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Literal<'a> {
     Ident(&'a str),
+    Int(i32),
 }
 
 /// [Parser] for [Literal]s
@@ -70,13 +75,22 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
                     .repeated(),
             )
             .restore()
-            .filter(|ident: &&'a str| !ident.is_empty(), "identifiers cannot be empty")
+            .filter(
+                |ident: &&'a str| !ident.is_empty(),
+                "identifiers cannot be empty",
+            )
             .map(Literal::Ident)
-            .parse(input)
             .map_err(|err| match err {
                 Either::Left(Either::Left(Either::Left(e))) => e.into(),
                 Either::Left(Either::Left(Either::Right(e))) => e.map(Either::Left),
                 Either::Right(e) => e.map(Either::Right),
             })
+            .parse(input)
     }
 }
+
+// #[derive(Clone, Copy, Debug)]
+// pub enum LiteralError<'a> {
+//     IdentHead(char),
+//     IdentTail(char),
+// }

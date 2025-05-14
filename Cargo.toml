@@ -7,6 +7,15 @@ readme = "README.md"
 name = "empl"
 repository = "https://github.com/asdfish/empl"
 version = "1.0.0"
+default-run = "empl"
+
+[[bin]]
+name = "empl"
+path = "src/main.rs"
+
+[[bin]]
+name = "repl"
+path = "src/bin/repl.rs"
 
 [dependencies]
 arrayvec = { version = "0.7.6", default-features = false }
