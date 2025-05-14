@@ -5,7 +5,12 @@ pub mod token;
 
 use {
     crate::config::clisp::parser::adapter::*,
-    std::{error::Error, fmt::{self, Display, Formatter}, marker::PhantomData, slice, str},
+    std::{
+        error::Error,
+        fmt::{self, Display, Formatter},
+        marker::PhantomData,
+        slice, str,
+    },
 };
 
 /// Trait for types that can be used by a [Parser].
@@ -120,7 +125,7 @@ where
     /// ```
     fn filter<E, F>(self, predicate: F) -> Filter<'a, E, F, I, Self>
     where
-        F: FnOnce(&Self::Output) -> Result<(), E>
+        F: FnOnce(&Self::Output) -> Result<(), E>,
     {
         Filter {
             parser: self,
@@ -284,7 +289,9 @@ where
 /// - The returned length of [PureParser::output_len] must be accurate to its output.
 /// - The returned length of [PureParser::output_len] must be safe to index into.
 pub unsafe trait PureParser<'a, I>: Parser<'a, I>
-where I: Parsable<'a> {
+where
+    I: Parsable<'a>,
+{
     /// Get the length of the current [Parser]'s output.
     fn output_len(_: Self::Output) -> usize;
 
@@ -314,7 +321,9 @@ where I: Parsable<'a> {
     /// assert_eq!(a_s.parse("aaabbb"), Ok(ParserOutput::new("bbb", "aaa")));
     /// ```
     fn repeated(self) -> Repeated<'a, I, Self>
-    where Self: Clone {
+    where
+        Self: Clone,
+    {
         Repeated {
             parser: self,
             _marker: PhantomData,
@@ -391,28 +400,29 @@ pub enum ParserError<T> {
 }
 impl<T> ParserError<T> {
     pub fn map<F, O>(self, mut f: F) -> ParserError<O>
-    where F: FnMut(T) -> O {
+    where
+        F: FnMut(T) -> O,
+    {
         match self {
             Self::Eof(e) => ParserError::Eof(e),
-            Self::Match { expected, found } => ParserError::Match { expected: f(expected), found: f(found) },
+            Self::Match { expected, found } => ParserError::Match {
+                expected: f(expected),
+                found: f(found),
+            },
         }
     }
 }
 impl<T> Display for ParserError<T>
 where
-    T: Display
+    T: Display,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Eof(e) => e.fmt(f),
-            Self::Match { expected, found } => write!(f, "found `{found}` when expecting `{expected}`"),
+            Self::Match { expected, found } => {
+                write!(f, "found `{found}` when expecting `{expected}`")
+            }
         }
     }
 }
-impl<T> Error for ParserError<T>
-where T: fmt::Debug + Display {}
-impl<T> From<EofError> for ParserError<T> {
-    fn from(err: EofError) -> Self {
-        Self::Eof(err)
-    }
-}
+impl<T> Error for ParserError<T> where T: fmt::Debug + Display {}

@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserError, ParserOutput, PureParser},
+        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::Either,
     },
     std::{convert::Infallible, marker::PhantomData},
@@ -125,6 +125,16 @@ where
         (self.predicate)(&output.output).map_err(Either::Right)?;
 
         Ok(output)
+    }
+}
+unsafe impl<'a, E, F, I, P> PureParser<'a, I> for Filter<'a, E, F, I, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(&P::Output) -> Result<(), E>,
+    P: Parser<'a, I> + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        P::output_len(output)
     }
 }
 
