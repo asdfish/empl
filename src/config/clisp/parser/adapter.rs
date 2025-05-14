@@ -1,3 +1,9 @@
+//! Parser adapters
+//!
+//! Having a billion type parameters for these types will improves error messages.
+//!
+//! Some parser adapters manually implement [Clone] and [Copy] because the automatically derived implementations require all type parameters to implement [Clone] and [Copy].
+
 use {
     crate::{
         config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
@@ -144,6 +150,55 @@ where
 {
     fn output_len(output: Self::Output) -> usize {
         P::output_len(output)
+    }
+}
+
+/// [Parser] created by [Parser::filter_map]
+#[derive(Debug)]
+pub struct FilterMap<'a, E, I, M, P, T>
+where
+    I: Parsable<'a>,
+    M: FnOnce(P::Output) -> Result<T, E>,
+    P: Parser<'a, I>,
+{
+    pub(super) map: M,
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, E, I, M, P, T> Clone for FilterMap<'a, E, I, M, P, T>
+where
+    I: Parsable<'a>,
+    M: Clone + FnOnce(P::Output) -> Result<T, E>,
+    P: Clone + Parser<'a, I>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            map: self.map.clone(),
+            parser: self.parser.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, E, I, M, P, T> Copy for FilterMap<'a, E, I, M, P, T>
+where
+    I: Parsable<'a>,
+    M: Clone + Copy + FnOnce(P::Output) -> Result<T, E>,
+    P: Clone + Copy + Parser<'a, I>,
+{}
+impl<'a, E, I, M, P, T> Parser<'a, I> for FilterMap<'a, E, I, M, P, T>
+where
+    I: Parsable<'a>,
+    M: FnOnce(P::Output) -> Result<T, E>,
+    P: Parser<'a, I>,
+{
+    type Error = Either<P::Error, E>;
+    type Output = T;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        self.parser.parse(input).map_err(Either::Left)?
+            .map_output(self.map)
+            .transpose()
+            .map_err(Either::Right)
     }
 }
 

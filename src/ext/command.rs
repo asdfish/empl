@@ -1,7 +1,7 @@
 use {
     bumpalo::{Bump, collections::String as BString},
     crossterm::Command,
-    std::{future::Future, io, marker::Unpin},
+    std::{io, marker::Unpin},
     tokio::io::AsyncWriteExt,
 };
 

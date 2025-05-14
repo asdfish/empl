@@ -1,7 +1,6 @@
 use {
     pin_project_lite::pin_project,
     std::{
-        future::Future,
         pin::Pin,
         task::{Context, Poll},
     },

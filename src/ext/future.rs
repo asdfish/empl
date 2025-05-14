@@ -1,5 +1,5 @@
 pub trait FutureExt: Future + Sized {
-    /// Create a morphism between [Self::Output] and `O`.
+    /// Create a morphism between [Future::Output] and `O`.
     ///
     /// # Examples
     ///

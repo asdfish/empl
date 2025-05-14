@@ -115,7 +115,7 @@ where
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Any}, either::Either};
     /// #[derive(Debug, PartialEq)]
     /// struct NotAError;
-    /// let is_a = Any::new().filter(NotAError, |ch| 'a'.eq(ch));
+    /// let is_a = Any::new().filter(|_| NotAError, |ch| 'a'.eq(ch));
     /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(is_a.parse("b"), Err(Either::Right(NotAError)));
     /// ```
@@ -128,6 +128,27 @@ where
             error,
             parser: self,
             predicate,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Filters the current output while allowing mapping for more type safe filtering.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Any}, either::Either};
+    /// #[derive(Debug, PartialEq)]
+    /// struct NonDigitError;
+    /// let digit = Any::new().filter_map(|ch: char| ch.to_digit(10).ok_or(NonDigitError));
+    /// assert_eq!(digit.parse("1"), Ok(ParserOutput::new("", 1)));
+    /// assert_eq!(digit.parse("a"), Err(Either::Right(NonDigitError)));
+    /// ```
+    fn filter_map<E, M, T>(self, map: M) -> FilterMap<'a, E, I, M, Self, T>
+    where M: FnOnce(Self::Output) -> Result<T, E> {
+        FilterMap {
+            map,
+            parser: self,
             _marker: PhantomData,
         }
     }
