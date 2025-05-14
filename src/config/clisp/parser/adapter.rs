@@ -11,7 +11,7 @@ use {
 pub struct CoFlattenErr<'a, I, P>
 where
     I: Parsable<'a>,
-    P: Parser<'a, I>
+    P: Parser<'a, I>,
 {
     pub(super) parser: P,
     pub(super) _marker: PhantomData<&'a I>,
@@ -25,7 +25,9 @@ where
     type Output = Result<P::Output, P::Error>;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        Ok(self.parser.parse(input)
+        Ok(self
+            .parser
+            .parse(input)
             .map(|output| output.map_output(Ok))
             .map_err(Err)
             .unwrap_or_else(|err| ParserOutput::new(input, err)))
@@ -77,49 +79,52 @@ where
 }
 
 /// [Parser] created by [Parser::filter]
-#[derive(Clone, Copy, Debug)]
-pub struct Filter<'a, F, I, P>
+#[derive(Debug)]
+pub struct Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    F: FnOnce(&P::Output) -> bool,
+    F: FnOnce(&P::Output) -> Result<(), E>,
     P: Parser<'a, I>,
 {
-    pub(super) filter: F,
     pub(super) parser: P,
-    pub(super) rule: &'static str,
+    pub(super) predicate: F,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, F, I, P> Parser<'a, I> for Filter<'a, F, I, P>
+impl<'a, E, F, I, P> Clone for Filter<'a, E, F, I, P>
 where
-    F: FnOnce(&P::Output) -> bool,
     I: Parsable<'a>,
+    F: Clone + FnOnce(&P::Output) -> Result<(), E>,
+    P: Clone + Parser<'a, I>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            parser: self.parser.clone(),
+            predicate: self.predicate.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, E, F, I, P> Copy for Filter<'a, E, F, I, P>
+where
+    I: Parsable<'a>,
+    F: Clone + Copy + FnOnce(&P::Output) -> Result<(), E>,
+    P: Clone + Copy + Parser<'a, I>,
+{
+}
+impl<'a, E, F, I, P> Parser<'a, I> for Filter<'a, E, F, I, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(&P::Output) -> Result<(), E>,
     P: Parser<'a, I>,
 {
-    type Error = Either<P::Error, ParserError<P::Output>>;
+    type Error = Either<P::Error, E>;
     type Output = P::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let output = self.parser.parse(input).map_err(Either::Left)?;
+        (self.predicate)(&output.output).map_err(Either::Right)?;
 
-        if (self.filter)(&output.output) {
-            Ok(output)
-        } else {
-            Err(Either::Right(ParserError::Rule {
-                item: output.output,
-                rule: self.rule,
-            }))
-        }
-    }
-}
-// SAFETY: should be safe if `P` is a [PureParser]
-unsafe impl<'a, F, I, P> PureParser<'a, I> for Filter<'a, F, I, P>
-where
-    F: FnOnce(&P::Output) -> bool,
-    I: Parsable<'a>,
-    P: Parser<'a, I> + PureParser<'a, I>,
-{
-    fn output_len(output: Self::Output) -> usize {
-        P::output_len(output)
+        Ok(output)
     }
 }
 
@@ -136,7 +141,7 @@ where
 impl<'a, I, E, O, P> Clone for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Clone + Parser<'a, I, Output = Result<O, E>>
+    P: Clone + Parser<'a, I, Output = Result<O, E>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -148,8 +153,9 @@ where
 impl<'a, I, E, O, P> Copy for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Clone + Copy + Parser<'a, I, Output = Result<O, E>>
-{}
+    P: Clone + Copy + Parser<'a, I, Output = Result<O, E>>,
+{
+}
 impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
@@ -227,7 +233,8 @@ where
     I: Parsable<'a>,
     F: Clone + Copy + FnOnce(P::Output) -> O,
     P: Clone + Copy + Parser<'a, I>,
-{}
+{
+}
 impl<'a, I, O, F, P> Parser<'a, I> for Map<'a, I, F, O, P>
 where
     I: Parsable<'a>,
@@ -260,7 +267,7 @@ impl<'a, I, F, O, P> Clone for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: Clone + FnOnce(P::Error) -> O,
-    P: Clone + Parser<'a, I>
+    P: Clone + Parser<'a, I>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -274,20 +281,20 @@ impl<'a, I, F, O, P> Copy for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: Clone + Copy + FnOnce(P::Error) -> O,
-    P: Clone + Copy + Parser<'a, I>
-{}
+    P: Clone + Copy + Parser<'a, I>,
+{
+}
 impl<'a, I, F, O, P> Parser<'a, I> for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: FnOnce(P::Error) -> O,
-    P: Parser<'a, I>
+    P: Parser<'a, I>,
 {
     type Error = O;
     type Output = P::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser.parse(input)
-            .map_err(self.map)
+        self.parser.parse(input).map_err(self.map)
     }
 }
 // SAFETY: should be safe if `P` is pure
@@ -295,7 +302,7 @@ unsafe impl<'a, I, F, O, P> PureParser<'a, I> for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: FnOnce(P::Error) -> O,
-    P: Parser<'a, I> + PureParser<'a, I>
+    P: Parser<'a, I> + PureParser<'a, I>,
 {
     fn output_len(output: Self::Output) -> usize {
         P::output_len(output)
@@ -333,7 +340,8 @@ where
     I: Parsable<'a>,
     F: Clone + Copy + FnOnce(&mut Iter<'a, I, P>) -> O,
     P: Clone + Copy + Parser<'a, I>,
-{}
+{
+}
 impl<'a, I, F, O, P> Parser<'a, I> for MapIter<'a, I, F, O, P>
 where
     I: Parsable<'a>,
@@ -389,7 +397,8 @@ where
     I: Parsable<'a>,
     L: Clone + Copy + Parser<'a, I, Output = O>,
     R: Clone + Copy + Parser<'a, I, Output = O>,
-{}
+{
+}
 impl<'a, I, O, L, R> Parser<'a, I> for Or<'a, I, O, L, R>
 where
     I: Parsable<'a>,
@@ -424,7 +433,7 @@ where
 pub struct Restore<'a, I, P>
 where
     I: Parsable<'a>,
-    P: PureParser<'a, I>
+    P: PureParser<'a, I>,
 {
     pub(super) parser: P,
     pub(super) _marker: PhantomData<&'a I>,
@@ -432,13 +441,14 @@ where
 impl<'a, I, P> Parser<'a, I> for Restore<'a, I, P>
 where
     I: Parsable<'a>,
-    P: PureParser<'a, I>
+    P: PureParser<'a, I>,
 {
     type Error = P::Error;
     type Output = I;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser.parse(input)
+        self.parser
+            .parse(input)
             .map(|ParserOutput { output, .. }| output)
             .map(P::output_len)
             .map(|split| input.split_at(split))
@@ -475,18 +485,17 @@ where
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         // SAFETY: should not panic if all parsers are pure
-        let (output, next) = input.split_at(Iter {
-            input,
-            parser: self.parser,
-            _marker: PhantomData,
-        }
+        let (output, next) = input.split_at(
+            Iter {
+                input,
+                parser: self.parser,
+                _marker: PhantomData,
+            }
             .map(P::output_len)
-            .sum::<usize>());
+            .sum::<usize>(),
+        );
 
-        Ok(ParserOutput::new(
-            next,
-            output,
-        ))
+        Ok(ParserOutput::new(next, output))
     }
 }
 unsafe impl<'a, I, P> PureParser<'a, I> for Repeated<'a, I, P>
