@@ -5,7 +5,6 @@ use {
             token::{Any, Just, Select},
         },
         either::Either,
-        ext::integer::IntegerExt,
     },
     std::{
         error::Error,
@@ -156,6 +155,7 @@ impl From<EofError> for IntError {
 ///
 /// ```
 /// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
+/// assert_eq!(IntParser.parse("1000"), Ok(ParserOutput::new("", 1000)));
 /// assert_eq!(IntParser.parse("10"), Ok(ParserOutput::new("", 10)));
 /// assert_eq!(IntParser.parse("01"), Ok(ParserOutput::new("", 1)));
 /// assert_eq!(IntParser.parse("1"), Ok(ParserOutput::new("", 1)));
@@ -168,46 +168,21 @@ impl<'a> Parser<'a, &'a str> for IntParser {
     type Output = i32;
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
-        let digit_parser = Any::new()
-            .filter_map(|ch: char| ch.to_digit(10).ok_or(IntError::NonDigit(ch)))
-            .map(|digit| {
-                i32::try_from(digit).expect(
-                    "digits in the range `0..=9` should always be convertible into an `i32`",
-                )
-            })
-            .map_err(|err| err.into_inner::<IntError>());
+        Any::new()
+            .filter_map(|ch: char| ch.to_digit(10).map(|ch| ch as i32).ok_or(IntError::NonDigit(ch)))
+            .map_iter(|iter| {
+                let mut iter = iter.peekable();
+                iter.peek().ok_or(IntError::Eof(EofError))?;
 
-        digit_parser
-            .then(
-                digit_parser
-                    .map_iter(|iter| {
-                        let mut iter = iter.peekable();
-                        iter.peek()?;
+                iter.try_fold(0_i32, |mut accum, i| {
+                    accum = accum.checked_mul(10).ok_or(IntError::Overflow)?;
+                    accum = accum.checked_add(i).ok_or(IntError::Overflow)?;
 
-                        Some(iter.try_fold(0_i32, |mut accum, i| {
-                            accum = accum.checked_mul(10).ok_or(IntError::Overflow)?;
-                            accum = accum.checked_add(i).ok_or(IntError::Overflow)?;
-
-                            Ok::<i32, IntError>(accum)
-                        }))
-                    })
-            )
-            .map(|(car, cdr)| {
-                match cdr.transpose()? {
-                    Some(cdr) => car.checked_mul(
-                        10_i32.checked_pow(cdr.checked_digits().ok_or(IntError::Overflow)?)
-                            .ok_or(IntError::Overflow)?,
-                    )
-                        .ok_or(IntError::Overflow)?
-                        .checked_add(cdr).ok_or(IntError::Overflow),
-                    None => Ok(car),
-                }
-            })
-            .map_err(|err| match err {
-                Either::Left(e) => e,
+                    Ok(accum)
+                })
             })
             .flatten_err()
-            .map_err(|err| err.into_inner::<IntError>())
+            .map_err(|Either::Right(err)| err)
             .parse(input)
     }
 }
