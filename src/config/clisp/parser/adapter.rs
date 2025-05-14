@@ -124,11 +124,33 @@ where
 }
 
 /// [Parser] created by [Parser::flatten_err]
-#[derive(Clone, Copy, Debug)]
-pub struct FlattenErr<P> {
+#[derive(Debug)]
+pub struct FlattenErr<'a, I, E, O, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I, Output = Result<O, E>>,
+{
     pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<P>
+impl<'a, I, E, O, P> Clone for FlattenErr<'a, I, E, O, P>
+where
+    I: Parsable<'a>,
+    P: Clone + Parser<'a, I, Output = Result<O, E>>
+{
+    fn clone(&self) -> Self {
+        Self {
+            parser: self.parser.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, E, O, P> Copy for FlattenErr<'a, I, E, O, P>
+where
+    I: Parsable<'a>,
+    P: Clone + Copy + Parser<'a, I, Output = Result<O, E>>
+{}
+impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I, Output = Result<O, E>>,
@@ -175,12 +197,38 @@ where
 }
 
 /// [Parser] created by [Parser::map]
-#[derive(Clone, Copy, Debug)]
-pub struct Map<F, P> {
+#[derive(Debug)]
+pub struct Map<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(P::Output) -> O,
+    P: Parser<'a, I>,
+{
     pub(super) map: F,
     pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, O, F, P> Parser<'a, I> for Map<F, P>
+impl<'a, I, O, F, P> Clone for Map<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + FnOnce(P::Output) -> O,
+    P: Clone + Parser<'a, I>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            map: self.map.clone(),
+            parser: self.parser.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, O, F, P> Copy for Map<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + Copy + FnOnce(P::Output) -> O,
+    P: Clone + Copy + Parser<'a, I>,
+{}
+impl<'a, I, O, F, P> Parser<'a, I> for Map<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I>,
@@ -197,13 +245,38 @@ where
 }
 
 /// [Parser] created by [Parser::map_err]
-#[derive(Clone, Copy, Debug)]
-pub struct MapErr<F, P>
+#[derive(Debug)]
+pub struct MapErr<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: FnOnce(P::Error) -> O,
+    P: Parser<'a, I>,
 {
     pub(super) map: F,
     pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, F, O, P> Parser<'a, I> for MapErr<F, P>
+impl<'a, I, F, O, P> Clone for MapErr<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + FnOnce(P::Error) -> O,
+    P: Clone + Parser<'a, I>
+{
+    fn clone(&self) -> Self {
+        Self {
+            map: self.map.clone(),
+            parser: self.parser.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, F, O, P> Copy for MapErr<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + Copy + FnOnce(P::Error) -> O,
+    P: Clone + Copy + Parser<'a, I>
+{}
+impl<'a, I, F, O, P> Parser<'a, I> for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: FnOnce(P::Error) -> O,
@@ -218,7 +291,7 @@ where
     }
 }
 // SAFETY: should be safe if `P` is pure
-unsafe impl<'a, I, F, O, P> PureParser<'a, I> for MapErr<F, P>
+unsafe impl<'a, I, F, O, P> PureParser<'a, I> for MapErr<'a, I, F, O, P>
 where
     I: Parsable<'a>,
     F: FnOnce(P::Error) -> O,
@@ -230,7 +303,7 @@ where
 }
 
 /// [Parser] created by [Parser::map_iter]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct MapIter<'a, I, F, O, P>
 where
     I: Parsable<'a>,
@@ -241,6 +314,26 @@ where
     pub(super) map: F,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, F, O, P> Clone for MapIter<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + FnOnce(&mut Iter<'a, I, P>) -> O,
+    P: Clone + Parser<'a, I>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            parser: self.parser.clone(),
+            map: self.map.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, F, O, P> Copy for MapIter<'a, I, F, O, P>
+where
+    I: Parsable<'a>,
+    F: Clone + Copy + FnOnce(&mut Iter<'a, I, P>) -> O,
+    P: Clone + Copy + Parser<'a, I>,
+{}
 impl<'a, I, F, O, P> Parser<'a, I> for MapIter<'a, I, F, O, P>
 where
     I: Parsable<'a>,
@@ -266,7 +359,7 @@ where
 }
 
 /// [Parser] created by [Parser::or]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Or<'a, I, O, L, R>
 where
     I: Parsable<'a>,
@@ -277,6 +370,26 @@ where
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a (I, O)>,
 }
+impl<'a, I, O, L, R> Clone for Or<'a, I, O, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Parser<'a, I, Output = O>,
+    R: Clone + Parser<'a, I, Output = O>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            l: self.l.clone(),
+            r: self.r.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, O, L, R> Copy for Or<'a, I, O, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Copy + Parser<'a, I, Output = O>,
+    R: Clone + Copy + Parser<'a, I, Output = O>,
+{}
 impl<'a, I, O, L, R> Parser<'a, I> for Or<'a, I, O, L, R>
 where
     I: Parsable<'a>,

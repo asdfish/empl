@@ -135,12 +135,13 @@ where
     /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
     /// assert_eq!(answer_to_life.parse("1"), Err(Either::Left(ParserError::Match { expected: '4', found: '1' })));
     /// ```
-    fn flatten_err<E, O>(self) -> FlattenErr<Self>
+    fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
     where
         Self: Parser<'a, I, Output = Result<O, E>>,
     {
         FlattenErr {
             parser: self,
+            _marker: PhantomData,
         }
     }
 
@@ -154,14 +155,14 @@ where
     /// assert_eq!(lowercase.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
     /// ```
-    fn map<F, O>(self, map: F) -> Map<F, Self>
+    fn map<F, O>(self, map: F) -> Map<'a, I, F, O, Self>
     where
         F: FnOnce(Self::Output) -> O,
-        Map<F, Self>: Parser<'a, I, Error = Self::Error, Output = O>,
     {
         Map {
             parser: self,
             map,
+            _marker: PhantomData,
         }
     }
 
@@ -177,14 +178,14 @@ where
     /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", 'a')));
     /// assert_eq!(a.parse("b"), Err(NotAError));
     /// ```
-    fn map_err<F, O>(self, map: F) -> MapErr<F, Self>
+    fn map_err<F, O>(self, map: F) -> MapErr<'a, I, F, O, Self>
     where
         F: FnOnce(Self::Error) -> O,
-        MapErr<F, Self>: Parser<'a, I, Error = O, Output = Self::Output>,
     {
         MapErr {
             map,
             parser: self,
+            _marker: PhantomData,
         }
     }
 
