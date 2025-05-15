@@ -5,11 +5,14 @@ use {
             token::{Any, Just, Select},
         },
         either::Either,
+        ext::int::FromStrRadix,
     },
     std::{
         borrow::Cow,
         error::Error,
         fmt::{self, Display, Formatter},
+        marker::PhantomData,
+        num::ParseIntError,
     },
     unicode_ident::{is_xid_continue, is_xid_start},
 };
@@ -69,7 +72,7 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
-            IntParser.map(Literal::Int),
+            IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
         ))
         .parse(input)
@@ -148,42 +151,46 @@ impl From<EofError> for IntError {
     }
 }
 
-/// Integer parser
-///
-/// # Examples
-///
-/// ```
-/// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
-/// assert_eq!(IntParser.parse("1000"), Ok(ParserOutput::new("", 1000)));
-/// assert_eq!(IntParser.parse("10"), Ok(ParserOutput::new("", 10)));
-/// assert_eq!(IntParser.parse("01"), Ok(ParserOutput::new("", 1)));
-/// assert_eq!(IntParser.parse("1"), Ok(ParserOutput::new("", 1)));
-/// assert_eq!(IntParser.parse("0"), Ok(ParserOutput::new("", 0)));
-/// ```
-#[derive(Clone, Copy, Debug)]
-pub struct IntParser;
-impl<'a> Parser<'a, &'a str> for IntParser {
-    type Error = IntError;
-    type Output = i32;
+#[derive(Debug, Default)]
+pub struct IntParser<const RADIX: u32, N>
+where
+    N: FromStrRadix,
+{
+    _marker: PhantomData<N>,
+}
+impl<const RADIX: u32, N> IntParser<RADIX, N>
+where
+    N: FromStrRadix,
+{
+    pub const fn new() -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+impl<const RADIX: u32, N> Clone for IntParser<RADIX, N>
+where
+    N: FromStrRadix,
+{
+    fn clone(&self) -> Self {
+        Self {
+            _marker: PhantomData,
+        }
+    }
+}
+impl<const RADIX: u32, N> Copy for IntParser<RADIX, N> where N: FromStrRadix {}
+impl<'a, const RADIX: u32, N> Parser<'a, &'a str> for IntParser<RADIX, N>
+where
+    N: FromStrRadix,
+{
+    type Error = ParseIntError;
+    type Output = N;
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Any::new()
-            .filter_map(|ch: char| {
-                ch.to_digit(10)
-                    .map(|ch| ch as i32)
-                    .ok_or(IntError::NonDigit(ch))
-            })
-            .map_iter(|iter| {
-                let mut iter = iter.peekable();
-                iter.peek().ok_or(IntError::Eof(EofError))?;
-
-                iter.try_fold(0_i32, |mut accum, i| {
-                    accum = accum.checked_mul(10).ok_or(IntError::Overflow)?;
-                    accum = accum.checked_add(i).ok_or(IntError::Overflow)?;
-
-                    Ok(accum)
-                })
-            })
+            .filter(|_| (), |ch: &char| ch.is_digit(RADIX))
+            .repeated()
+            .map(|digits| N::from_str_radix(digits, RADIX))
             .flatten_err()
             .map_err(|Either::Right(err)| err)
             .parse(input)
