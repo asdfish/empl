@@ -7,10 +7,47 @@
 use {
     crate::{
         config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
-        either::{Either, Either3},
+        either::Either,
     },
     std::{convert::Infallible, marker::PhantomData},
 };
+
+/// [Parser] created by [PureParser::as_slice]
+#[derive(Clone, Copy, Debug)]
+pub struct AsSlice<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>,
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, P> Parser<'a, I> for AsSlice<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>,
+{
+    type Error = P::Error;
+    type Output = I;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        self.parser
+            .parse(input)
+            .map(|ParserOutput { output, .. }| output)
+            .map(P::output_len)
+            .map(|split| input.split_at(split))
+            .map(|(output, next)| ParserOutput::new(next, output))
+    }
+}
+unsafe impl<'a, I, P> PureParser<'a, I> for AsSlice<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        I::items_len(output)
+    }
+}
 
 /// [Parser] created by [Parser::co_flatten_err]
 #[derive(Clone, Copy, Debug)]
@@ -41,36 +78,32 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct DelimitedBy<'a, I, L, P, R>
+pub struct DelimitedBy<'a, I, E, L, P, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    P: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    P: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
     pub(super) l: L,
     pub(super) parser: P,
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, L, P, R> Parser<'a, I> for DelimitedBy<'a, I, L, P, R>
+impl<'a, I, E, L, P, R> Parser<'a, I> for DelimitedBy<'a, I, E, L, P, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    P: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    P: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
-    type Error = Either3<L::Error, P::Error, R::Error>;
+    type Error = E;
     type Output = P::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either3::First)?;
-        let ParserOutput {
-            next: input,
-            output,
-            ..
-        } = self.parser.parse(input).map_err(Either3::Second)?;
-        let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either3::Third)?;
+        let ParserOutput { next: input, .. } = self.l.parse(input)?;
+        let ParserOutput { next: input, output, .. } = self.parser.parse(input)?;
+        let ParserOutput { next: input, .. } = self.r.parse(input)?;
 
         Ok(ParserOutput::new(input, output))
     }
@@ -122,22 +155,22 @@ where
 
 /// [Parser] created by [Parser::filter]
 #[derive(Debug)]
-pub struct Filter<'a, E, EF, F, I, P>
+pub struct Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    EF: FnOnce(P::Output) -> E,
+    E: FnOnce(P::Output) -> P::Error,
     F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I>,
 {
-    pub(super) error: EF,
+    pub(super) error: E,
     pub(super) parser: P,
     pub(super) predicate: F,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, E, EF, F, I, P> Clone for Filter<'a, E, EF, F, I, P>
+impl<'a, E, F, I, P> Clone for Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    EF: Clone + FnOnce(P::Output) -> E,
+    E: Clone + FnOnce(P::Output) -> P::Error,
     F: Clone + FnOnce(&P::Output) -> bool,
     P: Clone + Parser<'a, I>,
 {
@@ -150,37 +183,38 @@ where
         }
     }
 }
-impl<'a, E, EF, F, I, P> Copy for Filter<'a, E, EF, F, I, P>
+impl<'a, E, F, I, P> Copy for Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    EF: Clone + Copy + FnOnce(P::Output) -> E,
+    E: Clone + Copy + FnOnce(P::Output) -> P::Error,
     F: Clone + Copy + FnOnce(&P::Output) -> bool,
     P: Clone + Copy + Parser<'a, I>,
 {
 }
-impl<'a, E, EF, F, I, P> Parser<'a, I> for Filter<'a, E, EF, F, I, P>
+impl<'a, E, F, I, P> Parser<'a, I> for Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    EF: FnOnce(P::Output) -> E,
+    E: FnOnce(P::Output) -> P::Error,
     F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I>,
 {
-    type Error = Either<P::Error, E>;
+    type Error = P::Error;
     type Output = P::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        let output = self.parser.parse(input).map_err(Either::Left)?;
+        let output = self.parser.parse(input)?;
+
         if (self.predicate)(&output.output) {
             Ok(output)
         } else {
-            Err(Either::Right((self.error)(output.output)))
+            Err((self.error)(output.output))
         }
     }
 }
-unsafe impl<'a, E, EF, F, I, P> PureParser<'a, I> for Filter<'a, E, EF, F, I, P>
+unsafe impl<'a, E, F, I, P> PureParser<'a, I> for Filter<'a, E, F, I, P>
 where
     I: Parsable<'a>,
-    EF: FnOnce(P::Output) -> E,
+    E: FnOnce(P::Output) -> P::Error,
     F: FnOnce(&P::Output) -> bool,
     P: Parser<'a, I> + PureParser<'a, I>,
 {
@@ -195,7 +229,7 @@ pub struct FilterMap<'a, E, I, M, P, T>
 where
     I: Parsable<'a>,
     M: FnOnce(P::Output) -> Result<T, E>,
-    P: Parser<'a, I>,
+    P: Parser<'a, I, Error = E>,
 {
     pub(super) map: M,
     pub(super) parser: P,
@@ -205,7 +239,7 @@ impl<'a, E, I, M, P, T> Clone for FilterMap<'a, E, I, M, P, T>
 where
     I: Parsable<'a>,
     M: Clone + FnOnce(P::Output) -> Result<T, E>,
-    P: Clone + Parser<'a, I>,
+    P: Clone + Parser<'a, I, Error = E>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -219,25 +253,23 @@ impl<'a, E, I, M, P, T> Copy for FilterMap<'a, E, I, M, P, T>
 where
     I: Parsable<'a>,
     M: Clone + Copy + FnOnce(P::Output) -> Result<T, E>,
-    P: Clone + Copy + Parser<'a, I>,
+    P: Clone + Copy + Parser<'a, I, Error = E>,
 {
 }
 impl<'a, E, I, M, P, T> Parser<'a, I> for FilterMap<'a, E, I, M, P, T>
 where
     I: Parsable<'a>,
     M: FnOnce(P::Output) -> Result<T, E>,
-    P: Parser<'a, I>,
+    P: Parser<'a, I, Error = E>,
 {
-    type Error = Either<P::Error, E>;
+    type Error = E;
     type Output = T;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         self.parser
-            .parse(input)
-            .map_err(Either::Left)?
+            .parse(input)?
             .map_output(self.map)
             .transpose()
-            .map_err(Either::Right)
     }
 }
 
@@ -246,7 +278,7 @@ where
 pub struct FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Parser<'a, I, Output = Result<O, E>>,
+    P: Parser<'a, I, Error = E, Output = Result<O, E>>,
 {
     pub(super) parser: P,
     pub(super) _marker: PhantomData<&'a I>,
@@ -254,7 +286,7 @@ where
 impl<'a, I, E, O, P> Clone for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Clone + Parser<'a, I, Output = Result<O, E>>,
+    P: Clone + Parser<'a, I, Error = E, Output = Result<O, E>>,
 {
     fn clone(&self) -> Self {
         Self {
@@ -266,22 +298,21 @@ where
 impl<'a, I, E, O, P> Copy for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Clone + Copy + Parser<'a, I, Output = Result<O, E>>,
+    P: Clone + Copy + Parser<'a, I, Error = E, Output = Result<O, E>>,
 {
 }
 impl<'a, I, E, O, P> Parser<'a, I> for FlattenErr<'a, I, E, O, P>
 where
     I: Parsable<'a>,
-    P: Parser<'a, I, Output = Result<O, E>>,
+    P: Parser<'a, I, Error = E, Output = Result<O, E>>,
 {
-    type Error = Either<P::Error, E>;
+    type Error = E;
     type Output = O;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         self.parser
             .parse(input)
-            .map_err(Either::Left)
-            .and_then(|output| output.transpose().map_err(Either::Right))
+            .and_then(|output| output.transpose())
     }
 }
 
@@ -350,32 +381,32 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct IgnoreThen<'a, I, L, R>
+pub struct IgnoreThen<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
     pub(super) l: L,
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, L, R> Parser<'a, I> for IgnoreThen<'a, I, L, R>
+impl<'a, I, E, L, R> Parser<'a, I> for IgnoreThen<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
-    type Error = Either<L::Error, R::Error>;
+    type Error = E;
     type Output = R::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either::Left)?;
+        let ParserOutput { next: input, .. } = self.l.parse(input)?;
         let ParserOutput {
             next: input,
             output,
             ..
-        } = self.r.parse(input).map_err(Either::Right)?;
+        } = self.r.parse(input)?;
 
         Ok(ParserOutput::new(input, output))
     }
@@ -637,43 +668,6 @@ where
     }
 }
 
-/// [Parser] created by [PureParser::restore]
-#[derive(Clone, Copy, Debug)]
-pub struct AsSlice<'a, I, P>
-where
-    I: Parsable<'a>,
-    P: PureParser<'a, I>,
-{
-    pub(super) parser: P,
-    pub(super) _marker: PhantomData<&'a I>,
-}
-impl<'a, I, P> Parser<'a, I> for AsSlice<'a, I, P>
-where
-    I: Parsable<'a>,
-    P: PureParser<'a, I>,
-{
-    type Error = P::Error;
-    type Output = I;
-
-    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser
-            .parse(input)
-            .map(|ParserOutput { output, .. }| output)
-            .map(P::output_len)
-            .map(|split| input.split_at(split))
-            .map(|(output, next)| ParserOutput::new(next, output))
-    }
-}
-unsafe impl<'a, I, P> PureParser<'a, I> for AsSlice<'a, I, P>
-where
-    I: Parsable<'a>,
-    P: PureParser<'a, I>,
-{
-    fn output_len(output: Self::Output) -> usize {
-        I::items_len(output)
-    }
-}
-
 /// [Parser] created by [PureParser::repeated]
 #[derive(Clone, Copy, Debug)]
 pub struct Repeated<'a, I, P>
@@ -719,23 +713,23 @@ where
 
 /// [Parser] created by [Parser::then]
 #[derive(Clone, Copy, Debug)]
-pub struct Then<'a, I, L, R>
+pub struct Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
     pub(super) l: L,
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, L, R> Parser<'a, I> for Then<'a, I, L, R>
+impl<'a, I, E, L, R> Parser<'a, I> for Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
-    type Error = Either<L::Error, R::Error>;
+    type Error = E;
     type Output = (L::Output, R::Output);
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
@@ -744,22 +738,22 @@ where
             next: items,
             output: l,
             ..
-        } = self.l.parse(I::recover(items)).map_err(Either::Left)?;
+        } = self.l.parse(I::recover(items))?;
         let ParserOutput {
             next: items,
             output: r,
             ..
-        } = self.r.parse(items).map_err(Either::Right)?;
+        } = self.r.parse(items)?;
 
         Ok(ParserOutput::new(items, (l, r)))
     }
 }
 // SAFETY: should be fine if both parsers are pure
-unsafe impl<'a, I, L, R> PureParser<'a, I> for Then<'a, I, L, R>
+unsafe impl<'a, I, E, L, R> PureParser<'a, I> for Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I> + PureParser<'a, I>,
-    R: Parser<'a, I> + PureParser<'a, I>,
+    L: Parser<'a, I> + PureParser<'a, I, Error = E>,
+    R: Parser<'a, I> + PureParser<'a, I, Error = E>,
 {
     fn output_len((l, r): Self::Output) -> usize {
         [L::output_len(l), R::output_len(r)]
@@ -769,23 +763,23 @@ where
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct ThenIgnore<'a, I, L, R>
+pub struct ThenIgnore<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
     pub(super) l: L,
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, L, R> Parser<'a, I> for ThenIgnore<'a, I, L, R>
+impl<'a, I, E, L, R> Parser<'a, I> for ThenIgnore<'a, I, E, L, R>
 where
     I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I>,
+    L: Parser<'a, I, Error = E>,
+    R: Parser<'a, I, Error = E>,
 {
-    type Error = Either<L::Error, R::Error>;
+    type Error = E;
     type Output = L::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
@@ -793,8 +787,8 @@ where
             next: input,
             output,
             ..
-        } = self.l.parse(input).map_err(Either::Left)?;
-        let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either::Right)?;
+        } = self.l.parse(input)?;
+        let ParserOutput { next: input, .. } = self.r.parse(input)?;
 
         Ok(ParserOutput::new(input, output))
     }

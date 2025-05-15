@@ -94,10 +94,11 @@ where
         }
     }
 
-    fn delimited_by<L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, L, Self, R>
+    fn delimited_by<E, L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, E, L, Self, R>
     where
-        L: Parser<'a, I>,
-        R: Parser<'a, I>,
+        Self: Parser<'a, I, Error = E>,
+        L: Parser<'a, I, Error = E>,
+        R: Parser<'a, I, Error = E>,
     {
         DelimitedBy {
             l,
@@ -133,16 +134,16 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Any}, either::Either};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
     /// #[derive(Debug, PartialEq)]
     /// struct NotAError;
-    /// let is_a = Any::new().filter(|_| NotAError, |ch| 'a'.eq(ch));
+    /// let is_a = Any::new().map_err(|_| NotAError).filter(|_| NotAError, |ch| 'a'.eq(ch));
     /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", 'a')));
-    /// assert_eq!(is_a.parse("b"), Err(Either::Right(NotAError)));
+    /// assert_eq!(is_a.parse("b"), Err(NotAError));
     /// ```
-    fn filter<E, EF, F>(self, error: EF, predicate: F) -> Filter<'a, E, EF, F, I, Self>
+    fn filter<E, F>(self, error: E, predicate: F) -> Filter<'a, E, F, I, Self>
     where
-        EF: FnOnce(Self::Output) -> E,
+        E: FnOnce(Self::Output) -> Self::Error,
         F: FnOnce(&Self::Output) -> bool,
     {
         Filter {
@@ -158,16 +159,16 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Any}, either::Either};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
     /// #[derive(Debug, PartialEq)]
     /// struct NonDigitError;
-    /// let digit = Any::new().filter_map(|ch: char| ch.to_digit(10).ok_or(NonDigitError));
+    /// let digit = Any::new().map_err(|_| NonDigitError).filter_map(|ch: char| ch.to_digit(10).ok_or(NonDigitError));
     /// assert_eq!(digit.parse("1"), Ok(ParserOutput::new("", 1)));
-    /// assert_eq!(digit.parse("a"), Err(Either::Right(NonDigitError)));
+    /// assert_eq!(digit.parse("a"), Err(NonDigitError));
     /// ```
-    fn filter_map<E, M, T>(self, map: M) -> FilterMap<'a, E, I, M, Self, T>
+    fn filter_map<M, T>(self, map: M) -> FilterMap<'a, Self::Error, I, M, Self, T>
     where
-        M: FnOnce(Self::Output) -> Result<T, E>,
+        M: FnOnce(Self::Output) -> Result<T, Self::Error>,
     {
         FilterMap {
             map,
@@ -189,7 +190,7 @@ where
     /// ```
     fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
     where
-        Self: Parser<'a, I, Output = Result<O, E>>,
+        Self: Parser<'a, I, Error = E, Output = Result<O, E>>,
     {
         FlattenErr {
             parser: self,
@@ -222,9 +223,9 @@ where
         }
     }
 
-    fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self, R>
+    fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self::Error, Self, R>
     where
-        R: Parser<'a, I>,
+        R: Parser<'a, I, Error = Self::Error>,
     {
         IgnoreThen {
             l: self,
@@ -330,9 +331,9 @@ where
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Ok(ParserOutput::new("", ('h', 'i'))));
     /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(Either::Right(ParserError::Match { expected: 'i', found: 'o' })));
     /// ```
-    fn then<R>(self, r: R) -> Then<'a, I, Self, R>
+    fn then<R>(self, r: R) -> Then<'a, I, Self::Error, Self, R>
     where
-        R: Parser<'a, I>,
+        R: Parser<'a, I, Error = Self::Error>,
     {
         Then {
             l: self,
@@ -341,9 +342,9 @@ where
         }
     }
 
-    fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self, R>
+    fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self::Error, Self, R>
     where
-        R: Parser<'a, I>,
+        R: Parser<'a, I, Error = Self::Error>,
     {
         ThenIgnore {
             l: self,
@@ -474,7 +475,7 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct EofError;
 impl Display for EofError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {

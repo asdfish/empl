@@ -8,7 +8,7 @@ use {
         ext::int::FromStrRadix,
     },
     std::{
-        borrow::Cow,
+        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
@@ -117,14 +117,15 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
         Any::new()
+            .map_err(IdentError::Eof)
             .filter(IdentError::NotXidStart, |ch| is_xid_start(*ch))
             .then(
                 Any::new()
-                    .filter(|_| (), |ch| is_xid_continue(*ch))
-                    .repeated(),
+                    .filter(|_| Default::default(), |ch| is_xid_continue(*ch))
+                    .repeated()
+                    .map_err(|_: Infallible| unreachable!()),
             )
             .as_slice()
-            .map_err(|Either::Left(e)| e.into_inner())
             .parse(input)
     }
 }
@@ -186,27 +187,53 @@ where
 
     fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Any::new()
-            .filter(|_| (), |ch: &char| ch.is_digit(RADIX))
+            .filter(|_| Default::default(), |ch: &char| ch.is_digit(RADIX))
             .repeated()
+            .map_err(|_: Infallible| unreachable!())
             .map(|digits| N::from_str_radix(digits, RADIX))
             .flatten_err()
-            .map_err(|Either::Right(err)| err)
             .parse(input)
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum StringError<'a> {
-    UnknownKeySequence(&'a str),
+#[derive(Clone, Debug)]
+pub enum EscapeCharacterError {
+    Unicode(ParseIntError),
+    UnknownEscape(char),
+}
+impl Display for EscapeCharacterError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Unicode(e) => write!(f, "failed to parse unicode scalar value: {e}"),
+            Self::UnknownEscape(ch) => write!(f, "unknown escape character `{ch}`"),
+        }
+    }
+}
+impl Error for EscapeCharacterError {}
+impl From<ParseIntError> for EscapeCharacterError {
+    fn from(err: ParseIntError) -> Self {
+        Self::Unicode(err)
+    }
+}
+impl From<char> for EscapeCharacterError {
+    fn from(err: char) -> Self {
+        Self::UnknownEscape(err)
+    }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct StringParser;
-impl<'a> Parser<'a, &'a str> for StringParser {
-    type Error = StringError<'a>;
-    type Output = Cow<'a, str>;
+pub struct EscapeCharacterParser;
+impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
+    type Error = EscapeCharacterError;
+    type Output = char;
 
-    fn parse(self, _: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(self, _input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         todo!()
+        // Just('\\')
+        //     .ignore_then(
+        //         Just('0').to('\0')
+        //             .or(Just('n').to('\n'))
+        //     )
+        //     .parse(input)
     }
 }
