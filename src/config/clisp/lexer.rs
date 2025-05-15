@@ -1,7 +1,7 @@
 use {
     crate::{
         config::clisp::parser::{
-            EofError, Parser, ParserOutput, PureParser,
+            EofError, Parser, ParserError, ParserOutput, PureParser,
             token::{Any, Just, Select},
         },
         ext::int::FromStrRadix,
@@ -195,15 +195,19 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum EscapeCharacterError {
-    Unicode(ParseIntError),
+    Eof(EofError),
+    InvalidUnicodeScalar(u32),
+    ParseUnicode(ParseIntError),
     UnknownEscape(char),
 }
 impl Display for EscapeCharacterError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Unicode(e) => write!(f, "failed to parse unicode scalar value: {e}"),
+            Self::Eof(e) => e.fmt(f),
+            Self::InvalidUnicodeScalar(i) => write!(f, "`{i:x}` is not a valid unicode scalar"),
+            Self::ParseUnicode(e) => write!(f, "failed to parse unicode scalar value: {e}"),
             Self::UnknownEscape(ch) => write!(f, "unknown escape character `{ch}`"),
         }
     }
@@ -211,31 +215,59 @@ impl Display for EscapeCharacterError {
 impl Error for EscapeCharacterError {}
 impl From<ParseIntError> for EscapeCharacterError {
     fn from(err: ParseIntError) -> Self {
-        Self::Unicode(err)
+        Self::ParseUnicode(err)
     }
 }
-impl From<char> for EscapeCharacterError {
-    fn from(err: char) -> Self {
-        Self::UnknownEscape(err)
+impl From<ParserError<char>> for EscapeCharacterError {
+    fn from(err: ParserError<char>) -> Self {
+        match err {
+            ParserError::Eof(e) => Self::Eof(e),
+            ParserError::Match { found, .. } => Self::UnknownEscape(found),
+        }
     }
 }
 
+/// Escape code parser
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{parser::{Parser, ParserOutput}, lexer::EscapeCharacterParser};
+/// assert_eq!(EscapeCharacterParser.parse("\\u{FACE}"), Ok(ParserOutput::new("", '\u{FACE}')));
+/// ```
 #[derive(Clone, Copy, Debug)]
 pub struct EscapeCharacterParser;
 impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
     type Error = EscapeCharacterError;
     type Output = char;
 
-    fn parse(
-        self,
-        _input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
-        todo!()
-        // Just('\\')
-        //     .ignore_then(
-        //         Just('0').to('\0')
-        //             .or(Just('n').to('\n'))
-        //     )
-        //     .parse(input)
+    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+        Just('\\')
+            .map_err(EscapeCharacterError::from)
+            .ignore_then(
+                Just('0')
+                    .map_err(EscapeCharacterError::from)
+                    .to('\0')
+                    .or(Just('n').map_err(EscapeCharacterError::from).to('\n'))
+                    .or(Just('r').map_err(EscapeCharacterError::from).to('\r'))
+                    .or(Just('t').map_err(EscapeCharacterError::from).to('\t'))
+                    .or(Just('\'').map_err(EscapeCharacterError::from).to('\''))
+                    .or(Just('"').map_err(EscapeCharacterError::from).to('"'))
+                    .or(Just('\\').map_err(EscapeCharacterError::from).to('\\'))
+                    .or(Just('u').map_err(EscapeCharacterError::from).ignore_then(
+                        IntParser::<16, u32>::new()
+                            .map_err(EscapeCharacterError::ParseUnicode)
+                            .map(|i| {
+                                char::from_u32(i)
+                                    .ok_or(EscapeCharacterError::InvalidUnicodeScalar(i))
+                            })
+                            .flatten_err()
+                            .delimited_by(
+                                Just('{').map_err(EscapeCharacterError::from),
+                                Just('}').map_err(EscapeCharacterError::from),
+                            ),
+                    )),
+            )
+            .parse(input)
     }
 }
