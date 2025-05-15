@@ -182,11 +182,11 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence}, either::Either};
-    /// # use std::str::FromStr;
-    /// let answer_to_life = Sequence::new("42").map(u32::from_str).flatten_err();
-    /// assert_eq!(answer_to_life.parse("42"), Ok(ParserOutput::new("", 42)));
-    /// assert_eq!(answer_to_life.parse("1"), Err(Either::Left(ParserError::Match { expected: '4', found: '1' })));
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Any};
+    /// #[derive(Debug, PartialEq)]
+    /// struct MyError;
+    /// let end = Any::new().map_err(|_| MyError).map(|_| Err::<(), MyError>(MyError)).flatten_err();
+    /// assert_eq!(end.parse("asdf"), Err(MyError));
     /// ```
     fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
     where
@@ -322,14 +322,14 @@ where
         }
     }
 
-    /// Chain two parsers together with an output of `(Self::Output, R::Output)` and an error of `Either<Self::Error, R::Error>`.
+    /// Chain two parsers together with an output of `(Self::Output, R::Output)`.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Ok(ParserOutput::new("", ('h', 'i'))));
-    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(Either::Right(ParserError::Match { expected: 'i', found: 'o' })));
+    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(ParserError::Match { expected: 'i', found: 'o' }));
     /// ```
     fn then<R>(self, r: R) -> Then<'a, I, Self::Error, Self, R>
     where
