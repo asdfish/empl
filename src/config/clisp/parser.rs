@@ -393,6 +393,7 @@ where
     /// let a = Just('a').as_slice();
     /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", "a")));
     /// ```
+    #[expect(clippy::wrong_self_convention)]
     fn as_slice(self) -> AsSlice<'a, I, Self> {
         AsSlice {
             parser: self,

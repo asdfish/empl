@@ -173,9 +173,7 @@ where
     N: FromStrRadix,
 {
     fn clone(&self) -> Self {
-        Self {
-            _marker: PhantomData,
-        }
+        *self
     }
 }
 impl<const RADIX: u32, N> Copy for IntParser<RADIX, N> where N: FromStrRadix {}
