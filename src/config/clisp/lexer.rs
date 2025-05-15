@@ -4,9 +4,11 @@ use {
             EofError, Parser, ParserError, ParserOutput, PureParser,
             token::{Any, Just, Select},
         },
+        either::Either,
         ext::int::FromStrRadix,
     },
     std::{
+        borrow::Cow,
         convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
@@ -16,7 +18,7 @@ use {
     unicode_ident::{is_xid_continue, is_xid_start},
 };
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Lexeme<'a> {
     LParen,
     RParen,
@@ -39,20 +41,23 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum Literal<'a> {
     Ident(&'a str),
     Int(i32),
+    String(Cow<'a, str>),
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub enum LiteralError {
     Ident(IdentError),
+    String(StringError),
 }
 impl Display for LiteralError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Ident(e) => e.fmt(f),
+            Self::String(e) => e.fmt(f),
         }
     }
 }
@@ -60,6 +65,11 @@ impl Error for LiteralError {}
 impl From<IdentError> for LiteralError {
     fn from(err: IdentError) -> Self {
         Self::Ident(err)
+    }
+}
+impl From<StringError> for LiteralError {
+    fn from(err: StringError) -> Self {
+        Self::String(err)
     }
 }
 
@@ -73,6 +83,9 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
         Select((
             IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
+            StringParser
+                .map(Literal::String)
+                .map_err(LiteralError::String),
         ))
         .parse(input)
     }
@@ -268,6 +281,72 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
                             ),
                     )),
             )
+            .parse(input)
+    }
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub enum StringError {
+    Eof(EofError),
+    EscapeCharacter(EscapeCharacterError),
+    Unescaped(char),
+    Delimiter(char),
+}
+impl StringError {
+    fn delimiter_error(err: ParserError<char>) -> Self {
+        match err {
+            ParserError::Eof(e) => Self::Eof(e),
+            ParserError::Match { found, .. } => Self::Delimiter(found),
+        }
+    }
+}
+impl Display for StringError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Eof(e) => e.fmt(f),
+            Self::EscapeCharacter(e) => e.fmt(f),
+            Self::Unescaped(c) => write!(f, "`{c}` must be escaped"),
+            Self::Delimiter(c) => write!(f, "`{c}` was found in place of string delimiter `\"`"),
+        }
+    }
+}
+impl Error for StringError {}
+
+/// String parser
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::StringParser, parser::{Parser, ParserOutput}};
+/// # use std::borrow::Cow;
+/// assert_eq!(StringParser.parse(r#""hello world""#), Ok(ParserOutput::new("", Cow::Borrowed("hello world"))));
+/// assert_eq!(StringParser.parse(r#""\u{CAFE}""#), Ok(ParserOutput::new("", Cow::Borrowed("\u{CAFE}"))));
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct StringParser;
+impl<'a> Parser<'a, &'a str> for StringParser {
+    type Error = StringError;
+    type Output = Cow<'a, str>;
+
+    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+        let delimiter = Just('"').map_err(StringError::delimiter_error);
+
+        Any::new()
+            .map_err(StringError::Eof)
+            .filter(StringError::Unescaped, |ch| '\"'.ne(ch) && '\\'.ne(ch))
+            .either_or(EscapeCharacterParser.map_err(StringError::EscapeCharacter))
+            .fold(Cow::Borrowed(""), |accum, string, ch| match (ch, accum) {
+                (Either::Left(_), Cow::Borrowed(_)) => Ok(Cow::Borrowed(string)),
+                (Either::Left(ch), Cow::Owned(mut string)) => {
+                    string.push(ch);
+                    Ok(Cow::Owned(string))
+                }
+                (Either::Right(ch), mut string) => {
+                    string.to_mut().push(ch);
+                    Ok(string)
+                }
+            })
+            .delimited_by(delimiter, delimiter)
             .parse(input)
     }
 }
