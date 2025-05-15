@@ -249,6 +249,71 @@ where
     }
 }
 
+/// [Parser] created by [Parser::fold]
+#[derive(Debug)]
+pub struct Fold<'a, A, E, F, I, P>
+where
+    I: Parsable<'a>,
+    F: FnMut(A, I, P::Output) -> Result<A, E>,
+    P: Clone + Parser<'a, I>,
+{
+    pub(super) fold: F,
+    pub(super) parser: P,
+    pub(super) start: A,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, A, E, F, I, P> Clone for Fold<'a, A, E, F, I, P>
+where
+    I: Parsable<'a>,
+    A: Clone,
+    F: Clone + FnMut(A, I, P::Output) -> Result<A, E>,
+    P: Clone + Parser<'a, I>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            fold: self.fold.clone(),
+            parser: self.parser.clone(),
+            start: self.start.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, A, E, F, I, P> Copy for Fold<'a, A, E, F, I, P>
+where
+    I: Parsable<'a>,
+    A: Clone + Copy,
+    F: Clone + Copy + FnMut(A, I, P::Output) -> Result<A, E>,
+    P: Clone + Copy + Parser<'a, I>,
+{
+}
+impl<'a, A, E, F, I, P> Parser<'a, I> for Fold<'a, A, E, F, I, P>
+where
+    I: Parsable<'a>,
+    F: FnMut(A, I, P::Output) -> Result<A, E>,
+    P: Clone + Parser<'a, I>,
+{
+    type Error = E;
+    type Output = A;
+
+    fn parse(mut self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let mut accum = self.start;
+        let mut items = input;
+
+        while let Ok(ParserOutput { next, output, .. }) = self.parser.clone().parse(items) {
+            let Some((slice, _)) =
+                input.split_at_checked(input.items_len() - next.items_len())
+            else {
+                break;
+            };
+            accum = (self.fold)(accum, slice, output)?;
+
+            items = next;
+        }
+
+        Ok(ParserOutput::new(items, accum))
+    }
+}
+
 /// [Iterator] for [Parser]s
 #[derive(Clone, Copy, Debug)]
 pub struct Iter<'a, I, P>

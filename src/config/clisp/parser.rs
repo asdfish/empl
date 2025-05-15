@@ -9,7 +9,8 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
-        slice, str,
+        slice,
+        str,
     },
 };
 
@@ -22,6 +23,7 @@ pub trait Parsable<'a>: Copy + Sized {
     fn items(self) -> Self::Iter;
     fn items_len(self) -> usize;
     fn split_at(self, _: usize) -> (Self, Self);
+    fn split_at_checked(self, _: usize) -> Option<(Self, Self)>;
     /// Convert [Self::Iter] back into [Self].
     fn recover(_: Self::Iter) -> Self;
 }
@@ -40,6 +42,9 @@ impl<'a> Parsable<'a> for &'a str {
     }
     fn split_at(self, at: usize) -> (Self, Self) {
         self.split_at(at)
+    }
+    fn split_at_checked(self, at: usize) -> Option<(Self, Self)> {
+        self.split_at_checked(at)
     }
     fn recover(chars: Self::Iter) -> &'a str {
         chars.as_str()
@@ -64,6 +69,9 @@ where
     fn split_at(self, at: usize) -> (Self, Self) {
         self.split_at(at)
     }
+    fn split_at_checked(self, at: usize) -> Option<(Self, Self)> {
+        self.split_at_checked(at)
+    }
     fn recover(items: Self::Iter) -> &'a [T] {
         items.as_slice()
     }
@@ -76,6 +84,7 @@ where
     type Error;
     type Output;
 
+    /// The parser next part of the parser output's length must be smaller or equal to the input's.
     fn parse(self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
 
     /// Get the error of the parser as a result, so that you can use it to recover.
@@ -172,6 +181,31 @@ where
     {
         FlattenErr {
             parser: self,
+            _marker: PhantomData,
+        }
+    }
+
+    /// Accumulate the output of this parser as well as the previous parts as a slice.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use std::convert::Infallible;
+    /// let a_count = Just('a').fold(0, |accum, _, _| Ok::<usize, Infallible>(accum + 1));
+    /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
+    /// let a_count = Just('a').fold(0, |_, slice: &str, _| Ok::<usize, Infallible>(slice.len()));
+    /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
+    /// ```
+    fn fold<A, E, F>(self, start: A, fold: F) -> Fold<'a, A, E, F, I, Self>
+    where
+        Self: Clone,
+        F: FnMut(A, I, Self::Output) -> Result<A, E>,
+    {
+        Fold {
+            fold,
+            parser: self,
+            start,
             _marker: PhantomData,
         }
     }
