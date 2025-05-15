@@ -7,7 +7,7 @@
 use {
     crate::{
         config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
-        either::Either,
+        either::{Either, Either3},
     },
     std::{convert::Infallible, marker::PhantomData},
 };
@@ -37,6 +37,38 @@ where
             .map(|output| output.map_output(Ok))
             .map_err(Err)
             .unwrap_or_else(|err| ParserOutput::new(input, err)))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct DelimitedBy<'a, I, L, P, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    P: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    pub(super) l: L,
+    pub(super) parser: P,
+    pub(super) r: R,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, L, P, R> Parser<'a, I> for DelimitedBy<'a, I, L, P, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    P: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    type Error = Either3<L::Error, P::Error, R::Error>;
+    type Output = P::Output;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either3::First)?;
+        let ParserOutput { next: input, output, .. } = self.parser.parse(input).map_err(Either3::Second)?;
+        let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either3::Third)?;
+
+        Ok(ParserOutput::new(input, output))
     }
 }
 
@@ -311,6 +343,34 @@ where
         }
 
         Ok(ParserOutput::new(items, accum))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct IgnoreThen<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    pub(super) l: L,
+    pub(super) r: R,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, L, R> Parser<'a, I> for IgnoreThen<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>
+{
+    type Error = Either<L::Error, R::Error>;
+    type Output = R::Output;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either::Left)?;
+        let ParserOutput { next: input, output, .. } = self.r.parse(input).map_err(Either::Right)?;
+
+        Ok(ParserOutput::new(input, output))
     }
 }
 
@@ -698,6 +758,34 @@ where
         [L::output_len(l), R::output_len(r)]
             .into_iter()
             .sum::<usize>()
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct ThenIgnore<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>,
+{
+    pub(super) l: L,
+    pub(super) r: R,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, L, R> Parser<'a, I> for ThenIgnore<'a, I, L, R>
+where
+    I: Parsable<'a>,
+    L: Parser<'a, I>,
+    R: Parser<'a, I>
+{
+    type Error = Either<L::Error, R::Error>;
+    type Output = L::Output;
+
+    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        let ParserOutput { next: input, output, .. } = self.l.parse(input).map_err(Either::Left)?;
+        let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either::Right)?;
+
+        Ok(ParserOutput::new(input, output))
     }
 }
 

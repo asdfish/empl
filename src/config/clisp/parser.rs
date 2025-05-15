@@ -95,6 +95,19 @@ where
         }
     }
 
+    fn delimited_by<L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, L, Self, R>
+    where
+        L: Parser<'a, I>,
+        R: Parser<'a, I>,
+    {
+        DelimitedBy {
+            l,
+            parser: self,
+            r,
+            _marker: PhantomData,
+        }
+    }
+
     /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
     ///
     /// # Examples
@@ -210,6 +223,15 @@ where
         }
     }
 
+    fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self, R>
+    where R: Parser<'a, I> {
+        IgnoreThen {
+            l: self,
+            r,
+            _marker: PhantomData,
+        }
+    }
+
     /// Transform the output of the current [Parser].
     ///
     /// # Examples
@@ -312,6 +334,15 @@ where
         R: Parser<'a, I>,
     {
         Then {
+            l: self,
+            r,
+            _marker: PhantomData,
+        }
+    }
+
+    fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self, R>
+    where R: Parser<'a, I> {
+        ThenIgnore {
             l: self,
             r,
             _marker: PhantomData,
