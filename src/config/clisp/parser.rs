@@ -9,8 +9,7 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
-        slice,
-        str,
+        slice, str,
     },
 };
 
@@ -224,7 +223,9 @@ where
     }
 
     fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self, R>
-    where R: Parser<'a, I> {
+    where
+        R: Parser<'a, I>,
+    {
         IgnoreThen {
             l: self,
             r,
@@ -341,7 +342,9 @@ where
     }
 
     fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self, R>
-    where R: Parser<'a, I> {
+    where
+        R: Parser<'a, I>,
+    {
         ThenIgnore {
             l: self,
             r,

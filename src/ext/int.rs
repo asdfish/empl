@@ -11,7 +11,7 @@ macro_rules! impl_from_str_radix_for {
                 <$ty>::from_str_radix(int, radix)
             }
         }
-    }
+    };
 }
 impl_from_str_radix_for!(i8);
 impl_from_str_radix_for!(i16);

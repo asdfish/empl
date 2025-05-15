@@ -65,7 +65,11 @@ where
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either3::First)?;
-        let ParserOutput { next: input, output, .. } = self.parser.parse(input).map_err(Either3::Second)?;
+        let ParserOutput {
+            next: input,
+            output,
+            ..
+        } = self.parser.parse(input).map_err(Either3::Second)?;
         let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either3::Third)?;
 
         Ok(ParserOutput::new(input, output))
@@ -332,8 +336,7 @@ where
         let mut items = input;
 
         while let Ok(ParserOutput { next, output, .. }) = self.parser.clone().parse(items) {
-            let Some((slice, _)) =
-                input.split_at_checked(input.items_len() - next.items_len())
+            let Some((slice, _)) = input.split_at_checked(input.items_len() - next.items_len())
             else {
                 break;
             };
@@ -361,14 +364,18 @@ impl<'a, I, L, R> Parser<'a, I> for IgnoreThen<'a, I, L, R>
 where
     I: Parsable<'a>,
     L: Parser<'a, I>,
-    R: Parser<'a, I>
+    R: Parser<'a, I>,
 {
     type Error = Either<L::Error, R::Error>;
     type Output = R::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let ParserOutput { next: input, .. } = self.l.parse(input).map_err(Either::Left)?;
-        let ParserOutput { next: input, output, .. } = self.r.parse(input).map_err(Either::Right)?;
+        let ParserOutput {
+            next: input,
+            output,
+            ..
+        } = self.r.parse(input).map_err(Either::Right)?;
 
         Ok(ParserOutput::new(input, output))
     }
@@ -776,13 +783,17 @@ impl<'a, I, L, R> Parser<'a, I> for ThenIgnore<'a, I, L, R>
 where
     I: Parsable<'a>,
     L: Parser<'a, I>,
-    R: Parser<'a, I>
+    R: Parser<'a, I>,
 {
     type Error = Either<L::Error, R::Error>;
     type Output = L::Output;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        let ParserOutput { next: input, output, .. } = self.l.parse(input).map_err(Either::Left)?;
+        let ParserOutput {
+            next: input,
+            output,
+            ..
+        } = self.l.parse(input).map_err(Either::Left)?;
         let ParserOutput { next: input, .. } = self.r.parse(input).map_err(Either::Right)?;
 
         Ok(ParserOutput::new(input, output))
