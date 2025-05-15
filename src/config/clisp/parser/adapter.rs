@@ -102,7 +102,11 @@ where
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let ParserOutput { next: input, .. } = self.l.parse(input)?;
-        let ParserOutput { next: input, output, .. } = self.parser.parse(input)?;
+        let ParserOutput {
+            next: input,
+            output,
+            ..
+        } = self.parser.parse(input)?;
         let ParserOutput { next: input, .. } = self.r.parse(input)?;
 
         Ok(ParserOutput::new(input, output))
@@ -266,10 +270,7 @@ where
     type Output = T;
 
     fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.parser
-            .parse(input)?
-            .map_output(self.map)
-            .transpose()
+        self.parser.parse(input)?.map_output(self.map).transpose()
     }
 }
 

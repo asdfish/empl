@@ -4,7 +4,6 @@ use {
             EofError, Parser, ParserOutput, PureParser,
             token::{Any, Just, Select},
         },
-        either::Either,
         ext::int::FromStrRadix,
     },
     std::{
@@ -227,7 +226,10 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
     type Error = EscapeCharacterError;
     type Output = char;
 
-    fn parse(self, _input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(
+        self,
+        _input: &'a str,
+    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         todo!()
         // Just('\\')
         //     .ignore_then(
