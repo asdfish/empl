@@ -7,6 +7,7 @@ use {
         either::Either,
     },
     std::{
+        borrow::Cow,
         error::Error,
         fmt::{self, Display, Formatter},
     },
@@ -119,7 +120,7 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
                     .filter(|_| (), |ch| is_xid_continue(*ch))
                     .repeated(),
             )
-            .restore()
+            .as_slice()
             .map_err(|Either::Left(e)| e.into_inner())
             .parse(input)
     }
@@ -186,5 +187,21 @@ impl<'a> Parser<'a, &'a str> for IntParser {
             .flatten_err()
             .map_err(|Either::Right(err)| err)
             .parse(input)
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum StringError<'a> {
+    UnknownKeySequence(&'a str),
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct StringParser;
+impl<'a> Parser<'a, &'a str> for StringParser {
+    type Error = StringError<'a>;
+    type Output = Cow<'a, str>;
+
+    fn parse(self, _: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+        todo!()
     }
 }

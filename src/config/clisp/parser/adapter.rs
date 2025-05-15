@@ -507,7 +507,7 @@ where
 
 /// [Parser] created by [PureParser::restore]
 #[derive(Clone, Copy, Debug)]
-pub struct Restore<'a, I, P>
+pub struct AsSlice<'a, I, P>
 where
     I: Parsable<'a>,
     P: PureParser<'a, I>,
@@ -515,7 +515,7 @@ where
     pub(super) parser: P,
     pub(super) _marker: PhantomData<&'a I>,
 }
-impl<'a, I, P> Parser<'a, I> for Restore<'a, I, P>
+impl<'a, I, P> Parser<'a, I> for AsSlice<'a, I, P>
 where
     I: Parsable<'a>,
     P: PureParser<'a, I>,
@@ -532,7 +532,7 @@ where
             .map(|(output, next)| ParserOutput::new(next, output))
     }
 }
-unsafe impl<'a, I, P> PureParser<'a, I> for Restore<'a, I, P>
+unsafe impl<'a, I, P> PureParser<'a, I> for AsSlice<'a, I, P>
 where
     I: Parsable<'a>,
     P: PureParser<'a, I>,

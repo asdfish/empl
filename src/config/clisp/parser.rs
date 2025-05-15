@@ -322,11 +322,11 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
-    /// let a = Just('a').restore();
+    /// let a = Just('a').as_slice();
     /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", "a")));
     /// ```
-    fn restore(self) -> Restore<'a, I, Self> {
-        Restore {
+    fn as_slice(self) -> AsSlice<'a, I, Self> {
+        AsSlice {
             parser: self,
             _marker: PhantomData,
         }
