@@ -1,9 +1,8 @@
 use {
     crate::config::clisp::parser::{Parsable, Parser, ParserOutput},
     std::{
-        cell::Cell,
-        marker::{PhantomData, PhantomPinned},
-        pin::Pin,
+        cell::OnceCell,
+        marker::PhantomData,
     },
 };
 
@@ -24,7 +23,7 @@ use {
 ///     Neg(Box<Self>),
 /// }
 /// let expr_parser = RecursiveParser::new();
-/// let expr_parser = expr_parser.declare(|expr| {
+/// expr_parser.declare(|expr| {
 ///     IntParser::<10, u32>::new()
 ///         .map(Expr::Int)
 ///         .or(Just('-').ignore_then(expr.map(Box::new).map(Expr::Neg)))
@@ -38,36 +37,34 @@ use {
 ///     Ok(ParserOutput::new("", Expr::Neg(Box::new(Expr::Int(10)))))
 /// );
 /// ```
-#[derive(Default)]
 #[repr(transparent)]
 pub struct RecursiveParser<'a, I, P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I>,
 {
-    parser: Cell<Option<P>>,
-    _marker: (PhantomData<&'a I>, PhantomPinned),
+    parser: OnceCell<P>,
+    _marker: PhantomData<&'a I>,
 }
 impl<'a, I, P> RecursiveParser<'a, I, P>
 where
     I: Parsable<'a>,
     P: Parser<'a, I>,
 {
-    /// Create a new recursive parser.
     pub const fn new() -> Self {
         Self {
-            parser: Cell::new(None),
-            _marker: (PhantomData, PhantomPinned),
+            parser: OnceCell::new(),
+            _marker: PhantomData,
         }
     }
 
-    pub fn declare<F>(&'a mut self, declaration: F) -> Pin<&'a Self>
+    /// This function does nothing if the parser was already declared.
+    pub fn declare<F>(&'a self, declaration: F)
     where
-        F: FnOnce(Pin<&'a dyn Parser<'a, I, Error = P::Error, Output = P::Output>>) -> P,
+        F: FnOnce(&'a dyn Parser<'a, I, Error = P::Error, Output = P::Output>) -> P,
     {
-        self.parser
-            .set(Some(declaration(unsafe { Pin::new_unchecked(self) })));
-        unsafe { Pin::new_unchecked(self) }
+        let result = self.parser.set(declaration(self));
+        debug_assert!(result.is_ok());
     }
 }
 impl<'a, I, P> Parser<'a, I> for RecursiveParser<'a, I, P>
@@ -78,17 +75,13 @@ where
     type Error = P::Error;
     type Output = P::Output;
 
+    /// # Panics
+    ///
     /// If this is called before [Self::declare] returns, it will panic.
     fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        let parser = Cell::new(None);
-        self.parser.swap(&parser);
-        let parser = parser
-            .into_inner()
-            .expect("`RecursiveParser` should not be called before being declared");
-
-        let output = parser.parse(input);
-        self.parser.set(Some(parser));
-
-        output
+        self.parser
+            .get()
+            .expect("`RecursiveParser` should not be called before being declared")
+            .parse(input)
     }
 }
