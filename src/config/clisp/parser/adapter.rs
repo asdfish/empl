@@ -113,7 +113,8 @@ where
     L: Clone + Copy + Parser<'a, I, Error = E>,
     P: Clone + Copy + Parser<'a, I, Error = E>,
     R: Clone + Copy + Parser<'a, I, Error = E>,
-{}
+{
+}
 impl<'a, I, E, L, P, R> Parser<'a, I> for DelimitedBy<'a, I, E, L, P, R>
 where
     I: Parsable<'a>,
@@ -438,7 +439,8 @@ where
     I: Parsable<'a>,
     L: Clone + Copy + Parser<'a, I, Error = E>,
     R: Clone + Copy + Parser<'a, I, Error = E>,
-{}
+{
+}
 impl<'a, I, E, L, R> Parser<'a, I> for IgnoreThen<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -789,7 +791,8 @@ where
     I: Parsable<'a>,
     L: Clone + Copy + Parser<'a, I, Error = E>,
     R: Clone + Copy + Parser<'a, I, Error = E>,
-{}
+{
+}
 impl<'a, I, E, L, R> Parser<'a, I> for Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -860,7 +863,8 @@ where
     I: Parsable<'a>,
     L: Clone + Copy + Parser<'a, I, Error = E>,
     R: Clone + Copy + Parser<'a, I, Error = E>,
-{}
+{
+}
 impl<'a, I, E, L, R> Parser<'a, I> for ThenIgnore<'a, I, E, L, R>
 where
     I: Parsable<'a>,
