@@ -8,10 +8,6 @@ use {
 
 /// Recursive parser creator.
 ///
-/// # Panics
-///
-/// The parser will panic if you call [RecursiveParser::parser] before [RecursiveParser::declare].
-///
 /// # Examples
 ///
 /// ```
@@ -37,6 +33,7 @@ use {
 ///     Ok(ParserOutput::new("", Expr::Neg(Box::new(Expr::Int(10)))))
 /// );
 /// ```
+#[derive(Clone)]
 #[repr(transparent)]
 pub struct RecursiveParser<'a, I, P>
 where
@@ -65,6 +62,15 @@ where
     {
         let result = self.parser.set(declaration(self));
         debug_assert!(result.is_ok());
+    }
+}
+impl<'a, I, P> Default for RecursiveParser<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+{
+    fn default() -> Self {
+        const { Self::new() }
     }
 }
 impl<'a, I, P> Parser<'a, I> for RecursiveParser<'a, I, P>
