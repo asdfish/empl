@@ -77,7 +77,7 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct DelimitedBy<'a, I, E, L, P, R>
 where
     I: Parsable<'a>,
@@ -90,6 +90,29 @@ where
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, E, L, P, R> Clone for DelimitedBy<'a, I, E, L, P, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Parser<'a, I, Error = E>,
+    P: Clone + Parser<'a, I, Error = E>,
+    R: Clone + Parser<'a, I, Error = E>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            l: self.l.clone(),
+            parser: self.parser.clone(),
+            r: self.r.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, E, L, P, R> Copy for DelimitedBy<'a, I, E, L, P, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Copy + Parser<'a, I, Error = E>,
+    P: Clone + Copy + Parser<'a, I, Error = E>,
+    R: Clone + Copy + Parser<'a, I, Error = E>,
+{}
 impl<'a, I, E, L, P, R> Parser<'a, I> for DelimitedBy<'a, I, E, L, P, R>
 where
     I: Parsable<'a>,
@@ -383,7 +406,7 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct IgnoreThen<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -394,6 +417,26 @@ where
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, E, L, R> Clone for IgnoreThen<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Parser<'a, I, Error = E>,
+    R: Clone + Parser<'a, I, Error = E>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            l: self.l.clone(),
+            r: self.r.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, E, L, R> Copy for IgnoreThen<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Copy + Parser<'a, I, Error = E>,
+    R: Clone + Copy + Parser<'a, I, Error = E>,
+{}
 impl<'a, I, E, L, R> Parser<'a, I> for IgnoreThen<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -714,7 +757,7 @@ where
 }
 
 /// [Parser] created by [Parser::then]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -725,6 +768,26 @@ where
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, E, L, R> Clone for Then<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Parser<'a, I, Error = E>,
+    R: Clone + Parser<'a, I, Error = E>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            l: self.l.clone(),
+            r: self.r.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, E, L, R> Copy for Then<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Copy + Parser<'a, I, Error = E>,
+    R: Clone + Copy + Parser<'a, I, Error = E>,
+{}
 impl<'a, I, E, L, R> Parser<'a, I> for Then<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -764,7 +827,7 @@ where
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct ThenIgnore<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -775,6 +838,26 @@ where
     pub(super) r: R,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, E, L, R> Clone for ThenIgnore<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Parser<'a, I, Error = E>,
+    R: Clone + Parser<'a, I, Error = E>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            l: self.l.clone(),
+            r: self.r.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, E, L, R> Copy for ThenIgnore<'a, I, E, L, R>
+where
+    I: Parsable<'a>,
+    L: Clone + Copy + Parser<'a, I, Error = E>,
+    R: Clone + Copy + Parser<'a, I, Error = E>,
+{}
 impl<'a, I, E, L, R> Parser<'a, I> for ThenIgnore<'a, I, E, L, R>
 where
     I: Parsable<'a>,
@@ -797,7 +880,7 @@ where
 }
 
 /// [Parser] created by [Parser::to]
-#[derive(Clone, Copy, Debug)]
+#[derive(Debug)]
 pub struct To<'a, I, P, T, TF>
 where
     I: Parsable<'a>,
@@ -808,6 +891,26 @@ where
     pub(super) to: TF,
     pub(super) _marker: PhantomData<&'a I>,
 }
+impl<'a, I, P, T, TF> Clone for To<'a, I, P, T, TF>
+where
+    I: Parsable<'a>,
+    P: Clone + Parser<'a, I> + Sized,
+    TF: Clone + Fn() -> T,
+{
+    fn clone(&self) -> Self {
+        Self {
+            parser: self.parser.clone(),
+            to: self.to.clone(),
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'a, I, P, T, TF> Copy for To<'a, I, P, T, TF>
+where
+    I: Parsable<'a>,
+    P: Clone + Copy + Parser<'a, I> + Sized,
+    TF: Clone + Copy + Fn() -> T,
+{}
 impl<'a, I, P, T, TF> Parser<'a, I> for To<'a, I, P, T, TF>
 where
     I: Parsable<'a>,
