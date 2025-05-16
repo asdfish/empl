@@ -15,7 +15,7 @@ use {
 
 /// Trait for types that can be used by a [Parser].
 pub trait Parsable<'a>: Copy + Sized {
-    type Item;
+    type Item: Copy + 'a;
     type Iter: Iterator<Item = Self::Item>;
 
     fn item_len(_: Self::Item) -> usize;
@@ -76,7 +76,7 @@ where
     }
 }
 
-pub trait Parser<'a, I>: Sized
+pub trait Parser<'a, I>
 where
     I: Parsable<'a>,
 {
@@ -84,10 +84,13 @@ where
     type Output;
 
     /// The parser next part of the parser output's length must be smaller or equal to the input's.
-    fn parse(self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
+    fn parse(&self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
 
     /// Get the error of the parser as a result, so that you can use it to recover.
-    fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self> {
+    fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self>
+    where
+        Self: Sized,
+    {
         CoFlattenErr {
             parser: self,
             _marker: PhantomData,
@@ -96,7 +99,7 @@ where
 
     fn delimited_by<E, L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, E, L, Self, R>
     where
-        Self: Parser<'a, I, Error = E>,
+        Self: Parser<'a, I, Error = E> + Sized,
         L: Parser<'a, I, Error = E>,
         R: Parser<'a, I, Error = E>,
     {
@@ -120,6 +123,7 @@ where
     /// ```
     fn either_or<R>(self, r: R) -> EitherOr<'a, I, Self, R>
     where
+        Self: Sized,
         R: Parser<'a, I>,
     {
         EitherOr {
@@ -143,8 +147,9 @@ where
     /// ```
     fn filter<E, F>(self, error: E, predicate: F) -> Filter<'a, E, F, I, Self>
     where
-        E: FnOnce(Self::Output) -> Self::Error,
-        F: FnOnce(&Self::Output) -> bool,
+        Self: Sized,
+        E: Fn(Self::Output) -> Self::Error,
+        F: Fn(&Self::Output) -> bool,
     {
         Filter {
             error,
@@ -168,7 +173,8 @@ where
     /// ```
     fn filter_map<M, T>(self, map: M) -> FilterMap<'a, Self::Error, I, M, Self, T>
     where
-        M: FnOnce(Self::Output) -> Result<T, Self::Error>,
+        Self: Sized,
+        M: Fn(Self::Output) -> Result<T, Self::Error>,
     {
         FilterMap {
             map,
@@ -190,7 +196,7 @@ where
     /// ```
     fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
     where
-        Self: Parser<'a, I, Error = E, Output = Result<O, E>>,
+        Self: Parser<'a, I, Error = E, Output = Result<O, E>> + Sized,
     {
         FlattenErr {
             parser: self,
@@ -205,15 +211,16 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// # use std::convert::Infallible;
-    /// let a_count = Just('a').fold(0, |accum, _, _| Ok::<usize, Infallible>(accum + 1));
+    /// let a_count = Just('a').fold(|| 0, |accum, _, _| Ok::<usize, Infallible>(accum + 1));
     /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
-    /// let a_count = Just('a').fold(0, |_, slice: &str, _| Ok::<usize, Infallible>(slice.len()));
+    /// let a_count = Just('a').fold(|| 0, |_, slice: &str, _| Ok::<usize, Infallible>(slice.len()));
     /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
     /// ```
-    fn fold<A, E, F>(self, start: A, fold: F) -> Fold<'a, A, E, F, I, Self>
+    fn fold<A, AF, E, F>(self, start: AF, fold: F) -> Fold<'a, A, AF, E, F, I, Self>
     where
-        Self: Clone,
-        F: FnMut(A, I, Self::Output) -> Result<A, E>,
+        Self: Clone + Sized,
+        AF: Fn() -> A,
+        F: Fn(A, I, Self::Output) -> Result<A, E>,
     {
         Fold {
             fold,
@@ -225,6 +232,7 @@ where
 
     fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self::Error, Self, R>
     where
+        Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
     {
         IgnoreThen {
@@ -246,7 +254,8 @@ where
     /// ```
     fn map<F, O>(self, map: F) -> Map<'a, I, F, O, Self>
     where
-        F: FnOnce(Self::Output) -> O,
+        Self: Sized,
+        F: Fn(Self::Output) -> O,
     {
         Map {
             parser: self,
@@ -269,7 +278,8 @@ where
     /// ```
     fn map_err<F, O>(self, map: F) -> MapErr<'a, I, F, O, Self>
     where
-        F: FnOnce(Self::Error) -> O,
+        Self: Sized,
+        F: Fn(Self::Error) -> O,
     {
         MapErr {
             map,
@@ -290,8 +300,8 @@ where
     /// ```
     fn map_iter<F, O>(self, map: F) -> MapIter<'a, I, F, O, Self>
     where
-        Self: Clone,
-        F: FnOnce(&mut Iter<'a, I, Self>) -> O,
+        Self: Sized,
+        F: Fn(&mut Iter<'a, I, &Self>) -> O,
     {
         MapIter {
             parser: self,
@@ -313,6 +323,7 @@ where
     /// ```
     fn or<R>(self, r: R) -> Or<'a, I, Self::Output, Self, R>
     where
+        Self: Sized,
         R: Parser<'a, I, Output = Self::Output>,
     {
         Or {
@@ -333,6 +344,7 @@ where
     /// ```
     fn then<R>(self, r: R) -> Then<'a, I, Self::Error, Self, R>
     where
+        Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
     {
         Then {
@@ -344,6 +356,7 @@ where
 
     fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self::Error, Self, R>
     where
+        Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
     {
         ThenIgnore {
@@ -359,16 +372,32 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}};
-    /// let is_a = Just('a').to(true).or(Any::new().to(false));
+    /// let is_a = Just('a').to(|| true).or(Any::new().to(|| false));
     /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", true)));
     /// assert_eq!(is_a.parse("b"), Ok(ParserOutput::new("", false)));
     /// ```
-    fn to<T>(self, to: T) -> To<'a, I, Self, T> {
+    fn to<T, TF>(self, to: TF) -> To<'a, I, Self, T, TF>
+    where
+        Self: Sized,
+        TF: Fn() -> T,
+    {
         To {
             parser: self,
             to,
             _marker: PhantomData,
         }
+    }
+}
+impl<'a, I, T> Parser<'a, I> for &T
+where
+    I: Parsable<'a>,
+    T: Parser<'a, I>,
+{
+    type Error = T::Error;
+    type Output = T::Output;
+
+    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        (*self).parse(input)
     }
 }
 
@@ -395,7 +424,10 @@ where
     /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", "a")));
     /// ```
     #[expect(clippy::wrong_self_convention)]
-    fn as_slice(self) -> AsSlice<'a, I, Self> {
+    fn as_slice(self) -> AsSlice<'a, I, Self>
+    where
+        Self: Sized,
+    {
         AsSlice {
             parser: self,
             _marker: PhantomData,
@@ -485,35 +517,24 @@ impl Display for EofError {
 impl Error for EofError {}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ParserError<T> {
+pub enum ParserError<T>
+where
+    T: ToOwned,
+{
     Eof(EofError),
     Match { expected: T, found: T },
 }
-impl<T> ParserError<T> {
-    pub fn map<F, O>(self, mut f: F) -> ParserError<O>
-    where
-        F: FnMut(T) -> O,
-    {
-        match self {
-            Self::Eof(e) => ParserError::Eof(e),
-            Self::Match { expected, found } => ParserError::Match {
-                expected: f(expected),
-                found: f(found),
-            },
-        }
-    }
-}
 impl<T> Display for ParserError<T>
 where
-    T: Display,
+    T: Display + ToOwned,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Eof(e) => e.fmt(f),
             Self::Match { expected, found } => {
-                write!(f, "found `{found}` when expecting `{expected}`")
+                write!(f, "`{found}` does not match `{expected}`")
             }
         }
     }
 }
-impl<T> Error for ParserError<T> where T: fmt::Debug + Display {}
+impl<T> Error for ParserError<T> where T: fmt::Debug + Display + ToOwned {}

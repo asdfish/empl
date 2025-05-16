@@ -31,10 +31,10 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
     type Error = LiteralError;
     type Output = Lexeme<'a>;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Select((
-            Just('(').to(Lexeme::LParen),
-            Just(')').to(Lexeme::RParen),
+            Just('(').to(|| Lexeme::LParen),
+            Just(')').to(|| Lexeme::RParen),
             LiteralParser.map(Lexeme::Literal),
         ))
         .parse(input)
@@ -81,11 +81,11 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     type Error = LiteralError;
     type Output = Literal<'a>;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
-            Sequence::new("nil").to(Literal::Nil),
-            Sequence::new("#t").to(Literal::Bool(true)),
-            Sequence::new("#f").to(Literal::Bool(false)),
+            Sequence::new("nil").to(|| Literal::Nil),
+            Sequence::new("#t").to(|| Literal::Bool(true)),
+            Sequence::new("#f").to(|| Literal::Bool(false)),
             IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
             StringParser
@@ -132,7 +132,7 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
     type Error = IdentError;
     type Output = &'a str;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
         Any::new()
             .map_err(IdentError::Eof)
             .filter(IdentError::NotXidStart, |ch| is_xid_start(*ch))
@@ -202,7 +202,7 @@ where
     type Error = ParseIntError;
     type Output = N;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Any::new()
             .filter(|_| Default::default(), |ch: &char| ch.is_digit(RADIX))
             .repeated()
@@ -259,19 +259,19 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
     type Error = EscapeCharacterError;
     type Output = char;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Just('\\')
             .map_err(EscapeCharacterError::from)
             .ignore_then(
                 Just('0')
                     .map_err(EscapeCharacterError::from)
-                    .to('\0')
-                    .or(Just('n').map_err(EscapeCharacterError::from).to('\n'))
-                    .or(Just('r').map_err(EscapeCharacterError::from).to('\r'))
-                    .or(Just('t').map_err(EscapeCharacterError::from).to('\t'))
-                    .or(Just('\'').map_err(EscapeCharacterError::from).to('\''))
-                    .or(Just('"').map_err(EscapeCharacterError::from).to('"'))
-                    .or(Just('\\').map_err(EscapeCharacterError::from).to('\\'))
+                    .to(|| '\0')
+                    .or(Just('n').map_err(EscapeCharacterError::from).to(|| '\n'))
+                    .or(Just('r').map_err(EscapeCharacterError::from).to(|| '\r'))
+                    .or(Just('t').map_err(EscapeCharacterError::from).to(|| '\t'))
+                    .or(Just('\'').map_err(EscapeCharacterError::from).to(|| '\''))
+                    .or(Just('"').map_err(EscapeCharacterError::from).to(|| '"'))
+                    .or(Just('\\').map_err(EscapeCharacterError::from).to(|| '\\'))
                     .or(Just('u').map_err(EscapeCharacterError::from).ignore_then(
                         IntParser::<16, u32>::new()
                             .map_err(EscapeCharacterError::ParseUnicode)
@@ -301,7 +301,7 @@ impl StringError {
     fn delimiter_error(err: ParserError<char>) -> Self {
         match err {
             ParserError::Eof(e) => Self::Eof(e),
-            ParserError::Match { found, .. } => Self::Delimiter(found),
+            ParserError::Match{ found, .. } => Self::Delimiter(found),
         }
     }
 }
@@ -333,14 +333,14 @@ impl<'a> Parser<'a, &'a str> for StringParser {
     type Error = StringError;
     type Output = Cow<'a, str>;
 
-    fn parse(self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         let delimiter = Just('"').map_err(StringError::delimiter_error);
 
         Any::new()
             .map_err(StringError::Eof)
             .filter(StringError::Unescaped, |ch| '\"'.ne(ch) && '\\'.ne(ch))
             .either_or(EscapeCharacterParser.map_err(StringError::EscapeCharacter))
-            .fold(Cow::Borrowed(""), |accum, string, ch| match (ch, accum) {
+            .fold(|| Cow::Borrowed(""), |accum, string, ch| match (ch, accum) {
                 (Either::Left(_), Cow::Borrowed(_)) => Ok(Cow::Borrowed(string)),
                 (Either::Left(ch), Cow::Owned(mut string)) => {
                     string.push(ch);

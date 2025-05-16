@@ -117,7 +117,7 @@ macro_rules! decl_either {
             type Error = $last_pascal::Error;
 
             fn parse(
-                self,
+                &self,
                 input: Input,
             ) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
                 $(if let Ok(po) = self.$snake.parse(input).map(|po| po.map_output($either_ident::$pascals)) {

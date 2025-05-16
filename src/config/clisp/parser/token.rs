@@ -28,7 +28,7 @@ where
     type Error = EofError;
     type Output = T;
 
-    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut items = input.items();
         let item = items.next().ok_or(EofError)?;
 
@@ -57,16 +57,16 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct Just<T>(pub T)
 where
-    T: PartialEq;
+    T: Clone + Copy + PartialEq;
 impl<'a, I, T> Parser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: PartialEq,
+    T: Clone + Copy + PartialEq,
 {
     type Error = ParserError<T>;
     type Output = T;
 
-    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut items = input.items();
 
         match items.next().ok_or(ParserError::Eof(EofError))? {
@@ -81,7 +81,7 @@ where
 unsafe impl<'a, I, T> PureParser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: PartialEq,
+    T: Clone + Copy + PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
@@ -126,7 +126,7 @@ where
     type Error = ParserError<I::Item>;
     type Output = I;
 
-    fn parse(self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         let mut l = self.seq.items();
         let mut r = input.items();
 
@@ -172,7 +172,7 @@ macro_rules! impl_select {
             type Error = $car::Error;
             type Output = Output;
 
-            fn parse(self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
+            fn parse(&self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
                 let Select(($($cdr,)* $car)) = self;
 
                 $(if let Ok(output) = $cdr.parse(input) {
