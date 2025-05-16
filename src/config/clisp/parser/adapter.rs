@@ -77,6 +77,7 @@ where
     }
 }
 
+/// [Parser] created by [Parser::delimited_by]
 #[derive(Debug)]
 pub struct DelimitedBy<'a, I, E, L, P, R>
 where
@@ -406,6 +407,7 @@ where
     }
 }
 
+/// [Parser] created by [Parser::ignore_then]
 #[derive(Debug)]
 pub struct IgnoreThen<'a, I, E, L, R>
 where
@@ -827,6 +829,7 @@ where
     }
 }
 
+/// [Parser] created by [Parser::then_ignore]
 #[derive(Debug)]
 pub struct ThenIgnore<'a, I, E, L, R>
 where

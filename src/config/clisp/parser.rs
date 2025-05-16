@@ -87,6 +87,15 @@ where
     fn parse(&self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
 
     /// Get the error of the parser as a result, so that you can use it to recover.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
+    /// let int_or_0 = IntParser::<10, u32>::new().co_flatten_err().map(|output| output.unwrap_or(0));
+    /// assert_eq!(int_or_0.parse("10"), Ok(ParserOutput::new("", 10)));
+    /// assert_eq!(int_or_0.parse("foo"), Ok(ParserOutput::new("foo", 0)));
+    /// ```
     fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self>
     where
         Self: Sized,
@@ -97,6 +106,17 @@ where
         }
     }
 
+    /// Surround the parser and ignore them.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput, token::Just}};
+    /// #[derive(Debug, PartialEq)]
+    /// struct MyError;
+    /// let string_interpolation = IdentParser.map_err(|_| MyError).delimited_by(Just('{').map_err(|_| MyError), Just('}').map_err(|_| MyError));
+    /// assert_eq!(string_interpolation.parse("{foo}"), Ok(ParserOutput::new("", "foo")));
+    /// ```
     fn delimited_by<E, L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, E, L, Self, R>
     where
         Self: Parser<'a, I, Error = E> + Sized,
@@ -230,6 +250,15 @@ where
         }
     }
 
+    /// Ignore the output of the current parser and use the next parser.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// let ab = Just('a').ignore_then(Just('b'));
+    /// assert_eq!(ab.parse("ab"), Ok(ParserOutput::new("", 'b')));
+    /// ```
     fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self::Error, Self, R>
     where
         Self: Sized,
@@ -354,6 +383,15 @@ where
         }
     }
 
+    /// Ignore the output of the next parser and keep current one's output.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// let ab = Just('a').then_ignore(Just('b'));
+    /// assert_eq!(ab.parse("ab"), Ok(ParserOutput::new("", 'a')));
+    /// ```
     fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self::Error, Self, R>
     where
         Self: Sized,
