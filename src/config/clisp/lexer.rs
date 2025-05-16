@@ -22,6 +22,7 @@ use {
 pub enum Lexeme<'a> {
     LParen,
     RParen,
+    Whitespace,
     Literal(Literal<'a>),
 }
 
@@ -38,6 +39,7 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
         Select((
             Just('(').map(|_| Lexeme::LParen),
             Just(')').map(|_| Lexeme::RParen),
+            WhitespaceParser.map(|_| Lexeme::Whitespace),
             LiteralParser.map(Lexeme::Literal),
         ))
         .parse(input)
@@ -370,6 +372,49 @@ impl<'a> Parser<'a, &'a str> for StringParser {
                 },
             )
             .delimited_by(delimiter, delimiter)
+            .parse(input)
+    }
+}
+
+/// Parser for things like comments, tabs and whitespace
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::clisp::{lexer::WhitespaceParser, parser::{Parser, ParserOutput}};
+/// assert_eq!(WhitespaceParser.parse("    "), Ok(ParserOutput::new("", ())));
+/// assert_eq!(WhitespaceParser.parse("\n\n    ; foo\nbar"), Ok(ParserOutput::new("bar", ())));
+/// ```
+#[derive(Clone, Copy, Debug)]
+pub struct WhitespaceParser;
+impl<'a> Parser<'a, &'a str> for WhitespaceParser {
+    type Error = EofError;
+    type Output = ();
+
+    fn parse(
+        &self,
+        input: &'a str,
+    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+        Any::new()
+            .map_err(drop)
+            .filter(drop, |ch: &char| ch.is_whitespace())
+            .map_err(drop)
+            .either_or(
+                Just(';')
+                    .map_err(drop)
+                    .then(
+                        Any::new()
+                            .map_err(drop)
+                            .filter(drop, |ch: &char| '\n'.ne(ch))
+                            .repeated()
+                            .map_err(drop),
+                    )
+                    .then(Just('\n').map_err(drop)),
+            )
+            .map_iter(|iter| iter.fold(None, |_, _| Some(())))
+            .map_err(|_: Infallible| unreachable!())
+            .map(|output| output.ok_or(EofError))
+            .flatten_err()
             .parse(input)
     }
 }
