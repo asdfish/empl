@@ -365,28 +365,6 @@ where
             _marker: PhantomData,
         }
     }
-
-    /// Set the output of a parser
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}};
-    /// let is_a = Just('a').to(|| true).or(Any::new().to(|| false));
-    /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", true)));
-    /// assert_eq!(is_a.parse("b"), Ok(ParserOutput::new("", false)));
-    /// ```
-    fn to<T, TF>(self, to: TF) -> To<'a, I, Self, T, TF>
-    where
-        Self: Sized,
-        TF: Fn() -> T,
-    {
-        To {
-            parser: self,
-            to,
-            _marker: PhantomData,
-        }
-    }
 }
 impl<'a, I, T> Parser<'a, I> for &T
 where

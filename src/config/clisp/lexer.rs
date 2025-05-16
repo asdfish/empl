@@ -36,8 +36,8 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
         input: &'a str,
     ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
         Select((
-            Just('(').to(|| Lexeme::LParen),
-            Just(')').to(|| Lexeme::RParen),
+            Just('(').map(|_| Lexeme::LParen),
+            Just(')').map(|_| Lexeme::RParen),
             LiteralParser.map(Lexeme::Literal),
         ))
         .parse(input)
@@ -89,9 +89,9 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
         input: &'a str,
     ) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
-            Sequence::new("nil").to(|| Literal::Nil),
-            Sequence::new("#t").to(|| Literal::Bool(true)),
-            Sequence::new("#f").to(|| Literal::Bool(false)),
+            Sequence::new("nil").map(|_| Literal::Nil),
+            Sequence::new("#t").map(|_| Literal::Bool(true)),
+            Sequence::new("#f").map(|_| Literal::Bool(false)),
             IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
             StringParser
@@ -277,13 +277,13 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
             .ignore_then(
                 Just('0')
                     .map_err(EscapeCharacterError::from)
-                    .to(|| '\0')
-                    .or(Just('n').map_err(EscapeCharacterError::from).to(|| '\n'))
-                    .or(Just('r').map_err(EscapeCharacterError::from).to(|| '\r'))
-                    .or(Just('t').map_err(EscapeCharacterError::from).to(|| '\t'))
-                    .or(Just('\'').map_err(EscapeCharacterError::from).to(|| '\''))
-                    .or(Just('"').map_err(EscapeCharacterError::from).to(|| '"'))
-                    .or(Just('\\').map_err(EscapeCharacterError::from).to(|| '\\'))
+                    .map(|_| '\0')
+                    .or(Just('n').map_err(EscapeCharacterError::from).map(|_| '\n'))
+                    .or(Just('r').map_err(EscapeCharacterError::from).map(|_| '\r'))
+                    .or(Just('t').map_err(EscapeCharacterError::from).map(|_| '\t'))
+                    .or(Just('\'').map_err(EscapeCharacterError::from).map(|_| '\''))
+                    .or(Just('"').map_err(EscapeCharacterError::from).map(|_| '"'))
+                    .or(Just('\\').map_err(EscapeCharacterError::from).map(|_| '\\'))
                     .or(Just('u').map_err(EscapeCharacterError::from).ignore_then(
                         IntParser::<16, u32>::new()
                             .map_err(EscapeCharacterError::ParseUnicode)
