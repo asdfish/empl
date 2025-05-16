@@ -92,8 +92,11 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     ) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
             Sequence::new("nil").map(|_| Literal::Nil),
-            Sequence::new("#t").map(|_| Literal::Bool(true)),
-            Sequence::new("#f").map(|_| Literal::Bool(false)),
+            Just('#').ignore_then(
+                Just('t')
+                    .map(|_| Literal::Bool(true))
+                    .or(Just('f').map(|_| Literal::Bool(false))),
+            ),
             IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
             StringParser
