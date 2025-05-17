@@ -5,8 +5,12 @@ pub mod recursive;
 pub mod token;
 
 use {
-    crate::config::clisp::parser::adapter::*,
+    crate::{
+        config::clisp::parser::adapter::*,
+        either::Either,
+    },
     std::{
+        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
@@ -101,6 +105,7 @@ where
     fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self>
     where
         Self: Sized,
+        CoFlattenErr<'a, I, Self>: Parser<'a, I, Error = Infallible, Output = Result<Self::Output, Self::Error>>,
     {
         CoFlattenErr {
             parser: self,
@@ -124,6 +129,7 @@ where
         Self: Parser<'a, I, Error = E> + Sized,
         L: Parser<'a, I, Error = E>,
         R: Parser<'a, I, Error = E>,
+        DelimitedBy<'a, I, E, L, Self, R>: Parser<'a, I, Error = E, Output = Self::Output>,
     {
         DelimitedBy {
             l,
@@ -147,6 +153,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I>,
+        EitherOr<'a, I, Self, R>: Parser<'a, I, Error = R::Error, Output = Either<Self::Output, R::Output>>
     {
         EitherOr {
             l: self,
@@ -172,6 +179,7 @@ where
         Self: Sized,
         E: Fn(Self::Output) -> Self::Error,
         F: Fn(&Self::Output) -> bool,
+        Filter<'a, E, F, I, Self>: Parser<'a, I, Error = Self::Error, Output = Self::Output>,
     {
         Filter {
             error,
@@ -197,6 +205,7 @@ where
     where
         Self: Sized,
         M: Fn(Self::Output) -> Result<T, Self::Error>,
+        FilterMap<'a, Self::Error, I, M, Self, T>: Parser<'a, I, Error = Self::Error, Output = T>
     {
         FilterMap {
             map,
@@ -219,6 +228,7 @@ where
     fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
     where
         Self: Parser<'a, I, Error = E, Output = Result<O, E>> + Sized,
+        FlattenErr<'a, I, E, O, Self>: Parser<'a, I, Error = E, Output = O>
     {
         FlattenErr {
             parser: self,
@@ -243,6 +253,7 @@ where
         Self: Clone + Sized,
         AF: Fn() -> A,
         F: Fn(A, I, Self::Output) -> Result<A, E>,
+        Fold<'a, A, AF, E, F, I, Self>: Parser<'a, I, Error = E, Output = A>
     {
         Fold {
             fold,
@@ -265,6 +276,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
+        IgnoreThen<'a, I, Self::Error, Self, R>: Parser<'a, I, Error = Self::Error, Output = R::Output>
     {
         IgnoreThen {
             l: self,
@@ -287,6 +299,7 @@ where
     where
         Self: Sized,
         F: Fn(Self::Output) -> O,
+        Map<'a, I, F, O, Self>: Parser<'a, I, Error = Self::Error, Output = O>
     {
         Map {
             parser: self,
@@ -311,6 +324,7 @@ where
     where
         Self: Sized,
         F: Fn(Self::Error) -> O,
+        MapErr<'a, I, F, O, Self>: Parser<'a, I, Error = O, Output = Self::Output>
     {
         MapErr {
             map,
@@ -333,6 +347,7 @@ where
     where
         Self: Sized,
         F: Fn(&mut Iter<'a, I, &Self>) -> O,
+        MapIter<'a, I, F, O, Self>: Parser<'a, I, Error = Infallible, Output = O>
     {
         MapIter {
             parser: self,
@@ -353,7 +368,8 @@ where
     /// ```
     fn maybe(self) -> Maybe<'a, I, Self>
     where
-        Self: Sized
+        Self: Sized,
+        Maybe<'a, I, Self>: Parser<'a, I, Error = Infallible, Output = Option<Self::Output>>
     {
         Maybe {
             parser: self,
@@ -376,6 +392,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I, Output = Self::Output>,
+        Or<'a, I, Self::Output, Self, R>: Parser<'a, I, Error = R::Error, Output = Self::Output>
     {
         Or {
             l: self,
@@ -397,6 +414,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
+        Then<'a, I, Self::Error, Self, R>: Parser<'a, I, Error = Self::Error, Output = (Self::Output, R::Output)>
     {
         Then {
             l: self,
@@ -418,6 +436,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I, Error = Self::Error>,
+        ThenIgnore<'a, I, Self::Error, Self, R>: Parser<'a, I, Error = Self::Error, Output = Self::Output>,
     {
         ThenIgnore {
             l: self,
