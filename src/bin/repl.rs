@@ -4,20 +4,18 @@
 pub mod config;
 
 use {
-    crate::config::{
-        Config,
-        Stage,
-    },
+    crate::config::{Config, Stage},
     empl::{
         argv::Argv,
-        config::clisp::{ast::ExprParser, lexer::LexemeParser, parser::{Parser, ParserOutput}},
+        config::clisp::{
+            ast::ExprParser,
+            lexer::LexemeParser,
+            parser::{Parser, ParserOutput},
+        },
         flag::Arguments,
     },
     std::{
-        ffi::{
-            c_char,
-            c_int,
-        },
+        ffi::{c_char, c_int},
         io::stdin,
     },
 };
@@ -63,7 +61,7 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         }
 
         let Ok(ast) = ExprParser.parse(&lexemes) else {
-            continue
+            continue;
         };
         if config.stage == Stage::Parse {
             println!("{ast:?}");

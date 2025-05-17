@@ -1,9 +1,6 @@
 use {
     crate::config::clisp::parser::{Parsable, Parser, ParserOutput},
-    std::{
-        cell::OnceCell,
-        marker::PhantomData,
-    },
+    std::{cell::OnceCell, marker::PhantomData},
 };
 
 /// Recursive parser creator.

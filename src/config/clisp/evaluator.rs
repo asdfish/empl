@@ -1,13 +1,6 @@
 use {
-    crate::config::clisp::{
-        ast::Expr,
-        lexer::Literal,
-    },
-    std::{
-        borrow::Cow,
-        collections::HashMap,
-        rc::Rc,
-    },
+    crate::config::clisp::{ast::Expr, lexer::Literal},
+    std::{borrow::Cow, collections::HashMap, rc::Rc},
 };
 
 #[derive(Clone, Debug)]
@@ -24,10 +17,7 @@ impl<'src> Environment<'src> {
     }
 
     pub fn get<'env>(&'env self, ident: &'src str) -> Option<&'env Value<'src>> {
-        self.0
-            .iter()
-            .rev()
-            .find_map(|vars| vars.get(ident))
+        self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
 }
 

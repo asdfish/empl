@@ -44,8 +44,18 @@ impl<'a> Parser<'a, &'a [Lexeme<'a>]> for ExprParser {
                     .map_err(|_: Infallible| unreachable!()),
             )
             .delimited_by(
-                Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace).maybe().map_err(|_: Infallible| unreachable!())).map_err(ExprError::Delimiter),
-                Just(&Lexeme::Whitespace).maybe().map_err(|_: Infallible| unreachable!()).then(Just(&Lexeme::RParen)).map_err(ExprError::Delimiter),
+                Just(&Lexeme::LParen)
+                    .then(
+                        Just(&Lexeme::Whitespace)
+                            .maybe()
+                            .map_err(|_: Infallible| unreachable!()),
+                    )
+                    .map_err(ExprError::Delimiter),
+                Just(&Lexeme::Whitespace)
+                    .maybe()
+                    .map_err(|_: Infallible| unreachable!())
+                    .then(Just(&Lexeme::RParen))
+                    .map_err(ExprError::Delimiter),
             )
             .map(NEVec::from)
             .map(Expr::Apply)
