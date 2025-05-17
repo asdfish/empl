@@ -1,0 +1,53 @@
+name: Build release
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+        - os: macos-latest
+          target: macos-x86_64
+          path-prefix: ./target/release/
+          path-suffix: ''
+        - os: ubuntu-latest
+          target: linux-x86_64
+          path-prefix: ./target/release/
+          path-suffix: ''
+        - os: windows-latest
+          target: windows-x86_64
+          path-prefix: .\target\release\
+          path-suffix: .exe
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libasound2-dev
+
+      - name: Build
+        run: |
+          cargo build --release --target-dir=target --verbose
+
+      - name: Prepare artifacts
+        run: |
+          mkdir dist
+          mv ${{ matrix.path-prefix }}empl${{ matrix.path-suffix }} dist
+          mv ${{ matrix.path-prefix }}repl${{ matrix.path-suffix }} dist
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.target }}
+          path: dist/*
+          if-no-files-found: error
