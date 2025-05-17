@@ -70,7 +70,7 @@ where
         const { Self::new() }
     }
 }
-impl<'p, 'src, I, P> Parser<'src, I> for RecursiveParser<'p, 'src, I, P>
+impl<'src, I, P> Parser<'src, I> for RecursiveParser<'_, 'src, I, P>
 where
     I: Parsable<'src>,
     P: Parser<'src, I>,
