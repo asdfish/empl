@@ -14,7 +14,6 @@ use {
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
-        pin::Pin,
         slice, str,
     },
 };
@@ -455,18 +454,6 @@ where
 
     fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
         (*self).parse(input)
-    }
-}
-impl<'a, I, T> Parser<'a, I> for Pin<&T>
-where
-    I: Parsable<'a>,
-    T: Parser<'a, I> + ?Sized,
-{
-    type Error = T::Error;
-    type Output = T::Output;
-
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
-        self.get_ref().parse(input)
     }
 }
 

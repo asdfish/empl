@@ -57,11 +57,11 @@ where
 #[derive(Clone, Copy, Debug)]
 pub struct Just<T>(pub T)
 where
-    T: Clone + Copy + PartialEq;
+    T: Clone + PartialEq;
 impl<'a, I, T> Parser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: Clone + Copy + PartialEq,
+    T: Clone + PartialEq,
 {
     type Error = ParserError<T>;
     type Output = T;
@@ -72,7 +72,7 @@ where
         match items.next().ok_or(ParserError::Eof(EofError))? {
             item if item == self.0 => Ok(ParserOutput::new(I::recover(items), item)),
             item => Err(ParserError::Match {
-                expected: self.0,
+                expected: self.0.clone(),
                 found: item,
             }),
         }
@@ -81,7 +81,7 @@ where
 unsafe impl<'a, I, T> PureParser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: Clone + Copy + PartialEq,
+    T: Clone + PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
         I::item_len(output)

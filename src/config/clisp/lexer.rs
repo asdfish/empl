@@ -2,7 +2,7 @@ use {
     crate::{
         config::clisp::parser::{
             EofError, Parser, ParserError, ParserOutput, PureParser,
-            token::{Any, Just, Select, Sequence},
+            token::{Any, Just, Select},
         },
         either::Either,
         ext::int::FromStrRadix,
@@ -18,7 +18,7 @@ use {
     unicode_ident::{is_xid_continue, is_xid_start},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Lexeme<'a> {
     LParen,
     RParen,
@@ -46,13 +46,12 @@ impl<'a> Parser<'a, &'a str> for LexemeParser {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Literal<'a> {
     Bool(bool),
     Ident(&'a str),
     Int(i32),
     String(Cow<'a, str>),
-    Nil,
 }
 
 #[derive(Clone, Debug)]
@@ -91,7 +90,6 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
         input: &'a str,
     ) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
         Select((
-            Sequence::new("nil").map(|_| Literal::Nil),
             Just('#').ignore_then(
                 Just('t')
                     .map(|_| Literal::Bool(true))
