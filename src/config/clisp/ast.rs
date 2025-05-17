@@ -43,12 +43,12 @@ impl<'a> Parser<'a, &'a [Lexeme<'a>]> for ExprParser {
                     .map_iter(|iter| iter.collect::<Vec<_>>())
                     .map_err(|_: Infallible| unreachable!()),
             )
+            .delimited_by(
+                Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace).maybe().map_err(|_: Infallible| unreachable!())).map_err(ExprError::Delimiter),
+                Just(&Lexeme::Whitespace).maybe().map_err(|_: Infallible| unreachable!()).then(Just(&Lexeme::RParen)).map_err(ExprError::Delimiter),
+            )
             .map(NEVec::from)
             .map(Expr::Apply)
-            .delimited_by(
-                Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace)).map_err(ExprError::Delimiter),
-                Just(&Lexeme::Whitespace).then(Just(&Lexeme::RParen)).map_err(ExprError::Delimiter),
-            )
             .or(Any::new()
                 .map_err(ExprError::Eof)
                 .filter_map(|lexeme: &'a Lexeme<'a>| match lexeme {
