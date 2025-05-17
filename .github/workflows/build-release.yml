@@ -1,37 +1,36 @@
 name: Build release
 
 on:
-	push:
-		tags: ["v*.*.*"]
+  push:
+    tags: ["v*.*.*"]
 
 jobs:
-	build:
-		runs-on: ${{ matrix.os }}
-		strategy:
-			matrix:
-				os: [ubuntu-latest, windows-latest]
+  build:
+    runs-on: ${{ matrix.os }}
+      strategy:
+        matrix:
+          os: [ubuntu-latest, windows-latest]
 
-	    steps:
-		    - uses: actions/checkout@v4
+      steps:
+        - uses: actions/checkout@v4
 
-		    - name: Linux dependencies
-		      if: runner.os == 'Linux'
-		      run: |
-		      	   sudo apt-get update
-		      	   sudo apt-get install -y libasound2-dev
+        - name: Linux dependencies
+          if: runner.os == 'Linux'
+          run: |
+            sudo apt-get update
+            sudo apt-get install -y libasound2-dev
 
-		    - name: Build
-		      run: |
-		      	   cargo build -r
+        - name: Build
+          run: |
+            cargo build -r
 
-		    - name: Upload empl
-		      uses: actions/upload-artifact@v4
-		      with:
-			name: empl-${{ matrix.os }}
-			path: target/release/empl
-
-		    - name: Upload repl
-		      uses: actions/upload-artifact@v4
-		      with:
-			name: repl-${{ matrix.os }}
-			path: target/release/repl
+        - name: Upload empl
+          uses: actions/upload-artifact@v4
+          with:
+            name: empl-${{ matrix.os }}
+            path: target/release/empl
+        - name: Upload repl
+          uses: actions/upload-artifact@v4
+          with:
+            name: repl-${{ matrix.os }}
+            path: target/release/repl
