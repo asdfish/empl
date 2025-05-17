@@ -655,6 +655,42 @@ where
     }
 }
 
+/// [Parser] created by [Parser::maybe].
+#[derive(Clone, Copy, Debug)]
+pub struct Maybe<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+{
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a I>,
+}
+impl<'a, I, P> Parser<'a, I> for Maybe<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I>,
+{
+    type Error = Infallible;
+    type Output = Option<P::Output>;
+
+    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+        Ok(self
+            .parser
+            .parse(input)
+            .map(|output| output.map_output(Some))
+            .unwrap_or_else(|_| ParserOutput::new(input, None)))
+    }
+}
+unsafe impl<'a, I, P> PureParser<'a, I> for Maybe<'a, I, P>
+where
+    I: Parsable<'a>,
+    P: Parser<'a, I> + PureParser<'a, I>,
+{
+    fn output_len(output: Self::Output) -> usize {
+        output.map(P::output_len).unwrap_or(0)
+    }
+}
+
 /// [Parser] created by [Parser::or]
 #[derive(Debug)]
 pub struct Or<'a, I, O, L, R>

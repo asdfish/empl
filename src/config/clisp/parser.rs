@@ -341,6 +341,26 @@ where
         }
     }
 
+    /// Make the output of this parser optional.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// let maybe_a = Just('a').maybe();
+    /// assert_eq!(maybe_a.parse("a"), Ok(ParserOutput::new("", Some('a'))));
+    /// assert_eq!(maybe_a.parse("b"), Ok(ParserOutput::new("b", None)));
+    /// ```
+    fn maybe(self) -> Maybe<'a, I, Self>
+    where
+        Self: Sized
+    {
+        Maybe {
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
+
     /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
     ///
     /// # Examples
