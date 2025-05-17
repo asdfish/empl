@@ -35,18 +35,18 @@ use {
 /// ```
 #[derive(Clone)]
 #[repr(transparent)]
-pub struct RecursiveParser<'a, I, P>
+pub struct RecursiveParser<'p, 'src, I, P>
 where
-    I: Parsable<'a>,
-    P: Parser<'a, I>,
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
 {
     parser: OnceCell<P>,
-    _marker: PhantomData<&'a I>,
+    _marker: PhantomData<&'p &'src I>,
 }
-impl<'a, I, P> RecursiveParser<'a, I, P>
+impl<'p, 'src, I, P> RecursiveParser<'p, 'src, I, P>
 where
-    I: Parsable<'a>,
-    P: Parser<'a, I>,
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
 {
     pub const fn new() -> Self {
         Self {
@@ -56,27 +56,27 @@ where
     }
 
     /// This function does nothing if the parser was already declared.
-    pub fn declare<F>(&'a self, declaration: F)
+    pub fn declare<F>(&'p self, declaration: F)
     where
-        F: FnOnce(&'a dyn Parser<'a, I, Error = P::Error, Output = P::Output>) -> P,
+        F: FnOnce(&'p dyn Parser<'src, I, Error = P::Error, Output = P::Output>) -> P,
     {
         let result = self.parser.set(declaration(self));
         debug_assert!(result.is_ok());
     }
 }
-impl<'a, I, P> Default for RecursiveParser<'a, I, P>
+impl<'p, 'src, I, P> Default for RecursiveParser<'p, 'src, I, P>
 where
-    I: Parsable<'a>,
-    P: Parser<'a, I>,
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
 {
     fn default() -> Self {
         const { Self::new() }
     }
 }
-impl<'a, I, P> Parser<'a, I> for RecursiveParser<'a, I, P>
+impl<'p, 'src, I, P> Parser<'src, I> for RecursiveParser<'p, 'src, I, P>
 where
-    I: Parsable<'a>,
-    P: Parser<'a, I>,
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
 {
     type Error = P::Error;
     type Output = P::Output;
@@ -84,7 +84,7 @@ where
     /// # Panics
     ///
     /// If this is called before [Self::declare] returns, it will panic.
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Result<ParserOutput<'src, I, Self::Output>, Self::Error> {
         self.parser
             .get()
             .expect("`RecursiveParser` should not be called before being declared")
