@@ -64,7 +64,7 @@ where
         debug_assert!(result.is_ok());
     }
 }
-impl<'p, 'src, I, P> Default for RecursiveParser<'p, 'src, I, P>
+impl<'src, I, P> Default for RecursiveParser<'_, 'src, I, P>
 where
     I: Parsable<'src>,
     P: Parser<'src, I>,
