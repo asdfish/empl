@@ -35,18 +35,6 @@ macro_rules! impl_clisp_fn_for {
                 }
             }
         }
-        impl<'a> ClispFn<'a> for fn()
-        {
-            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
-            {
-                if args.into_iter().next().is_some() {
-                    Err(FnCallError::WrongArity(0))
-                } else {
-                    (self)();
-                    Ok(None)
-                }
-            }
-        }
     };
     ($car:ident, $($cdr:ident),+ $(,)?) => {
         impl_clisp_fn_for!($($cdr),*);
@@ -55,8 +43,8 @@ macro_rules! impl_clisp_fn_for {
         #[expect(non_upper_case_globals)]
         impl<'a, $car, $($cdr),*> ClispFn<'a> for fn($($cdr),*) -> $car
         where
-        $car: Into<Value<'a>>,
-        $($cdr: TryFromValue<'a>),*
+            $car: Into<Value<'a>>,
+            $($cdr: TryFromValue<'a>),*
         {
             fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
             {
@@ -65,30 +53,9 @@ macro_rules! impl_clisp_fn_for {
                     [$($cdr),*]
                         .len()
                 };
-
                 let [$($cdr),*] = args.collect_array::<ARITY>().ok_or(FnCallError::WrongArity(ARITY))?;
+
                 Ok(Some((self)($(<$cdr>::try_from_value($cdr)?),*).into()))
-            }
-        }
-
-        #[expect(non_camel_case_types)]
-        #[expect(non_upper_case_globals)]
-        impl<'a, $($cdr),*> ClispFn<'a> for fn($($cdr),*)
-        where
-        $($cdr: TryFromValue<'a>),*
-        {
-            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
-            {
-                const ARITY: usize = const {
-                    $(const $cdr: () = ();)*
-                    [$($cdr),*]
-                        .len()
-                };
-
-                let [$($cdr),*] = args.collect_array::<ARITY>().ok_or(FnCallError::WrongArity(ARITY))?;
-                (self)($(<$cdr>::try_from_value($cdr)?),*);
-
-                Ok(None)
             }
         }
     }

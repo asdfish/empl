@@ -101,6 +101,11 @@ decl_value! {
         Dyn(Box<dyn DynValue>),
     }
 }
+impl From<()> for Value<'_> {
+    fn from(_: ()) -> Self {
+        Value::List(Box::new(List::Nil))
+    }
+}
 
 pub trait TryFromValue<'a> {
     fn try_from_value(_: Value<'a>) -> Result<Self, TryFromValueError<'a>>
