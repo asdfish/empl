@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::evaluator::{Environment, TryFromValueError, Value},
+        config::clisp::evaluator::{Environment, TryFromValue, TryFromValueError, Value},
         ext::iterator::IteratorExt,
     },
     std::iter::FusedIterator,
@@ -42,7 +42,7 @@ macro_rules! impl_clisp_fn_for {
         impl<'a, $car, $($cdr),*> ClispFn<'a> for fn($($cdr),*) -> $car
         where
             $car: Into<Value<'a>>,
-            $($cdr: TryFrom<Value<'a>, Error = TryFromValueError<'a>>),*
+            $($cdr: TryFromValue<'a>),*
         {
             fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
             {
@@ -53,7 +53,7 @@ macro_rules! impl_clisp_fn_for {
                 };
                 let [$($cdr),*] = args.collect_array::<ARITY>().ok_or(FnCallError::WrongArity(ARITY))?;
 
-                Ok(Some((self)($($cdr.try_into()?),*).into()))
+                Ok(Some((self)($(<$cdr>::try_from_value($cdr)?),*).into()))
             }
         }
     }

@@ -45,10 +45,8 @@ macro_rules! decl_value {
             }
         }
 
-        impl<'a> TryFrom<Value<'a>> for $ty {
-            type Error = TryFromValueError<'a>;
-
-            fn try_from(val: Value<'a>) -> Result<$ty, TryFromValueError<'a>> {
+        impl<'a> TryFromValue<'a> for $ty {
+            fn try_from_value(val: Value<'a>) -> Result<$ty, TryFromValueError<'a>> {
                 match val {
                     Value::$variant(val) => Ok(val),
                     val => Err(TryFromValueError(val, type_name::<$ty>())),
@@ -65,6 +63,23 @@ decl_value! {
         String(Cow<'a, Cow<'a, str>>),
         List(Box<List<'a>>),
         Dyn(Box<dyn DynValue>),
+    }
+}
+impl From<()> for Value<'_> {
+    fn from(_: ()) -> Self {
+        Value::List(Box::new(List::Nil))
+    }
+}
+
+pub trait TryFromValue<'a> {
+    fn try_from_value(_: Value<'a>) -> Result<Self, TryFromValueError<'a>>
+    where Self: Sized;
+}
+impl<'a, T> TryFromValue<'a> for T
+where T: From<Value<'a>> {
+    fn try_from_value(val: Value<'a>) -> Result<Self, TryFromValueError<'a>>
+    where Self: Sized {
+        Ok(T::from(val))
     }
 }
 
