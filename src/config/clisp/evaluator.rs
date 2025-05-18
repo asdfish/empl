@@ -1,9 +1,13 @@
 mod prelude;
 
 use {
-    crate::config::clisp::{
-        ast::Expr,
-        lexer::Literal,
+    crate::{
+        config::clisp::{
+            ast::Expr,
+            lexer::Literal,
+            parser::{Parser, ParserOutput, token::*},
+        },
+        ext::iterator::IteratorExt,
     },
     dyn_clone::DynClone,
     nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
@@ -13,6 +17,7 @@ use {
         collections::HashMap,
         fmt::{self, Debug, Formatter},
         iter::{self, FusedIterator},
+        num::NonZeroUsize,
         rc::Rc,
     },
 };
@@ -30,10 +35,7 @@ impl<'src> Environment<'src> {
     ) -> Result<Cow<'env, Value<'src>>, EvalError<'src>> {
         match expr {
             Expr::Literal(Literal::Bool(b)) => Ok(Cow::Owned(Value::Bool(*b))),
-            Expr::Literal(Literal::Ident(id)) => self
-                .get(id)
-                .map(Cow::Borrowed)
-                .ok_or(EvalError::NotFound(id)),
+            Expr::Literal(Literal::Ident(id)) => self.get(id).ok_or(EvalError::NotFound(id)),
             Expr::Literal(Literal::Int(i)) => Ok(Cow::Owned(Value::Int(*i))),
             Expr::Literal(Literal::String(s)) => Ok(Cow::Owned(Value::String(Cow::Borrowed(s)))),
             Expr::Apply(apply) => {
@@ -54,8 +56,58 @@ impl<'src> Environment<'src> {
         }
     }
 
-    pub fn get<'env>(&'env self, ident: &'src str) -> Option<&'env Value<'src>> {
-        self.0.iter().rev().find_map(|vars| vars.get(ident))
+    pub fn get<'env>(&'env self, ident: &'src str) -> Option<Cow<'env, Value<'src>>> {
+        #[derive(Clone, Copy, Debug)]
+        enum FnTy {
+            Car,
+            Cdr,
+        }
+
+        if let Some(ParserOutput {
+            output: (fn_t, n), ..
+        }) = Sequence::new("ca")
+            .map(|_| FnTy::Car)
+            .or(Just('c').map(|_| FnTy::Cdr))
+            .then(
+                Just('d')
+                    .map_iter(|i| i.count())
+            )
+            .then_ignore(Just('r'))
+            .or(Sequence::new("car").map(|_| (FnTy::Car, 0)))
+            .filter(|(t, n)| match t {
+                FnTy::Car => true,
+                FnTy::Cdr => *n != 0,
+            })
+            .parse(ident)
+        {
+            Some(Cow::Owned(Value::Fn(Box::new(move |vals| {
+                let Some([cdr]) = vals.collect_array() else {
+                    return Err(FnCallError::WrongArity(1));
+                };
+
+                let cdr = Rc::try_from_value(cdr)?;
+
+                let List::Cons(car, cdr) =
+                    &*(0..n).try_fold(cdr, |cdr, _| match &*cdr {
+                        List::Cons(_, cdr) => Ok(Rc::clone(&cdr)),
+                        List::Nil => Err(FnCallError::OutOfBounds),
+                    })?
+                else {
+                    return Err(FnCallError::OutOfBounds);
+                };
+
+                match fn_t {
+                    FnTy::Car => Ok(car.clone()),
+                    FnTy::Cdr => Ok(Value::List(Rc::clone(cdr))),
+                }
+            }))))
+        } else {
+            self.0
+                .iter()
+                .rev()
+                .find_map(|vars| vars.get(ident))
+                .map(Cow::Borrowed)
+        }
     }
 }
 
@@ -123,6 +175,7 @@ impl Debug for Value<'_> {
 
 #[derive(Debug)]
 pub enum FnCallError<'a> {
+    OutOfBounds,
     WrongType(TryFromValueError<'a>),
     WrongArity(usize),
 }
