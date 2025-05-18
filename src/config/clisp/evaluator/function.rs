@@ -3,19 +3,21 @@ use {
         config::clisp::evaluator::{Environment, TryFromValue, TryFromValueError, Value},
         ext::iterator::IteratorExt,
     },
+    dyn_clone::DynClone,
     std::iter::FusedIterator,
 };
 
 pub trait Args<'a>: FusedIterator + Iterator<Item = Value<'a>> {}
 impl<'a, T> Args<'a> for T where T: FusedIterator + Iterator<Item = Value<'a>> {}
 
-pub trait ClispFn<'a> {
+pub trait ClispFn<'a>: DynClone {
     fn call(
         &self,
         _: &mut Environment<'a>,
         _: &mut dyn Args<'a>,
     ) -> Result<Option<Value<'a>>, FnCallError<'a>>;
 }
+dyn_clone::clone_trait_object!(ClispFn<'_>);
 macro_rules! impl_clisp_fn_for {
     () => {};
     ($car:ident) => {

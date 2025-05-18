@@ -1,27 +1,62 @@
 pub mod function;
 
 use {
-    crate::config::clisp::{ast::Expr, lexer::Literal},
+    crate::config::clisp::{
+        ast::Expr,
+        evaluator::function::{ClispFn, FnCallError},
+        lexer::Literal,
+    },
     dyn_clone::DynClone,
-    std::{any::{Any, type_name}, borrow::Cow, collections::HashMap, rc::Rc},
+    nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
+    std::{
+        any::{Any, type_name},
+        borrow::Cow,
+        collections::HashMap,
+        rc::Rc,
+    },
 };
 
 #[derive(Clone)]
 pub struct Environment<'a>(Vec<HashMap<&'a str, Value<'a>>>);
 impl<'src> Environment<'src> {
-    pub fn eval<'env>(&'env mut self, expr: Expr<'src>) -> Option<Cow<'env, Value<'src>>> {
+    pub fn eval<'env>(
+        &'env mut self,
+        expr: Expr<'src>,
+    ) -> Result<Cow<'env, Value<'src>>, EvalError<'src>> {
         match expr {
-            Expr::Literal(Literal::Bool(b)) => Some(Cow::Owned(Value::Bool(*b))),
-            Expr::Literal(Literal::Ident(id)) => self.get(id).map(Cow::Borrowed),
-            Expr::Literal(Literal::Int(i)) => Some(Cow::Owned(Value::Int(*i))),
-            Expr::Literal(Literal::String(s)) => Some(Cow::Owned(Value::String(Cow::Borrowed(s)))),
-            _ => todo!(),
+            Expr::Literal(Literal::Bool(b)) => Ok(Cow::Owned(Value::Bool(*b))),
+            Expr::Literal(Literal::Ident(id)) => self
+                .get(id)
+                .map(Cow::Borrowed)
+                .ok_or(EvalError::NotFound(id)),
+            Expr::Literal(Literal::Int(i)) => Ok(Cow::Owned(Value::Int(*i))),
+            Expr::Literal(Literal::String(s)) => Ok(Cow::Owned(Value::String(Cow::Borrowed(s)))),
+            Expr::Apply(apply) => {
+                let apply = apply.into_nonempty_iter();
+                let (func, args) = apply.next();
+                let args = args
+                    .map(|expr| self.eval(expr).map(Cow::into_owned))
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                let func = match self.eval(func).map(Cow::into_owned)? {
+                    Value::Fn(f) => f,
+                    _ => return Err(EvalError::NotAFunction),
+                };
+                func.call(self, &mut args.into_iter().fuse())
+                    .map(Cow::Owned)
+                    .map_err(EvalError::Fn)
+            }
         }
     }
 
     pub fn get<'env>(&'env self, ident: &'src str) -> Option<&'env Value<'src>> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
+}
+pub enum EvalError<'a> {
+    NotAFunction,
+    NotFound(&'a str),
+    Fn(FnCallError<'a>),
 }
 
 pub trait DynValue: Any + DynClone {}
@@ -62,18 +97,24 @@ decl_value! {
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
         List(Box<List<'a>>),
+        Fn(Box<dyn ClispFn<'a>>),
         Dyn(Box<dyn DynValue>),
     }
 }
 
 pub trait TryFromValue<'a> {
     fn try_from_value(_: Value<'a>) -> Result<Self, TryFromValueError<'a>>
-    where Self: Sized;
+    where
+        Self: Sized;
 }
 impl<'a, T> TryFromValue<'a> for T
-where T: From<Value<'a>> {
+where
+    T: From<Value<'a>>,
+{
     fn try_from_value(val: Value<'a>) -> Result<Self, TryFromValueError<'a>>
-    where Self: Sized {
+    where
+        Self: Sized,
+    {
         Ok(T::from(val))
     }
 }
