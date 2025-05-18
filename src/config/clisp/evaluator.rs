@@ -3,13 +3,13 @@ pub mod function;
 use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
-    std::{any::Any, borrow::Cow, collections::HashMap, rc::Rc},
+    std::{any::{Any, type_name}, borrow::Cow, collections::HashMap, rc::Rc},
 };
 
 #[derive(Clone)]
 pub struct Environment<'a>(Vec<HashMap<&'a str, Value<'a>>>);
 impl<'src> Environment<'src> {
-    pub fn eval<'env>(&'env self, expr: Expr<'src>) -> Option<Cow<'env, Value<'src>>> {
+    pub fn eval<'env>(&'env mut self, expr: Expr<'src>) -> Option<Cow<'env, Value<'src>>> {
         match expr {
             Expr::Literal(Literal::Bool(b)) => Some(Cow::Owned(Value::Bool(*b))),
             Expr::Literal(Literal::Ident(id)) => self.get(id).map(Cow::Borrowed),
@@ -25,17 +25,47 @@ impl<'src> Environment<'src> {
 }
 
 pub trait DynValue: Any + DynClone {}
-impl<T> DynValue for T
-where T: Any + DynClone {}
+impl<T> DynValue for T where T: Any + DynClone {}
 dyn_clone::clone_trait_object!(DynValue);
 
-#[derive(Clone)]
-pub enum Value<'a> {
-    Bool(bool),
-    Int(i32),
-    String(Cow<'a, Cow<'a, str>>),
-    List(Box<List<'a>>),
-    Dyn(Box<dyn DynValue>),
+macro_rules! decl_value {
+    (
+    $(#[$attr:meta])*
+    $vis:vis enum $ident:ident {
+        $($variant:ident($ty:ty)),* $(,)?
+    }) => {
+        $(#[$attr]),*
+        $vis enum $ident<'a> {
+            $($variant($ty)),*
+        }
+
+        $(impl<'a> From<$ty> for $ident<'a> {
+            fn from(val: $ty) -> Self {
+                Self::$variant(val)
+            }
+        }
+
+        impl<'a> TryFrom<Value<'a>> for $ty {
+            type Error = TryFromValueError<'a>;
+
+            fn try_from(val: Value<'a>) -> Result<$ty, TryFromValueError<'a>> {
+                match val {
+                    Value::$variant(val) => Ok(val),
+                    val => Err(TryFromValueError(val, type_name::<$ty>())),
+                }
+            }
+        })*
+    }
+}
+decl_value! {
+    #[derive(Clone)]
+    pub enum Value {
+        Bool(bool),
+        Int(i32),
+        String(Cow<'a, Cow<'a, str>>),
+        List(Box<List<'a>>),
+        Dyn(Box<dyn DynValue>),
+    }
 }
 
 #[derive(Clone)]
@@ -43,3 +73,5 @@ pub enum List<'a> {
     Nil,
     Cons(Value<'a>, Rc<Self>),
 }
+
+pub struct TryFromValueError<'a>(Value<'a>, &'static str);

@@ -1,13 +1,20 @@
 use {
-    crate::config::clisp::evaluator::{Environment, Value},
+    crate::{
+        config::clisp::evaluator::{Environment, TryFromValueError, Value},
+        ext::iterator::IteratorExt,
+    },
     std::iter::FusedIterator,
 };
 
+pub trait Args<'a>: FusedIterator + Iterator<Item = Value<'a>> {}
+impl<'a, T> Args<'a> for T where T: FusedIterator + Iterator<Item = Value<'a>> {}
+
 pub trait ClispFn<'a> {
-    fn call<C, I>(&self, _: &mut Environment<'a>, _: C) -> Result<Option<Value<'a>>, FnCallError>
-    where
-        C: IntoIterator<IntoIter = I, Item = Value<'a>>,
-        I: FusedIterator + Iterator<Item = Value<'a>>;
+    fn call(
+        &self,
+        _: &mut Environment<'a>,
+        _: &mut dyn Args<'a>,
+    ) -> Result<Option<Value<'a>>, FnCallError<'a>>;
 }
 macro_rules! impl_clisp_fn_for {
     () => {};
@@ -17,73 +24,49 @@ macro_rules! impl_clisp_fn_for {
         where
             $car: Into<Value<'a>>,
         {
-            fn call<C, I>(&self, _: &mut Environment<'a>, args: C) -> Result<Option<Value<'a>>, FnCallError>
-            where
-                C: IntoIterator<IntoIter = I, Item = Value<'a>>,
-                I: FusedIterator + Iterator<Item = Value<'a>>
+            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
             {
                 if args.into_iter().next().is_some() {
-                    Err(FnCallError::WrongArity {
-                        expected: 0,
-                        found: 1,
-                    })
+                    Err(FnCallError::WrongArity(0))
                 } else {
                     Ok(Some((self)().into()))
                 }
             }
         }
     };
-    ($car:ident, $($cdr:ident),* $(,)?) => {
+    ($car:ident, $($cdr:ident),+ $(,)?) => {
         impl_clisp_fn_for!($($cdr),*);
 
         #[expect(non_camel_case_types)]
-        #[allow(non_upper_case_globals)]
+        #[expect(non_upper_case_globals)]
         impl<'a, $car, $($cdr),*> ClispFn<'a> for fn($($cdr),*) -> $car
         where
             $car: Into<Value<'a>>,
-            $($cdr: From<Value<'a>>),*
+            $($cdr: TryFrom<Value<'a>, Error = TryFromValueError<'a>>),*
         {
-            fn call<C, I>(&self, _: &mut Environment<'a>, args: C) -> Result<Option<Value<'a>>, FnCallError>
-            where
-                C: IntoIterator<IntoIter = I, Item = Value<'a>>,
-                I: FusedIterator + Iterator<Item = Value<'a>>
+            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
             {
                 const ARITY: usize = const {
                     $(const $cdr: () = ();)*
-                    const ARGS: &[()] = &[$($cdr),*];
-                    ARGS.len()
+                    [$($cdr),*]
+                        .len()
                 };
+                let [$($cdr),*] = args.collect_array::<ARITY>().ok_or(FnCallError::WrongArity(ARITY))?;
 
-                let mut args = args.into_iter();
-                let mut arity = 0;
-                let mut arg = || {
-                    let output = args.next().ok_or(FnCallError::WrongArity {
-                        expected: ARITY,
-                        found: arity,
-                    });
-                    arity += 1;
-                    
-                    output
-                };
-
-                $(let $cdr = arg()?;)*
-                arity += 1;
-                if args.next().is_some() {
-                    return Err(FnCallError::WrongArity {
-                        expected: ARITY,
-                        found: arity,
-                    });
-                }
-                let output = (self)($($cdr.into()),*);
-
-                Ok(Some(output.into()))
+                Ok(Some((self)($($cdr.try_into()?),*).into()))
             }
         }
     }
 }
 impl_clisp_fn_for![a, b, c, d, e, f, g, h, i, j, k, l];
 
-#[derive(Debug)]
-pub enum FnCallError {
-    WrongArity { expected: usize, found: usize },
+pub enum FnCallError<'a> {
+    WrongArity(usize),
+    WrongType(TryFromValueError<'a>),
+}
+impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> 
+{
+    fn from(err: TryFromValueError<'a>) -> Self {
+        Self::WrongType(err)
+    }
 }
