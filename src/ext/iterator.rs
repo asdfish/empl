@@ -6,16 +6,48 @@ use {
     std::{
         cmp::{Ordering, max},
         iter::FusedIterator,
+        mem::MaybeUninit,
         ops::ControlFlow,
     },
 };
 
-pub trait IteratorExt: Iterator + Sized {
+pub trait IteratorExt: Iterator {
     fn adapt(self) -> CommandIter<Self, Self::Item>
     where
+        Self: Sized,
         Self::Item: CommandChain,
     {
         CommandIter(self)
+    }
+
+    /// Collect the output of the iterator as an array.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use empl::ext::iterator::IteratorExt;
+    /// assert_eq!((0..3).collect_array::<3>(), Some([0, 1, 2]));
+    /// assert_eq!((0..3).collect_array::<2>(), None);
+    /// assert_eq!((0..3).collect_array::<4>(), None);
+    /// ```
+    fn collect_array<const N: usize>(self) -> Option<[Self::Item; N]>
+    where
+        Self: FusedIterator + Sized,
+    {
+        let mut output = [(); N].map(|_| MaybeUninit::uninit());
+        let mut written = 0;
+        self.enumerate()
+            .try_for_each(|(i, val)| if let Some(slot) = output.get_mut(i) {
+                slot.write(val);
+                written = i;
+                Ok(())
+            } else {
+                Err(())
+            })
+            .ok()
+            .filter(|_| written + 1 == N)?;
+
+        Some(output.map(|item| unsafe { item.assume_init() }))
     }
 
     /// `Order` the items in an iterator by how many items are the same.
@@ -33,8 +65,9 @@ pub trait IteratorExt: Iterator + Sized {
     /// ```
     fn containment<R, T>(self, r: R) -> Option<Ordering>
     where
-        R: IntoIterator<Item = T>,
+        Self: Sized,
         Self::Item: PartialEq<T>,
+        R: IntoIterator<Item = T>,
     {
         match self
             .zip_all(r)
@@ -50,6 +83,7 @@ pub trait IteratorExt: Iterator + Sized {
 
     fn zip_all<I, R>(self, r: I) -> ZipAll<Self, R>
     where
+        Self: Sized,
         I: IntoIterator<IntoIter = R>,
         R: Iterator,
     {
