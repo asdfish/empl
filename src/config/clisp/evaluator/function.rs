@@ -15,7 +15,7 @@ pub trait ClispFn<'a>: DynClone {
         &self,
         _: &mut Environment<'a>,
         _: &mut dyn Args<'a>,
-    ) -> Result<Option<Value<'a>>, FnCallError<'a>>;
+    ) -> Result<Value<'a>, FnCallError<'a>>;
 }
 dyn_clone::clone_trait_object!(ClispFn<'_>);
 macro_rules! impl_clisp_fn_for {
@@ -26,12 +26,12 @@ macro_rules! impl_clisp_fn_for {
         where
             $car: Into<Value<'a>>,
         {
-            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
+            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
             {
                 if args.into_iter().next().is_some() {
                     Err(FnCallError::WrongArity(0))
                 } else {
-                    Ok(Some((self)().into()))
+                    Ok((self)().into())
                 }
             }
         }
@@ -46,7 +46,7 @@ macro_rules! impl_clisp_fn_for {
             $car: Into<Value<'a>>,
             $($cdr: TryFromValue<'a>),*
         {
-            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Option<Value<'a>>, FnCallError<'a>>
+            fn call(&self, _: &mut Environment<'a>, args: &mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
             {
                 const ARITY: usize = const {
                     $(const $cdr: () = ();)*
@@ -55,7 +55,7 @@ macro_rules! impl_clisp_fn_for {
                 };
                 let [$($cdr),*] = args.collect_array::<ARITY>().ok_or(FnCallError::WrongArity(ARITY))?;
 
-                Ok(Some((self)($(<$cdr>::try_from_value($cdr)?),*).into()))
+                Ok((self)($(<$cdr>::try_from_value($cdr)?),*).into())
             }
         }
     }
@@ -66,8 +66,7 @@ pub enum FnCallError<'a> {
     WrongArity(usize),
     WrongType(TryFromValueError<'a>),
 }
-impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> 
-{
+impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> {
     fn from(err: TryFromValueError<'a>) -> Self {
         Self::WrongType(err)
     }
