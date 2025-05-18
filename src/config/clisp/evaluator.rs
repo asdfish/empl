@@ -1,9 +1,12 @@
+pub mod function;
+
 use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
-    std::{borrow::Cow, collections::HashMap, rc::Rc},
+    dyn_clone::DynClone,
+    std::{any::Any, borrow::Cow, collections::HashMap, rc::Rc},
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct Environment<'a>(Vec<HashMap<&'a str, Value<'a>>>);
 impl<'src> Environment<'src> {
     pub fn eval<'env>(&'env self, expr: Expr<'src>) -> Option<Cow<'env, Value<'src>>> {
@@ -21,15 +24,21 @@ impl<'src> Environment<'src> {
     }
 }
 
-#[derive(Clone, Debug, PartialEq)]
+pub trait DynValue: Any + DynClone {}
+impl<T> DynValue for T
+where T: Any + DynClone {}
+dyn_clone::clone_trait_object!(DynValue);
+
+#[derive(Clone)]
 pub enum Value<'a> {
     Bool(bool),
     Int(i32),
     String(Cow<'a, Cow<'a, str>>),
     List(Box<List<'a>>),
+    Dyn(Box<dyn DynValue>),
 }
 
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone)]
 pub enum List<'a> {
     Nil,
     Cons(Value<'a>, Rc<Self>),
