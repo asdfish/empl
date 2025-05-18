@@ -1,17 +1,15 @@
-pub mod function;
+mod prelude;
 
 use {
-    crate::config::clisp::{
-        ast::Expr,
-        evaluator::function::{ClispFn, FnCallError},
-        lexer::Literal,
-    },
+    crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
     nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
     std::{
         any::{Any, type_name},
         borrow::Cow,
         collections::HashMap,
+        fmt::{self, Debug, Formatter},
+        iter::{self, FusedIterator},
         rc::Rc,
     },
 };
@@ -19,6 +17,10 @@ use {
 #[derive(Clone)]
 pub struct Environment<'a>(Vec<HashMap<&'a str, Value<'a>>>);
 impl<'src> Environment<'src> {
+    pub fn new() -> Self {
+        Self(Vec::from_iter(iter::once(prelude::new())))
+    }
+
     pub fn eval<'env>(
         &'env mut self,
         expr: Expr<'src>,
@@ -42,7 +44,7 @@ impl<'src> Environment<'src> {
                     Value::Fn(f) => f,
                     _ => return Err(EvalError::NotAFunction),
                 };
-                func.call(self, &mut args.into_iter().fuse())
+                func(&mut args.into_iter().fuse())
                     .map(Cow::Owned)
                     .map_err(EvalError::Fn)
             }
@@ -53,6 +55,8 @@ impl<'src> Environment<'src> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
 }
+
+#[derive(Debug)]
 pub enum EvalError<'a> {
     NotAFunction,
     NotFound(&'a str),
@@ -96,15 +100,46 @@ decl_value! {
         Bool(bool),
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
-        List(Box<List<'a>>),
+        List(Rc<List<'a>>),
         Fn(Box<dyn ClispFn<'a>>),
         Dyn(Box<dyn DynValue>),
     }
 }
-impl From<()> for Value<'_> {
-    fn from(_: ()) -> Self {
-        Value::List(Box::new(List::Nil))
+impl Debug for Value<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
+            Self::Int(i) => f.debug_tuple("Int").field(i).finish(),
+            Self::String(s) => f.debug_tuple("String").field(s).finish(),
+            Self::List(l) => f.debug_tuple("List").field(l).finish(),
+            Self::Fn(_) => f.debug_tuple("Fn").finish_non_exhaustive(),
+            Self::Dyn(_) => f.debug_tuple("Dyn").finish_non_exhaustive(),
+        }
     }
+}
+
+#[derive(Debug)]
+pub enum FnCallError<'a> {
+    WrongType(TryFromValueError<'a>),
+    WrongArity(usize),
+}
+impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> {
+    fn from(err: TryFromValueError<'a>) -> Self {
+        Self::WrongType(err)
+    }
+}
+
+pub trait Args<'a>: FusedIterator + Iterator<Item = Value<'a>> {}
+impl<'a, T> Args<'a> for T where T: FusedIterator + Iterator<Item = Value<'a>> {}
+
+pub trait ClispFn<'a>:
+    DynClone + Fn(&mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
+{
+}
+dyn_clone::clone_trait_object!(ClispFn<'_>);
+impl<'a, T> ClispFn<'a> for T where
+    T: Clone + Fn(&mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
+{
 }
 
 pub trait TryFromValue<'a> {
@@ -124,10 +159,11 @@ where
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum List<'a> {
     Nil,
     Cons(Value<'a>, Rc<Self>),
 }
 
+#[derive(Debug)]
 pub struct TryFromValueError<'a>(Value<'a>, &'static str);

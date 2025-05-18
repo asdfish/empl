@@ -39,13 +39,13 @@ pub trait IteratorExt: Iterator {
         self.enumerate()
             .try_for_each(|(i, val)| if let Some(slot) = output.get_mut(i) {
                 slot.write(val);
-                written = i;
+                written = i + 1;
                 Ok(())
             } else {
                 Err(())
             })
             .ok()
-            .filter(|_| written + 1 == N)?;
+            .filter(|_| written == N)?;
 
         Some(output.map(|item| unsafe { item.assume_init() }))
     }

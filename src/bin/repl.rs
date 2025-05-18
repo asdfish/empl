@@ -9,6 +9,7 @@ use {
         argv::Argv,
         config::clisp::{
             ast::ExprParser,
+            evaluator::Environment,
             lexer::LexemeParser,
             parser::{Parser, ParserOutput},
         },
@@ -67,5 +68,8 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
             println!("{ast:?}");
             continue;
         }
+
+        let mut environment = Environment::new();
+        println!("{:?}", environment.eval(ast.output));
     }
 }
