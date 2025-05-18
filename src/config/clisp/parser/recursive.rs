@@ -23,11 +23,11 @@ use {
 /// });
 /// assert_eq!(
 ///     expr_parser.parse("10"),
-///     Ok(ParserOutput::new("", Expr::Int(10)))
+///     Some(ParserOutput::new("", Expr::Int(10)))
 /// );
 /// assert_eq!(
 ///     expr_parser.parse("-10"),
-///     Ok(ParserOutput::new("", Expr::Neg(Box::new(Expr::Int(10)))))
+///     Some(ParserOutput::new("", Expr::Neg(Box::new(Expr::Int(10)))))
 /// );
 /// ```
 #[derive(Clone)]
@@ -55,7 +55,7 @@ where
     /// This function does nothing if the parser was already declared.
     pub fn declare<F>(&'p self, declaration: F)
     where
-        F: FnOnce(&'p dyn Parser<'src, I, Error = P::Error, Output = P::Output>) -> P,
+        F: FnOnce(&'p dyn Parser<'src, I, Output = P::Output>) -> P,
     {
         let result = self.parser.set(declaration(self));
         debug_assert!(result.is_ok());
@@ -75,13 +75,12 @@ where
     I: Parsable<'src>,
     P: Parser<'src, I>,
 {
-    type Error = P::Error;
     type Output = P::Output;
 
     /// # Panics
     ///
     /// If this is called before [Self::declare] returns, it will panic.
-    fn parse(&self, input: I) -> Result<ParserOutput<'src, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Option<ParserOutput<'src, I, Self::Output>> {
         self.parser
             .get()
             .expect("`RecursiveParser` should not be called before being declared")

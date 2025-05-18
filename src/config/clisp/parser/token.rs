@@ -1,7 +1,7 @@
 use {
     crate::{
         config::clisp::parser::{
-            EofError, Parsable, Parser, ParserError, ParserOutput, PureParser,
+            Parsable, Parser, ParserOutput, PureParser,
         },
         either::EitherOrBoth,
     },
@@ -25,14 +25,13 @@ impl<'a, I, T> Parser<'a, I> for Any<'a, I, T>
 where
     I: Parsable<'a, Item = T>,
 {
-    type Error = EofError;
     type Output = T;
 
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
         let mut items = input.items();
-        let item = items.next().ok_or(EofError)?;
+        let item = items.next()?;
 
-        Ok(ParserOutput::new(I::recover(items), item))
+        Some(ParserOutput::new(I::recover(items), item))
     }
 }
 // SAFETY: [Parsable::item_len] should be accurate
@@ -50,38 +49,34 @@ where
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
-/// assert_eq!(Just('h').parse("hello"), Ok(ParserOutput::new("ello", 'h')));
-/// assert_eq!(Just('h').parse("goodbye"), Err(ParserError::Match { expected: 'h', found: 'g' }));
+/// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+/// assert_eq!(Just('h').parse("hello"), Some(ParserOutput::new("ello", 'h')));
+/// assert_eq!(Just('h').parse("goodbye"), None);
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct Just<T>(pub T)
 where
-    T: Clone + PartialEq;
+    T: PartialEq;
 impl<'a, I, T> Parser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: Clone + PartialEq,
+    T: PartialEq,
 {
-    type Error = ParserError<T>;
     type Output = T;
 
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
         let mut items = input.items();
 
-        match items.next().ok_or(ParserError::Eof(EofError))? {
-            item if item == self.0 => Ok(ParserOutput::new(I::recover(items), item)),
-            item => Err(ParserError::Match {
-                expected: self.0.clone(),
-                found: item,
-            }),
+        match items.next()? {
+            item if item == self.0 => Some(ParserOutput::new(I::recover(items), item)),
+            _ => None
         }
     }
 }
 unsafe impl<'a, I, T> PureParser<'a, I> for Just<T>
 where
     I: Parsable<'a, Item = T>,
-    T: Clone + PartialEq,
+    T: PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
         I::item_len(output)
@@ -92,9 +87,9 @@ where
 ///
 /// # Examples
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Sequence};
-/// assert_eq!(Sequence::new("hello").parse("hello world"), Ok(ParserOutput::new(" world", "hello")));
-/// assert_eq!(Sequence::new("hello").parse("goodbye world"), Err(ParserError::Match { expected: 'h', found: 'g' }));
+/// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Sequence};
+/// assert_eq!(Sequence::new("hello").parse("hello world"), Some(ParserOutput::new(" world", "hello")));
+/// assert_eq!(Sequence::new("hello").parse("goodbye world"), None);
 /// ```
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
@@ -123,28 +118,24 @@ where
     I: Parsable<'a>,
     I::Item: PartialEq,
 {
-    type Error = ParserError<I::Item>;
     type Output = I;
 
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
         let mut l = self.seq.items();
         let mut r = input.items();
 
         while let Some(state) = EitherOrBoth::new_lazy_left(|| l.next(), || r.next()) {
             match state {
-                EitherOrBoth::Left(_) => return Err(ParserError::Eof(EofError)),
+                EitherOrBoth::Left(_) => return None,
                 EitherOrBoth::Right(_) => break,
                 EitherOrBoth::Both(l, r) if l == r => continue,
-                EitherOrBoth::Both(l, r) => {
-                    return Err(ParserError::Match {
-                        expected: l,
-                        found: r,
-                    });
+                EitherOrBoth::Both(_, _) => {
+                    return None
                 }
             }
         }
 
-        Ok(ParserOutput::new(I::recover(r), self.seq))
+        Some(ParserOutput::new(I::recover(r), self.seq))
     }
 }
 unsafe impl<'a, I> PureParser<'a, I> for Sequence<'a, I>
@@ -169,14 +160,13 @@ macro_rules! impl_select {
             $car: Parser<'a, Input, Output = Output>,
             $($cdr: Parser<'a, Input, Output = Output>),*
         {
-            type Error = $car::Error;
             type Output = Output;
 
-            fn parse(&self, input: Input) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
+            fn parse(&self, input: Input) -> Option<ParserOutput<'a, Input, Self::Output>> {
                 let Select(($($cdr,)* $car)) = self;
 
-                $(if let Ok(output) = $cdr.parse(input) {
-                    return Ok(output);
+                $(if let Some(output) = $cdr.parse(input) {
+                    return Some(output);
                 })*
 
                 $car.parse(input)

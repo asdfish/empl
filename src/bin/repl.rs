@@ -51,7 +51,7 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         let mut input = buf.as_str();
         let mut lexemes = Vec::new();
 
-        while let Ok(ParserOutput { next, output, .. }) = LexemeParser.parse(input) {
+        while let Some(ParserOutput { next, output, .. }) = LexemeParser.parse(input) {
             lexemes.push(output);
             input = next;
         }
@@ -61,7 +61,7 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
             continue;
         }
 
-        let Ok(ast) = ExprParser.parse(&lexemes) else {
+        let Some(ast) = ExprParser.parse(&lexemes) else {
             continue;
         };
         if config.stage == Stage::Parse {

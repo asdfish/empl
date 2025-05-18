@@ -1,7 +1,10 @@
 mod prelude;
 
 use {
-    crate::config::clisp::{ast::Expr, lexer::Literal},
+    crate::config::clisp::{
+        ast::Expr,
+        lexer::Literal,
+    },
     dyn_clone::DynClone,
     nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
     std::{

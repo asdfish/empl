@@ -7,7 +7,6 @@ pub mod token;
 use {
     crate::{config::clisp::parser::adapter::*, either::Either},
     std::{
-        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
@@ -82,11 +81,10 @@ pub trait Parser<'a, I>
 where
     I: Parsable<'a>,
 {
-    type Error;
     type Output;
 
     /// The parser next part of the parser output's length must be smaller or equal to the input's.
-    fn parse(&self, _: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error>;
+    fn parse(&self, _: I) -> Option<ParserOutput<'a, I, Self::Output>>;
 
     /// Get the error of the parser as a result, so that you can use it to recover.
     ///
@@ -94,17 +92,17 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
-    /// let int_or_0 = IntParser::<10, u32>::new().co_flatten_err().map(|output| output.unwrap_or(0));
-    /// assert_eq!(int_or_0.parse("10"), Ok(ParserOutput::new("", 10)));
-    /// assert_eq!(int_or_0.parse("foo"), Ok(ParserOutput::new("foo", 0)));
+    /// let int_or_0 = IntParser::<10, u32>::new().co_flatten().map(|output| output.unwrap_or(0));
+    /// assert_eq!(int_or_0.parse("10"), Some(ParserOutput::new("", 10)));
+    /// assert_eq!(int_or_0.parse("foo"), Some(ParserOutput::new("foo", 0)));
     /// ```
-    fn co_flatten_err(self) -> CoFlattenErr<'a, I, Self>
+    fn co_flatten(self) -> CoFlatten<'a, I, Self>
     where
         Self: Sized,
-        CoFlattenErr<'a, I, Self>:
-            Parser<'a, I, Error = Infallible, Output = Result<Self::Output, Self::Error>>,
+        CoFlatten<'a, I, Self>:
+            Parser<'a, I, Output = Option<Self::Output>>,
     {
-        CoFlattenErr {
+        CoFlatten {
             parser: self,
             _marker: PhantomData,
         }
@@ -116,17 +114,15 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput, token::Just}};
-    /// #[derive(Debug, PartialEq)]
-    /// struct MyError;
-    /// let string_interpolation = IdentParser.map_err(|_| MyError).delimited_by(Just('{').map_err(|_| MyError), Just('}').map_err(|_| MyError));
-    /// assert_eq!(string_interpolation.parse("{foo}"), Ok(ParserOutput::new("", "foo")));
+    /// let string_interpolation = IdentParser.delimited_by(Just('{'), Just('}'));
+    /// assert_eq!(string_interpolation.parse("{foo}"), Some(ParserOutput::new("", "foo")));
     /// ```
-    fn delimited_by<E, L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, E, L, Self, R>
+    fn delimited_by<L, R>(self, l: L, r: R) -> DelimitedBy<'a, I, L, Self, R>
     where
-        Self: Parser<'a, I, Error = E> + Sized,
-        L: Parser<'a, I, Error = E>,
-        R: Parser<'a, I, Error = E>,
-        DelimitedBy<'a, I, E, L, Self, R>: Parser<'a, I, Error = E, Output = Self::Output>,
+        Self: Parser<'a, I> + Sized,
+        L: Parser<'a, I>,
+        R: Parser<'a, I>,
+        DelimitedBy<'a, I, L, Self, R>: Parser<'a, I, Output = Self::Output>,
     {
         DelimitedBy {
             l,
@@ -141,17 +137,17 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Just, Sequence}}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::{Just, Sequence}}, either::Either};
     /// let abc = Just('a').either_or(Sequence::new("bc"));
-    /// assert_eq!(abc.parse("a"), Ok(ParserOutput::new("", Either::Left('a'))));
-    /// assert_eq!(abc.parse("bc"), Ok(ParserOutput::new("", Either::Right("bc"))));
+    /// assert_eq!(abc.parse("a"), Some(ParserOutput::new("", Either::Left('a'))));
+    /// assert_eq!(abc.parse("bc"), Some(ParserOutput::new("", Either::Right("bc"))));
     /// ```
     fn either_or<R>(self, r: R) -> EitherOr<'a, I, Self, R>
     where
         Self: Sized,
         R: Parser<'a, I>,
         EitherOr<'a, I, Self, R>:
-            Parser<'a, I, Error = R::Error, Output = Either<Self::Output, R::Output>>,
+            Parser<'a, I, Output = Either<Self::Output, R::Output>>,
     {
         EitherOr {
             l: self,
@@ -166,21 +162,17 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
-    /// #[derive(Debug, PartialEq)]
-    /// struct NotAError;
-    /// let is_a = Any::new().map_err(|_| NotAError).filter(|_| NotAError, |ch| 'a'.eq(ch));
-    /// assert_eq!(is_a.parse("a"), Ok(ParserOutput::new("", 'a')));
-    /// assert_eq!(is_a.parse("b"), Err(NotAError));
+    /// let is_a = Any::new().filter(|ch: &char| 'a'.eq(ch));
+    /// assert_eq!(is_a.parse("a"), Some(ParserOutput::new("", 'a')));
+    /// assert_eq!(is_a.parse("b"), None);
     /// ```
-    fn filter<E, F>(self, error: E, predicate: F) -> Filter<'a, E, F, I, Self>
+    fn filter<F>(self, predicate: F) -> Filter<'a, F, I, Self>
     where
         Self: Sized,
-        E: Fn(Self::Output) -> Self::Error,
         F: Fn(&Self::Output) -> bool,
-        Filter<'a, E, F, I, Self>: Parser<'a, I, Error = Self::Error, Output = Self::Output>,
+        Filter<'a, F, I, Self>: Parser<'a, I, Output = Self::Output>,
     {
         Filter {
-            error,
             parser: self,
             predicate,
             _marker: PhantomData,
@@ -193,17 +185,15 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
-    /// #[derive(Debug, PartialEq)]
-    /// struct NonDigitError;
-    /// let digit = Any::new().map_err(|_| NonDigitError).filter_map(|ch: char| ch.to_digit(10).ok_or(NonDigitError));
-    /// assert_eq!(digit.parse("1"), Ok(ParserOutput::new("", 1)));
-    /// assert_eq!(digit.parse("a"), Err(NonDigitError));
+    /// let digit = Any::new().filter_map(|ch: char| ch.to_digit(10));
+    /// assert_eq!(digit.parse("1"), Some(ParserOutput::new("", 1)));
+    /// assert_eq!(digit.parse("a"), None);
     /// ```
-    fn filter_map<M, T>(self, map: M) -> FilterMap<'a, Self::Error, I, M, Self, T>
+    fn filter_map<M, T>(self, map: M) -> FilterMap<'a, I, M, Self, T>
     where
         Self: Sized,
-        M: Fn(Self::Output) -> Result<T, Self::Error>,
-        FilterMap<'a, Self::Error, I, M, Self, T>: Parser<'a, I, Error = Self::Error, Output = T>,
+        M: Fn(Self::Output) -> Option<T>,
+        FilterMap<'a, I, M, Self, T>: Parser<'a, I, Output = T>,
     {
         FilterMap {
             map,
@@ -212,23 +202,9 @@ where
         }
     }
 
-    /// Convert a `Result<T, E>` to a `T` by making the error part of the parser.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Any};
-    /// #[derive(Debug, PartialEq)]
-    /// struct MyError;
-    /// let end = Any::new().map_err(|_| MyError).map(|_| Err::<(), MyError>(MyError)).flatten_err();
-    /// assert_eq!(end.parse("asdf"), Err(MyError));
-    /// ```
-    fn flatten_err<E, O>(self) -> FlattenErr<'a, I, E, O, Self>
-    where
-        Self: Parser<'a, I, Error = E, Output = Result<O, E>> + Sized,
-        FlattenErr<'a, I, E, O, Self>: Parser<'a, I, Error = E, Output = O>,
-    {
-        FlattenErr {
+    fn flatten<T>(self) -> Flatten<'a, I, Self, T>
+    where Self: Parser<'a, I, Output = Option<T>> + Sized {
+        Flatten {
             parser: self,
             _marker: PhantomData,
         }
@@ -241,17 +217,17 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// # use std::convert::Infallible;
-    /// let a_count = Just('a').fold(|| 0, |accum, _, _| Ok::<usize, Infallible>(accum + 1));
-    /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
-    /// let a_count = Just('a').fold(|| 0, |_, slice: &str, _| Ok::<usize, Infallible>(slice.len()));
-    /// assert_eq!(a_count.parse("aaa"), Ok(ParserOutput::new("", 3)));
+    /// let a_count = Just('a').fold(|| 0, |accum, _, _| Some(accum + 1));
+    /// assert_eq!(a_count.parse("aaa"), Some(ParserOutput::new("", 3)));
+    /// let a_count = Just('a').fold(|| 0, |_, slice: &str, _| Some(slice.len()));
+    /// assert_eq!(a_count.parse("aaa"), Some(ParserOutput::new("", 3)));
     /// ```
-    fn fold<A, AF, E, F>(self, start: AF, fold: F) -> Fold<'a, A, AF, E, F, I, Self>
+    fn fold<A, AF, F>(self, start: AF, fold: F) -> Fold<'a, A, AF, F, I, Self>
     where
         Self: Clone + Sized,
         AF: Fn() -> A,
-        F: Fn(A, I, Self::Output) -> Result<A, E>,
-        Fold<'a, A, AF, E, F, I, Self>: Parser<'a, I, Error = E, Output = A>,
+        F: Fn(A, I, Self::Output) -> Option<A>,
+        Fold<'a, A, AF, F, I, Self>: Parser<'a, I, Output = A>,
     {
         Fold {
             fold,
@@ -268,14 +244,14 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// let ab = Just('a').ignore_then(Just('b'));
-    /// assert_eq!(ab.parse("ab"), Ok(ParserOutput::new("", 'b')));
+    /// assert_eq!(ab.parse("ab"), Some(ParserOutput::new("", 'b')));
     /// ```
-    fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self::Error, Self, R>
+    fn ignore_then<R>(self, r: R) -> IgnoreThen<'a, I, Self, R>
     where
         Self: Sized,
-        R: Parser<'a, I, Error = Self::Error>,
-        IgnoreThen<'a, I, Self::Error, Self, R>:
-            Parser<'a, I, Error = Self::Error, Output = R::Output>,
+        R: Parser<'a, I>,
+        IgnoreThen<'a, I, Self, R>:
+            Parser<'a, I, Output = R::Output>,
     {
         IgnoreThen {
             l: self,
@@ -291,43 +267,18 @@ where
     /// ```
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}}, either::Either};
     /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
-    /// assert_eq!(lowercase.parse("a"), Ok(ParserOutput::new("", 'a')));
-    /// assert_eq!(lowercase.parse("A"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(lowercase.parse("a"), Some(ParserOutput::new("", 'a')));
+    /// assert_eq!(lowercase.parse("A"), Some(ParserOutput::new("", 'a')));
     /// ```
     fn map<F, O>(self, map: F) -> Map<'a, I, F, O, Self>
     where
         Self: Sized,
         F: Fn(Self::Output) -> O,
-        Map<'a, I, F, O, Self>: Parser<'a, I, Error = Self::Error, Output = O>,
+        Map<'a, I, F, O, Self>: Parser<'a, I, Output = O>,
     {
         Map {
             parser: self,
             map,
-            _marker: PhantomData,
-        }
-    }
-
-    /// Transform the error of the current [Parser].
-    ///
-    /// # Examples
-    ///
-    /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
-    /// #[derive(Debug, PartialEq)]
-    /// struct NotAError;
-    /// let a = <Just<char> as Parser<'_, &str>>::map_err(Just('a'), |_: ParserError<char>| NotAError);
-    /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", 'a')));
-    /// assert_eq!(a.parse("b"), Err(NotAError));
-    /// ```
-    fn map_err<F, O>(self, map: F) -> MapErr<'a, I, F, O, Self>
-    where
-        Self: Sized,
-        F: Fn(Self::Error) -> O,
-        MapErr<'a, I, F, O, Self>: Parser<'a, I, Error = O, Output = Self::Output>,
-    {
-        MapErr {
-            map,
-            parser: self,
             _marker: PhantomData,
         }
     }
@@ -339,14 +290,14 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
     /// let count_a = Just('a').map_iter(|iter| iter.count());
-    /// assert_eq!(count_a.parse("aaa"), Ok(ParserOutput::new("", 3)));
-    /// assert_eq!(count_a.parse("aaabbb"), Ok(ParserOutput::new("bbb", 3)));
+    /// assert_eq!(count_a.parse("aaa"), Some(ParserOutput::new("", 3)));
+    /// assert_eq!(count_a.parse("aaabbb"), Some(ParserOutput::new("bbb", 3)));
     /// ```
     fn map_iter<F, O>(self, map: F) -> MapIter<'a, I, F, O, Self>
     where
         Self: Sized,
         F: Fn(&mut Iter<'a, I, &Self>) -> O,
-        MapIter<'a, I, F, O, Self>: Parser<'a, I, Error = Infallible, Output = O>,
+        MapIter<'a, I, F, O, Self>: Parser<'a, I, Output = O>,
     {
         MapIter {
             parser: self,
@@ -362,13 +313,13 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// let maybe_a = Just('a').maybe();
-    /// assert_eq!(maybe_a.parse("a"), Ok(ParserOutput::new("", Some('a'))));
-    /// assert_eq!(maybe_a.parse("b"), Ok(ParserOutput::new("b", None)));
+    /// assert_eq!(maybe_a.parse("a"), Some(ParserOutput::new("", Some('a'))));
+    /// assert_eq!(maybe_a.parse("b"), Some(ParserOutput::new("b", None)));
     /// ```
     fn maybe(self) -> Maybe<'a, I, Self>
     where
         Self: Sized,
-        Maybe<'a, I, Self>: Parser<'a, I, Error = Infallible, Output = Option<Self::Output>>,
+        Maybe<'a, I, Self>: Parser<'a, I, Output = Option<Self::Output>>,
     {
         Maybe {
             parser: self,
@@ -383,15 +334,15 @@ where
     /// ```
     /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
     /// let a_or_b = Just('a').or(Just('b'));
-    /// assert_eq!(a_or_b.parse("a"), Ok(ParserOutput::new("", 'a')));
-    /// assert_eq!(a_or_b.parse("b"), Ok(ParserOutput::new("", 'b')));
-    /// assert_eq!(a_or_b.parse("c"), Err(ParserError::Match { expected: 'b', found: 'c' }));
+    /// assert_eq!(a_or_b.parse("a"), Some(ParserOutput::new("", 'a')));
+    /// assert_eq!(a_or_b.parse("b"), Some(ParserOutput::new("", 'b')));
+    /// assert_eq!(a_or_b.parse("c"), None);
     /// ```
     fn or<R>(self, r: R) -> Or<'a, I, Self::Output, Self, R>
     where
         Self: Sized,
         R: Parser<'a, I, Output = Self::Output>,
-        Or<'a, I, Self::Output, Self, R>: Parser<'a, I, Error = R::Error, Output = Self::Output>,
+        Or<'a, I, Self::Output, Self, R>: Parser<'a, I, Output = Self::Output>,
     {
         Or {
             l: self,
@@ -406,15 +357,15 @@ where
     ///
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
-    /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Ok(ParserOutput::new("", ('h', 'i'))));
-    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), Err(ParserError::Match { expected: 'i', found: 'o' }));
+    /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Some(ParserOutput::new("", ('h', 'i'))));
+    /// assert_eq!(Just('h').then(Just('i')).parse("ho"), None);
     /// ```
-    fn then<R>(self, r: R) -> Then<'a, I, Self::Error, Self, R>
+    fn then<R>(self, r: R) -> Then<'a, I, Self, R>
     where
         Self: Sized,
-        R: Parser<'a, I, Error = Self::Error>,
-        Then<'a, I, Self::Error, Self, R>:
-            Parser<'a, I, Error = Self::Error, Output = (Self::Output, R::Output)>,
+        R: Parser<'a, I>,
+        Then<'a, I, Self, R>:
+            Parser<'a, I, Output = (Self::Output, R::Output)>,
     {
         Then {
             l: self,
@@ -430,14 +381,14 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// let ab = Just('a').then_ignore(Just('b'));
-    /// assert_eq!(ab.parse("ab"), Ok(ParserOutput::new("", 'a')));
+    /// assert_eq!(ab.parse("ab"), Some(ParserOutput::new("", 'a')));
     /// ```
-    fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self::Error, Self, R>
+    fn then_ignore<R>(self, r: R) -> ThenIgnore<'a, I, Self, R>
     where
         Self: Sized,
-        R: Parser<'a, I, Error = Self::Error>,
-        ThenIgnore<'a, I, Self::Error, Self, R>:
-            Parser<'a, I, Error = Self::Error, Output = Self::Output>,
+        R: Parser<'a, I>,
+        ThenIgnore<'a, I, Self, R>:
+            Parser<'a, I, Output = Self::Output>,
     {
         ThenIgnore {
             l: self,
@@ -451,10 +402,9 @@ where
     I: Parsable<'a>,
     T: Parser<'a, I> + ?Sized,
 {
-    type Error = T::Error;
     type Output = T::Output;
 
-    fn parse(&self, input: I) -> Result<ParserOutput<'a, I, Self::Output>, Self::Error> {
+    fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
         (*self).parse(input)
     }
 }
@@ -479,7 +429,7 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
     /// let a = Just('a').as_slice();
-    /// assert_eq!(a.parse("a"), Ok(ParserOutput::new("", "a")));
+    /// assert_eq!(a.parse("a"), Some(ParserOutput::new("", "a")));
     /// ```
     #[expect(clippy::wrong_self_convention)]
     fn as_slice(self) -> AsSlice<'a, I, Self>
@@ -499,7 +449,7 @@ where
     /// ```
     /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
     /// let a_s = Just('a').repeated();
-    /// assert_eq!(a_s.parse("aaabbb"), Ok(ParserOutput::new("bbb", "aaa")));
+    /// assert_eq!(a_s.parse("aaabbb"), Some(ParserOutput::new("bbb", "aaa")));
     /// ```
     fn repeated(self) -> Repeated<'a, I, Self>
     where
@@ -549,18 +499,18 @@ where
         ParserOutput::new(self.next, f(self.output))
     }
 }
-impl<'a, I, E, T> ParserOutput<'a, I, Result<T, E>>
+impl<'a, I, T> ParserOutput<'a, I, Option<T>>
 where
     I: Parsable<'a>,
 {
-    pub fn transpose(self) -> Result<ParserOutput<'a, I, T>, E> {
+    pub fn transpose(self) -> Option<ParserOutput<'a, I, T>> {
         match self.output {
-            Ok(output) => Ok(ParserOutput {
+            Some(output) => Some(ParserOutput {
                 next: self.next,
                 output,
                 _marker: PhantomData,
             }),
-            Err(err) => Err(err),
+            _ => None,
         }
     }
 }

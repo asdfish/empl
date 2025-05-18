@@ -114,14 +114,13 @@ macro_rules! decl_either {
             $last_pascal: Parser<'a, Input>
         {
             type Output = $either_ident<$($pascals::Output,)* $last_pascal::Output>;
-            type Error = $last_pascal::Error;
 
             fn parse(
                 &self,
                 input: Input,
-            ) -> Result<ParserOutput<'a, Input, Self::Output>, Self::Error> {
-                $(if let Ok(po) = self.$snake.parse(input).map(|po| po.map_output($either_ident::$pascals)) {
-                    return Ok(po);
+            ) -> Option<ParserOutput<'a, Input, Self::Output>> {
+                $(if let Some(po) = self.$snake.parse(input).map(|po| po.map_output($either_ident::$pascals)) {
+                    return Some(po);
                 })*
 
                 self.$last_snake.parse(input)

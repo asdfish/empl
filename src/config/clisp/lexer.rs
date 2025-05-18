@@ -9,7 +9,6 @@ use {
     },
     std::{
         borrow::Cow,
-        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         marker::PhantomData,
@@ -29,13 +28,12 @@ pub enum Lexeme<'a> {
 #[derive(Clone, Copy, Debug)]
 pub struct LexemeParser;
 impl<'a> Parser<'a, &'a str> for LexemeParser {
-    type Error = LiteralError;
     type Output = Lexeme<'a>;
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Select((
             Just('(').map(|_| Lexeme::LParen),
             Just(')').map(|_| Lexeme::RParen),
@@ -54,41 +52,15 @@ pub enum Literal<'a> {
     String(Cow<'a, str>),
 }
 
-#[derive(Clone, Debug)]
-pub enum LiteralError {
-    Ident(IdentError),
-    String(StringError),
-}
-impl Display for LiteralError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Ident(e) => e.fmt(f),
-            Self::String(e) => e.fmt(f),
-        }
-    }
-}
-impl Error for LiteralError {}
-impl From<IdentError> for LiteralError {
-    fn from(err: IdentError) -> Self {
-        Self::Ident(err)
-    }
-}
-impl From<StringError> for LiteralError {
-    fn from(err: StringError) -> Self {
-        Self::String(err)
-    }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct LiteralParser;
 impl<'a> Parser<'a, &'a str> for LiteralParser {
-    type Error = LiteralError;
     type Output = Literal<'a>;
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Literal<'a>>, LiteralError> {
+    ) -> Option<ParserOutput<'a, &'a str, Literal<'a>>> {
         Select((
             Just('#').ignore_then(
                 Just('t')
@@ -96,10 +68,9 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
                     .or(Just('f').map(|_| Literal::Bool(false))),
             ),
             IntParser::<10, i32>::new().map(Literal::Int),
-            IdentParser.map(Literal::Ident).map_err(LiteralError::Ident),
+            IdentParser.map(Literal::Ident),
             StringParser
                 .map(Literal::String)
-                .map_err(LiteralError::String),
         ))
         .parse(input)
     }
@@ -130,26 +101,23 @@ impl From<EofError> for IdentError {
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{lexer::{IdentError, IdentParser}, parser::{EofError, Parser, ParserOutput}};
-/// assert_eq!(IdentParser.parse(""), Err(IdentError::Eof(EofError)));
-/// assert_eq!(IdentParser.parse("foo"), Ok(ParserOutput::new("", "foo")));
-/// assert_eq!(IdentParser.parse("1foo"), Err(IdentError::NotXidStart('1')));
+/// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput}};
+/// assert_eq!(IdentParser.parse(""), None);
+/// assert_eq!(IdentParser.parse("foo"), Some(ParserOutput::new("", "foo")));
+/// assert_eq!(IdentParser.parse("1foo"), None);
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct IdentParser;
 impl<'a> Parser<'a, &'a str> for IdentParser {
-    type Error = IdentError;
     type Output = &'a str;
 
-    fn parse(&self, input: &'a str) -> Result<ParserOutput<'a, &'a str, &'a str>, IdentError> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, &'a str>> {
         Any::new()
-            .map_err(IdentError::Eof)
-            .filter(IdentError::NotXidStart, |ch| is_xid_start(*ch))
+            .filter(|ch| is_xid_start(*ch))
             .then(
                 Any::new()
-                    .filter(|_| Default::default(), |ch| is_xid_continue(*ch))
+                    .filter(|ch: &char| is_xid_continue(*ch))
                     .repeated()
-                    .map_err(|_: Infallible| unreachable!()),
             )
             .as_slice()
             .parse(input)
@@ -208,19 +176,17 @@ impl<'a, const RADIX: u32, N> Parser<'a, &'a str> for IntParser<RADIX, N>
 where
     N: FromStrRadix,
 {
-    type Error = ParseIntError;
     type Output = N;
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
-            .filter(|_| Default::default(), |ch: &char| ch.is_digit(RADIX))
+            .filter(|ch: &char| ch.is_digit(RADIX))
             .repeated()
-            .map_err(|_: Infallible| unreachable!())
-            .map(|digits| N::from_str_radix(digits, RADIX))
-            .flatten_err()
+            .map(|digits| N::from_str_radix(digits, RADIX).ok())
+            .flatten()
             .parse(input)
     }
 }
@@ -263,74 +229,40 @@ impl From<ParserError<char>> for EscapeCharacterError {
 ///
 /// ```
 /// # use empl::config::clisp::{parser::{Parser, ParserOutput}, lexer::EscapeCharacterParser};
-/// assert_eq!(EscapeCharacterParser.parse("\\u{FACE}"), Ok(ParserOutput::new("", '\u{FACE}')));
+/// assert_eq!(EscapeCharacterParser.parse("\\u{FACE}"), Some(ParserOutput::new("", '\u{FACE}')));
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct EscapeCharacterParser;
 impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
-    type Error = EscapeCharacterError;
     type Output = char;
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Just('\\')
-            .map_err(EscapeCharacterError::from)
             .ignore_then(
                 Just('0')
-                    .map_err(EscapeCharacterError::from)
                     .map(|_| '\0')
-                    .or(Just('n').map_err(EscapeCharacterError::from).map(|_| '\n'))
-                    .or(Just('r').map_err(EscapeCharacterError::from).map(|_| '\r'))
-                    .or(Just('t').map_err(EscapeCharacterError::from).map(|_| '\t'))
-                    .or(Just('\'').map_err(EscapeCharacterError::from).map(|_| '\''))
-                    .or(Just('"').map_err(EscapeCharacterError::from).map(|_| '"'))
-                    .or(Just('\\').map_err(EscapeCharacterError::from).map(|_| '\\'))
-                    .or(Just('u').map_err(EscapeCharacterError::from).ignore_then(
+                    .or(Just('n').map(|_| '\n'))
+                    .or(Just('r').map(|_| '\r'))
+                    .or(Just('t').map(|_| '\t'))
+                    .or(Just('\'').map(|_| '\''))
+                    .or(Just('"').map(|_| '"'))
+                    .or(Just('\\').map(|_| '\\'))
+                    .or(Just('u').ignore_then(
                         IntParser::<16, u32>::new()
-                            .map_err(EscapeCharacterError::ParseUnicode)
-                            .map(|i| {
-                                char::from_u32(i)
-                                    .ok_or(EscapeCharacterError::InvalidUnicodeScalar(i))
-                            })
-                            .flatten_err()
+                            .map(char::from_u32)
+                            .flatten()
                             .delimited_by(
-                                Just('{').map_err(EscapeCharacterError::from),
-                                Just('}').map_err(EscapeCharacterError::from),
+                                Just('{'),
+                                Just('}'),
                             ),
                     )),
             )
             .parse(input)
     }
 }
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum StringError {
-    Eof(EofError),
-    EscapeCharacter(EscapeCharacterError),
-    Unescaped(char),
-    Delimiter(char),
-}
-impl StringError {
-    fn delimiter_error(err: ParserError<char>) -> Self {
-        match err {
-            ParserError::Eof(e) => Self::Eof(e),
-            ParserError::Match { found, .. } => Self::Delimiter(found),
-        }
-    }
-}
-impl Display for StringError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Eof(e) => e.fmt(f),
-            Self::EscapeCharacter(e) => e.fmt(f),
-            Self::Unescaped(c) => write!(f, "`{c}` must be escaped"),
-            Self::Delimiter(c) => write!(f, "`{c}` was found in place of string delimiter `\"`"),
-        }
-    }
-}
-impl Error for StringError {}
 
 /// String parser
 ///
@@ -339,40 +271,36 @@ impl Error for StringError {}
 /// ```
 /// # use empl::config::clisp::{lexer::StringParser, parser::{Parser, ParserOutput}};
 /// # use std::borrow::Cow;
-/// assert_eq!(StringParser.parse(r#""hello world""#), Ok(ParserOutput::new("", Cow::Borrowed("hello world"))));
-/// assert_eq!(StringParser.parse(r#""\u{CAFE}""#), Ok(ParserOutput::new("", Cow::Borrowed("\u{CAFE}"))));
+/// assert_eq!(StringParser.parse(r#""hello world""#), Some(ParserOutput::new("", Cow::Borrowed("hello world"))));
+/// assert_eq!(StringParser.parse(r#""\u{CAFE}""#), Some(ParserOutput::new("", Cow::Borrowed("\u{CAFE}"))));
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct StringParser;
 impl<'a> Parser<'a, &'a str> for StringParser {
-    type Error = StringError;
     type Output = Cow<'a, str>;
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
-        let delimiter = Just('"').map_err(StringError::delimiter_error);
-
+    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
-            .map_err(StringError::Eof)
-            .filter(StringError::Unescaped, |ch| '\"'.ne(ch) && '\\'.ne(ch))
-            .either_or(EscapeCharacterParser.map_err(StringError::EscapeCharacter))
+            .filter(|ch: &char| '\"'.ne(ch) && '\\'.ne(ch))
+            .either_or(EscapeCharacterParser)
             .fold(
                 || Cow::Borrowed(""),
                 |accum, string, ch| match (ch, accum) {
-                    (Either::Left(_), Cow::Borrowed(_)) => Ok(Cow::Borrowed(string)),
+                    (Either::Left(_), Cow::Borrowed(_)) => Some(Cow::Borrowed(string)),
                     (Either::Left(ch), Cow::Owned(mut string)) => {
                         string.push(ch);
-                        Ok(Cow::Owned(string))
+                        Some(Cow::Owned(string))
                     }
                     (Either::Right(ch), mut string) => {
                         string.to_mut().push(ch);
-                        Ok(string)
+                        Some(string)
                     }
                 },
             )
-            .delimited_by(delimiter, delimiter)
+            .delimited_by(Just('"'), Just('"'))
             .parse(input)
     }
 }
@@ -383,39 +311,31 @@ impl<'a> Parser<'a, &'a str> for StringParser {
 ///
 /// ```
 /// # use empl::config::clisp::{lexer::WhitespaceParser, parser::{Parser, ParserOutput}};
-/// assert_eq!(WhitespaceParser.parse("    "), Ok(ParserOutput::new("", ())));
-/// assert_eq!(WhitespaceParser.parse("\n\n    ; foo\nbar"), Ok(ParserOutput::new("bar", ())));
+/// assert_eq!(WhitespaceParser.parse("    "), Some(ParserOutput::new("", ())));
+/// assert_eq!(WhitespaceParser.parse("\n\n    ; foo\nbar"), Some(ParserOutput::new("bar", ())));
 /// ```
 #[derive(Clone, Copy, Debug)]
 pub struct WhitespaceParser;
 impl<'a> Parser<'a, &'a str> for WhitespaceParser {
-    type Error = EofError;
     type Output = ();
 
     fn parse(
         &self,
         input: &'a str,
-    ) -> Result<ParserOutput<'a, &'a str, Self::Output>, Self::Error> {
+    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
-            .map_err(drop)
-            .filter(drop, |ch: &char| ch.is_whitespace())
-            .map_err(drop)
+            .filter(|ch: &char| ch.is_whitespace())
             .either_or(
                 Just(';')
-                    .map_err(drop)
                     .then(
                         Any::new()
-                            .map_err(drop)
-                            .filter(drop, |ch: &char| '\n'.ne(ch))
+                            .filter(|ch: &char| '\n'.ne(ch))
                             .repeated()
-                            .map_err(drop),
                     )
-                    .then(Just('\n').map_err(drop)),
+                    .then(Just('\n')),
             )
             .map_iter(|iter| iter.fold(None, |_, _| Some(())))
-            .map_err(|_: Infallible| unreachable!())
-            .map(|output| output.ok_or(EofError))
-            .flatten_err()
+            .flatten()
             .parse(input)
     }
 }
