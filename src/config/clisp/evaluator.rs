@@ -3,22 +3,30 @@ mod prelude;
 use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
-    nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
+    nonempty_collections::{
+        iter::{IntoNonEmptyIterator, NonEmptyIterator},
+        vector::NEVec,
+    },
     std::{
         any::{Any, type_name},
         borrow::Cow,
         collections::HashMap,
         fmt::{self, Debug, Formatter},
-        iter,
         rc::Rc,
     },
 };
 
 #[derive(Clone)]
-pub struct Environment<'a>(Vec<HashMap<&'a str, Value<'a>>>);
+pub struct Environment<'a>(NEVec<HashMap<&'a str, Value<'a>>>);
 impl<'src> Environment<'src> {
     pub fn new() -> Self {
-        Self(Vec::from_iter(iter::once(prelude::new())))
+        Self(NEVec::new(prelude::new()))
+    }
+    pub fn clear(&mut self) {
+        while self.0.pop().is_some() {}
+    }
+    pub fn pop(&mut self) {
+        self.0.pop();
     }
 
     pub fn eval<'env>(
