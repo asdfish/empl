@@ -1,7 +1,10 @@
 mod prelude;
 
 use {
-    crate::config::clisp::{ast::Expr, lexer::Literal},
+    crate::{
+        config::clisp::{ast::Expr, lexer::Literal},
+        cow::NonStaticCow,
+    },
     dyn_clone::DynClone,
     nonempty_collections::{
         iter::{IntoNonEmptyIterator, NonEmptyIterator},
@@ -54,10 +57,10 @@ impl<'src> Environment<'src> {
                 };
 
                 self.0.push(HashMap::new());
-                let output = func(self, apply).map(Cow::Owned);
+                // let output = func(self, apply).map(Cow::Owned);
                 self.0.pop();
 
-                output
+                todo!()
             }
         }
     }
@@ -71,6 +74,7 @@ impl<'src> Environment<'src> {
 pub enum EvalError<'a> {
     EmptyApply,
     NonIdentBinding(Expr<'a>),
+    NoBody,
     NoBindings,
     NotAFunction,
     NotFound(&'a str),
@@ -116,14 +120,25 @@ macro_rules! decl_value {
     }
 }
 decl_value! {
-    #[derive(Clone)]
     pub enum Value {
         Bool(bool),
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
         List(Rc<List<'a>>),
-        Fn(Cow<'static, dyn ClispFn>),
+        Fn(NonStaticCow<'static, dyn ClispFn>),
         Dyn(Box<dyn DynValue>),
+    }
+}
+impl Clone for Value<'_> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Bool(b) => Self::Bool(*b),
+            Self::Int(i) => Self::Int(*i),
+            Self::String(s) => Self::String(s.clone()),
+            Self::List(l) => Self::List(Rc::clone(l)),
+            Self::Fn(f) => Self::Fn(f.clone()),
+            Self::Dyn(v) => Self::Dyn(v.clone()),
+        }
     }
 }
 impl Debug for Value<'_> {
@@ -156,7 +171,7 @@ impl<T> ClispFn for T where
         ) -> Result<Value<'src>, EvalError<'src>>
 {
 }
-impl ToOwned for dyn ClispFn {
+impl ToOwned for dyn ClispFn + '_ {
     type Owned = Box<Self>;
 
     fn to_owned(&self) -> Self::Owned {
