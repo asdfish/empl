@@ -4,7 +4,6 @@ use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
     nonempty_collections::{
-        iter::{IntoNonEmptyIterator, NonEmptyIterator},
         vector::NEVec,
     },
     std::{
@@ -14,7 +13,6 @@ use {
         fmt::{self, Debug, Formatter},
         ops::RangeFrom,
         rc::Rc,
-        vec,
     },
 };
 
@@ -70,6 +68,7 @@ pub enum EvalError<'a> {
     MultipleBindings(&'a str),
     NonIdentBinding(Expr<'a>),
     NoBindings,
+    NoBody,
     NotAFunction,
     NotFound(&'a str),
     WrongType(TryFromValueError<'a>),

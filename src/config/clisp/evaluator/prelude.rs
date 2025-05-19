@@ -10,11 +10,14 @@ use {
             iterator::IteratorExt,
         },
     },
+    nonempty_collections::{
+        iter::{IntoIteratorExt, NonEmptyIterator},
+        vector::NEVec,
+    },
     std::{
         borrow::Cow,
         collections::{HashSet, HashMap, VecDeque},
         rc::Rc,
-        vec,
     },
 };
 
@@ -47,6 +50,8 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
                 Err(EvalError::MultipleBindings(binding))
             }
         })?;
+    let body = args.try_into_nonempty_iter().ok_or(EvalError::NoBody)?
+        .collect::<NEVec<_>>();
 
     Ok(Value::Fn(Box::new(move |env, args| {
         args
@@ -55,14 +60,22 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
             .try_for_each(|arg| match arg {
                 EitherOrBoth::Both(arg, binding) => {
                     let arg = env.eval(arg).map(Cow::into_owned)?;
-                    env.last_mut().insert(binding, arg);
-
-                    Ok(())
+                    if env.last_mut().insert(binding, arg).is_none() {
+                        Ok(())
+                    } else {
+                        Err(EvalError::MultipleBindings(binding))
+                    }
                 },
                 _ => Err(EvalError::WrongArity(bindings.len()))
             })?;
 
-        todo!()
+        body
+            .iter()
+            .cloned()
+            .map(|expr| env.eval(expr).map(Cow::into_owned))
+            .try_fold(None, |_, expr| Ok(Some(expr?)))
+            .transpose()
+            .expect("should always have a value since the iterator is not empty")
     })))
 }
 fn list<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {

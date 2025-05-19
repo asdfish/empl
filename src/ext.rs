@@ -6,4 +6,3 @@ pub mod command;
 pub mod future;
 pub mod int;
 pub mod iterator;
-pub mod non_empty_iterator;
