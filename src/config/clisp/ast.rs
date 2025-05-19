@@ -7,12 +7,12 @@ use {
             token::{Any, Just},
         },
     },
-    nonempty_collections::NEVec,
+    std::collections::VecDeque,
 };
 
 #[derive(Clone, Debug)]
 pub enum Expr<'a> {
-    Apply(NEVec<Self>),
+    List(VecDeque<Self>),
     Literal(&'a Literal<'a>),
 }
 
@@ -37,20 +37,23 @@ impl<'a> Parser<'a, &'a [Lexeme<'a>]> for ExprParser {
             expr.then(
                 Just(&Lexeme::Whitespace)
                     .ignore_then(expr)
-                    .map_iter(|iter| iter.collect::<Vec<_>>())
+                    .map_iter(|iter| iter.collect::<VecDeque<_>>()),
             )
+            .maybe()
             .delimited_by(
-                Just(&Lexeme::LParen)
-                    .then(
-                        Just(&Lexeme::Whitespace)
-                            .maybe()
-                    ),
+                Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace).maybe()),
                 Just(&Lexeme::Whitespace)
                     .maybe()
-                    .then(Just(&Lexeme::RParen))
+                    .then(Just(&Lexeme::RParen)),
             )
-            .map(NEVec::from)
-            .map(Expr::Apply)
+            .map(|args| {
+                args.map(|(head, mut tail)| {
+                    tail.push_front(head);
+                    tail
+                })
+                .unwrap_or_default()
+            })
+            .map(Expr::List)
             .or(Any::new()
                 .filter_map(|lexeme: &'a Lexeme<'a>| match lexeme {
                     Lexeme::Literal(literal) => Some(literal),

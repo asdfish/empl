@@ -10,8 +10,9 @@ use {
     std::{
         any::{Any, type_name},
         borrow::Cow,
-        collections::HashMap,
+        collections::{HashMap, VecDeque},
         fmt::{self, Debug, Formatter},
+        ops::RangeFrom,
         rc::Rc,
         vec,
     },
@@ -42,20 +43,21 @@ impl<'src> Environment<'src> {
                 .ok_or(EvalError::NotFound(id)),
             Expr::Literal(Literal::Int(i)) => Ok(Cow::Owned(Value::Int(*i))),
             Expr::Literal(Literal::String(s)) => Ok(Cow::Owned(Value::String(Cow::Borrowed(s)))),
-            Expr::Apply(apply) => {
-                let apply = apply.into_nonempty_iter();
-                let (func, args) = apply.next();
+            Expr::List(mut apply) => {
+                let Value::Fn(func) = apply
+                    .pop_front()
+                    .ok_or(EvalError::EmptyApply)
+                    .and_then(|expr| self.eval(expr))
+                    .map(Cow::into_owned)?
+                else {
+                    return Err(EvalError::NotAFunction);
+                };
 
-                match self.eval(func).map(Cow::into_owned)? {
-                    Value::Fn(f) => {
-                        self.0.push(HashMap::new());
-                        let output = f(self, args).map(Cow::Owned);
-                        self.0.pop();
+                self.0.push(HashMap::new());
+                let output = func(self, apply).map(Cow::Owned);
+                self.0.pop();
 
-                        output
-                    },
-                    _ => return Err(EvalError::NotAFunction),
-                }
+                output
             }
         }
     }
@@ -67,10 +69,14 @@ impl<'src> Environment<'src> {
 
 #[derive(Debug)]
 pub enum EvalError<'a> {
+    EmptyApply,
+    NonIdentBinding(Expr<'a>),
+    NoBindings,
     NotAFunction,
     NotFound(&'a str),
     WrongType(TryFromValueError<'a>),
     WrongArity(usize),
+    WrongVariadicArity(RangeFrom<usize>),
 }
 impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
     fn from(err: TryFromValueError<'a>) -> Self {
@@ -133,10 +139,21 @@ impl Debug for Value<'_> {
     }
 }
 
-pub trait ClispFn: DynClone + for<'env, 'src> Fn(&'env mut Environment<'src>, vec::IntoIter<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {}
+pub trait ClispFn:
+    DynClone
+    + for<'env, 'src> Fn(
+        &'env mut Environment<'src>,
+        VecDeque<Expr<'src>>,
+    ) -> Result<Value<'src>, EvalError<'src>>
+{
+}
 dyn_clone::clone_trait_object!(ClispFn);
 impl<T> ClispFn for T where
-    T: DynClone + for<'env, 'src> Fn(&'env mut Environment<'src>, vec::IntoIter<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>>
+    T: DynClone
+        + for<'env, 'src> Fn(
+            &'env mut Environment<'src>,
+            VecDeque<Expr<'src>>,
+        ) -> Result<Value<'src>, EvalError<'src>>
 {
 }
 impl ToOwned for dyn ClispFn {
