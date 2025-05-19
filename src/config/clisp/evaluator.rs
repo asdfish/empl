@@ -13,6 +13,7 @@ use {
         collections::HashMap,
         fmt::{self, Debug, Formatter},
         rc::Rc,
+        vec,
     },
 };
 
@@ -44,12 +45,15 @@ impl<'src> Environment<'src> {
             Expr::Apply(apply) => {
                 let apply = apply.into_nonempty_iter();
                 let (func, args) = apply.next();
-                let args = args
-                    .map(|expr| self.eval(expr).map(Cow::into_owned))
-                    .collect::<Result<Vec<_>, _>>()?;
 
-                match self.eval(func)?.as_ref() {
-                    Value::Fn(f) => f(args).map(Cow::Owned).map_err(EvalError::Fn),
+                match self.eval(func).map(Cow::into_owned)? {
+                    Value::Fn(f) => {
+                        self.0.push(HashMap::new());
+                        let output = f(self, args).map(Cow::Owned);
+                        self.0.pop();
+
+                        output
+                    },
                     _ => return Err(EvalError::NotAFunction),
                 }
             }
@@ -65,7 +69,13 @@ impl<'src> Environment<'src> {
 pub enum EvalError<'a> {
     NotAFunction,
     NotFound(&'a str),
-    Fn(FnCallError<'a>),
+    WrongType(TryFromValueError<'a>),
+    WrongArity(usize),
+}
+impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
+    fn from(err: TryFromValueError<'a>) -> Self {
+        Self::WrongType(err)
+    }
 }
 
 pub trait DynValue: Any + DynClone {}
@@ -123,21 +133,10 @@ impl Debug for Value<'_> {
     }
 }
 
-#[derive(Debug)]
-pub enum FnCallError<'a> {
-    WrongType(TryFromValueError<'a>),
-    WrongArity(usize),
-}
-impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> {
-    fn from(err: TryFromValueError<'a>) -> Self {
-        Self::WrongType(err)
-    }
-}
-
-pub trait ClispFn: DynClone + for<'a> Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {}
+pub trait ClispFn: DynClone + for<'env, 'src> Fn(&'env mut Environment<'src>, vec::IntoIter<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {}
 dyn_clone::clone_trait_object!(ClispFn);
 impl<T> ClispFn for T where
-    T: DynClone + for<'a> Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
+    T: DynClone + for<'env, 'src> Fn(&'env mut Environment<'src>, vec::IntoIter<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>>
 {
 }
 impl ToOwned for dyn ClispFn {
