@@ -3,9 +3,7 @@ mod prelude;
 use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
-    nonempty_collections::{
-        vector::NEVec,
-    },
+    nonempty_collections::vector::NEVec,
     std::{
         any::{Any, type_name},
         borrow::Cow,
@@ -61,8 +59,7 @@ impl<'src> Environment<'src> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
 }
-impl<'src> Default for Environment<'src>
-{
+impl<'src> Default for Environment<'src> {
     fn default() -> Self {
         Self::new()
     }

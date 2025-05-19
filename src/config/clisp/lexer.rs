@@ -30,10 +30,7 @@ pub struct LexemeParser;
 impl<'a> Parser<'a, &'a str> for LexemeParser {
     type Output = Lexeme<'a>;
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Select((
             Just('(').map(|_| Lexeme::LParen),
             Just(')').map(|_| Lexeme::RParen),
@@ -57,10 +54,7 @@ pub struct LiteralParser;
 impl<'a> Parser<'a, &'a str> for LiteralParser {
     type Output = Literal<'a>;
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Literal<'a>>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Literal<'a>>> {
         Select((
             Just('#').ignore_then(
                 Just('t')
@@ -69,8 +63,7 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
             ),
             IntParser::<10, i32>::new().map(Literal::Int),
             IdentParser.map(Literal::Ident),
-            StringParser
-                .map(Literal::String)
+            StringParser.map(Literal::String),
         ))
         .parse(input)
     }
@@ -117,7 +110,7 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
             .then(
                 Any::new()
                     .filter(|ch: &char| is_xid_continue(*ch))
-                    .repeated()
+                    .repeated(),
             )
             .as_slice()
             .parse(input)
@@ -178,10 +171,7 @@ where
 {
     type Output = N;
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
             .filter(|ch: &char| ch.is_digit(RADIX))
             .repeated()
@@ -236,10 +226,7 @@ pub struct EscapeCharacterParser;
 impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
     type Output = char;
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Just('\\')
             .ignore_then(
                 Just('0')
@@ -254,10 +241,7 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
                         IntParser::<16, u32>::new()
                             .map(char::from_u32)
                             .flatten()
-                            .delimited_by(
-                                Just('{'),
-                                Just('}'),
-                            ),
+                            .delimited_by(Just('{'), Just('}')),
                     )),
             )
             .parse(input)
@@ -279,10 +263,7 @@ pub struct StringParser;
 impl<'a> Parser<'a, &'a str> for StringParser {
     type Output = Cow<'a, str>;
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
             .filter(|ch: &char| '\"'.ne(ch) && '\\'.ne(ch))
             .either_or(EscapeCharacterParser)
@@ -319,19 +300,12 @@ pub struct WhitespaceParser;
 impl<'a> Parser<'a, &'a str> for WhitespaceParser {
     type Output = ();
 
-    fn parse(
-        &self,
-        input: &'a str,
-    ) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
+    fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, Self::Output>> {
         Any::new()
             .filter(|ch: &char| ch.is_whitespace())
             .either_or(
                 Just(';')
-                    .then(
-                        Any::new()
-                            .filter(|ch: &char| '\n'.ne(ch))
-                            .repeated()
-                    )
+                    .then(Any::new().filter(|ch: &char| '\n'.ne(ch)).repeated())
                     .then(Just('\n')),
             )
             .map_iter(|iter| iter.fold(None, |_, _| Some(())))

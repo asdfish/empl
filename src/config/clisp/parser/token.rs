@@ -1,8 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{
-            Parsable, Parser, ParserOutput, PureParser,
-        },
+        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::EitherOrBoth,
     },
     std::marker::PhantomData,
@@ -69,7 +67,7 @@ where
 
         match items.next()? {
             item if item == self.0 => Some(ParserOutput::new(I::recover(items), item)),
-            _ => None
+            _ => None,
         }
     }
 }
@@ -129,9 +127,7 @@ where
                 EitherOrBoth::Left(_) => return None,
                 EitherOrBoth::Right(_) => break,
                 EitherOrBoth::Both(l, r) if l == r => continue,
-                EitherOrBoth::Both(_, _) => {
-                    return None
-                }
+                EitherOrBoth::Both(_, _) => return None,
             }
         }
 

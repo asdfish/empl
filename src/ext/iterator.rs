@@ -37,12 +37,14 @@ pub trait IteratorExt: Iterator {
         let mut output = [(); N].map(|_| MaybeUninit::uninit());
         let mut written = 0;
         self.enumerate()
-            .try_for_each(|(i, val)| if let Some(slot) = output.get_mut(i) {
-                slot.write(val);
-                written = i + 1;
-                Ok(())
-            } else {
-                Err(())
+            .try_for_each(|(i, val)| {
+                if let Some(slot) = output.get_mut(i) {
+                    slot.write(val);
+                    written = i + 1;
+                    Ok(())
+                } else {
+                    Err(())
+                }
             })
             .ok()
             .filter(|_| written == N)?;

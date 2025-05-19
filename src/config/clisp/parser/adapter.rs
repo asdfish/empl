@@ -66,11 +66,12 @@ where
     type Output = Option<P::Output>;
 
     fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
-        Some(self
-            .parser
-            .parse(input)
-            .map(|output| output.map_output(Some))
-            .unwrap_or_else(|| ParserOutput::new(input, None)))
+        Some(
+            self.parser
+                .parse(input)
+                .map(|output| output.map_output(Some))
+                .unwrap_or_else(|| ParserOutput::new(input, None)),
+        )
     }
 }
 
@@ -198,7 +199,9 @@ where
     type Output = P::Output;
 
     fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
-        self.parser.parse(input).filter(|ParserOutput { output, .. }| (self.predicate)(output))
+        self.parser
+            .parse(input)
+            .filter(|ParserOutput { output, .. }| (self.predicate)(output))
     }
 }
 unsafe impl<'a, F, I, P> PureParser<'a, I> for Filter<'a, F, I, P>
@@ -293,8 +296,7 @@ where
     type Output = T;
 
     fn parse(&self, input: I) -> Option<ParserOutput<'a, I, Self::Output>> {
-        self.parser.parse(input)
-            .and_then(ParserOutput::transpose)
+        self.parser.parse(input).and_then(ParserOutput::transpose)
     }
 }
 

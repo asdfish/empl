@@ -99,8 +99,7 @@ where
     fn co_flatten(self) -> CoFlatten<'a, I, Self>
     where
         Self: Sized,
-        CoFlatten<'a, I, Self>:
-            Parser<'a, I, Output = Option<Self::Output>>,
+        CoFlatten<'a, I, Self>: Parser<'a, I, Output = Option<Self::Output>>,
     {
         CoFlatten {
             parser: self,
@@ -146,8 +145,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I>,
-        EitherOr<'a, I, Self, R>:
-            Parser<'a, I, Output = Either<Self::Output, R::Output>>,
+        EitherOr<'a, I, Self, R>: Parser<'a, I, Output = Either<Self::Output, R::Output>>,
     {
         EitherOr {
             l: self,
@@ -203,7 +201,9 @@ where
     }
 
     fn flatten<T>(self) -> Flatten<'a, I, Self, T>
-    where Self: Parser<'a, I, Output = Option<T>> + Sized {
+    where
+        Self: Parser<'a, I, Output = Option<T>> + Sized,
+    {
         Flatten {
             parser: self,
             _marker: PhantomData,
@@ -250,8 +250,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I>,
-        IgnoreThen<'a, I, Self, R>:
-            Parser<'a, I, Output = R::Output>,
+        IgnoreThen<'a, I, Self, R>: Parser<'a, I, Output = R::Output>,
     {
         IgnoreThen {
             l: self,
@@ -364,8 +363,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I>,
-        Then<'a, I, Self, R>:
-            Parser<'a, I, Output = (Self::Output, R::Output)>,
+        Then<'a, I, Self, R>: Parser<'a, I, Output = (Self::Output, R::Output)>,
     {
         Then {
             l: self,
@@ -387,8 +385,7 @@ where
     where
         Self: Sized,
         R: Parser<'a, I>,
-        ThenIgnore<'a, I, Self, R>:
-            Parser<'a, I, Output = Self::Output>,
+        ThenIgnore<'a, I, Self, R>: Parser<'a, I, Output = Self::Output>,
     {
         ThenIgnore {
             l: self,
