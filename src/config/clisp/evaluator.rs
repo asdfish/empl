@@ -78,10 +78,6 @@ impl<'src> Environment<'src> {
                 FnTy::Car => true,
                 FnTy::Cdr => *n != 0,
             })
-            .map(|(t, n)| match t {
-                FnTy::Car => (t, n),
-                FnTy::Cdr => (t, n - 1),
-            })
             .parse(ident)
         {
             Some(Cow::Owned(Value::Fn(Box::new(move |vals| {
