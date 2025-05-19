@@ -4,6 +4,7 @@ use {
             evaluator::{Environment, List, Expr, EvalError, TryFromValue, Value},
             lexer::Literal,
         },
+        either::EitherOrBoth,
         ext::{
             array::ArrayExt,
             iterator::IteratorExt,
@@ -11,7 +12,7 @@ use {
     },
     std::{
         borrow::Cow,
-        collections::{HashMap, VecDeque},
+        collections::{HashSet, HashMap, VecDeque},
         rc::Rc,
         vec,
     },
@@ -32,13 +33,37 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
     };
     let bindings = bindings.into_iter()
         .map(|expr| if let Expr::Literal(Literal::Ident(ident)) = expr {
-            Ok(ident)
+            Ok(*ident)
         } else {
             Err(EvalError::NonIdentBinding(expr))
         })
-        .collect::<Result<Vec<_>, _>>()?;
+        .collect::<Result<Vec<&'src str>, _>>()?;
+    bindings
+        .iter()
+        .try_fold(HashSet::with_capacity(bindings.len()), |mut bindings, binding| {
+            if bindings.insert(binding) {
+                Ok(bindings)
+            } else {
+                Err(EvalError::MultipleBindings(binding))
+            }
+        })?;
 
-    Ok(Value::Fn(Box::new(|_, _| todo!())))
+    Ok(Value::Fn(Box::new(move |env, args| {
+        args
+            .into_iter()
+            .zip_all(&bindings)
+            .try_for_each(|arg| match arg {
+                EitherOrBoth::Both(arg, binding) => {
+                    let arg = env.eval(arg).map(Cow::into_owned)?;
+                    env.last_mut().insert(binding, arg);
+
+                    Ok(())
+                },
+                _ => Err(EvalError::WrongArity(bindings.len()))
+            })?;
+
+        todo!()
+    })))
 }
 fn list<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     args

@@ -19,16 +19,13 @@ use {
 };
 
 #[derive(Clone)]
-pub struct Environment<'a>(NEVec<HashMap<&'a str, Value<'a>>>);
+pub struct Environment<'src>(NEVec<HashMap<&'src str, Value<'src>>>);
 impl<'src> Environment<'src> {
     pub fn new() -> Self {
         Self(NEVec::new(prelude::new()))
     }
-    pub fn clear(&mut self) {
-        while self.0.pop().is_some() {}
-    }
-    pub fn pop(&mut self) {
-        self.0.pop();
+    pub fn last_mut(&mut self) -> &mut HashMap<&'src str, Value<'src>> {
+        self.0.last_mut()
     }
 
     pub fn eval<'env>(
@@ -70,6 +67,7 @@ impl<'src> Environment<'src> {
 #[derive(Debug)]
 pub enum EvalError<'a> {
     EmptyApply,
+    MultipleBindings(&'a str),
     NonIdentBinding(Expr<'a>),
     NoBindings,
     NotAFunction,
@@ -122,7 +120,7 @@ decl_value! {
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
         List(Rc<List<'a>>),
-        Fn(Box<dyn ClispFn>),
+        Fn(Box<dyn ClispFn<'a> + 'a>),
         Dyn(Box<dyn DynValue>),
     }
 }
@@ -139,24 +137,24 @@ impl Debug for Value<'_> {
     }
 }
 
-pub trait ClispFn:
+pub trait ClispFn<'src>:
     DynClone
-    + for<'env, 'src> Fn(
+    + for<'env> Fn(
         &'env mut Environment<'src>,
         VecDeque<Expr<'src>>,
     ) -> Result<Value<'src>, EvalError<'src>>
 {
 }
-dyn_clone::clone_trait_object!(ClispFn);
-impl<T> ClispFn for T where
+dyn_clone::clone_trait_object!(ClispFn<'_>);
+impl<'src, T> ClispFn<'src> for T where
     T: DynClone
-        + for<'env, 'src> Fn(
+        + for<'env> Fn(
             &'env mut Environment<'src>,
             VecDeque<Expr<'src>>,
         ) -> Result<Value<'src>, EvalError<'src>>
 {
 }
-impl ToOwned for dyn ClispFn {
+impl ToOwned for dyn ClispFn<'_> {
     type Owned = Box<Self>;
 
     fn to_owned(&self) -> Self::Owned {
