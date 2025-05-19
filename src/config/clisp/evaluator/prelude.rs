@@ -4,6 +4,7 @@ use {
         ext::iterator::IteratorExt,
     },
     std::{
+        borrow::Cow,
         collections::HashMap,
         rc::Rc,
     },
@@ -17,14 +18,20 @@ fn cons<'a>(args: Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {
 
     Ok(Value::List(Rc::new(List::Cons(car, cdr))))
 }
+fn list<'a>(args: Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {
+    Ok(Value::List(args
+        .into_iter()
+        .rev()
+        .fold(Rc::new(List::Nil), |accum, item| Rc::new(List::Cons(item, accum)))))
+}
 fn nil<'a>(_: Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
-    let mut hm = HashMap::new();
-    hm.insert("cons", Value::Fn(Box::new(cons)));
-    hm.insert("nil", Value::Fn(Box::new(nil)));
-
-    hm
+    HashMap::from_iter([
+        ("cons", Value::Fn(Cow::Borrowed(&cons))),
+        ("list", Value::Fn(Cow::Borrowed(&list))),
+        ("nil", Value::Fn(Cow::Borrowed(&nil))),
+    ])
 }

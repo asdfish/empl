@@ -49,9 +49,7 @@ impl<'src> Environment<'src> {
                     .collect::<Result<Vec<_>, _>>()?;
 
                 match self.eval(func)?.as_ref() {
-                    Value::Fn(f) => f(args)
-                        .map(Cow::Owned)
-                        .map_err(EvalError::Fn),
+                    Value::Fn(f) => f(args).map(Cow::Owned).map_err(EvalError::Fn),
                     _ => return Err(EvalError::NotAFunction),
                 }
             }
@@ -108,7 +106,7 @@ decl_value! {
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
         List(Rc<List<'a>>),
-        Fn(Box<dyn ClispFn<'a>>),
+        Fn(Cow<'static, dyn ClispFn>),
         Dyn(Box<dyn DynValue>),
     }
 }
@@ -136,14 +134,18 @@ impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> {
     }
 }
 
-pub trait ClispFn<'a>:
-    DynClone + Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
+pub trait ClispFn: DynClone + for<'a> Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {}
+dyn_clone::clone_trait_object!(ClispFn);
+impl<T> ClispFn for T where
+    T: DynClone + for<'a> Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
 {
 }
-dyn_clone::clone_trait_object!(ClispFn<'_>);
-impl<'a, T> ClispFn<'a> for T where
-    T: Clone + Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
-{
+impl ToOwned for dyn ClispFn {
+    type Owned = Box<Self>;
+
+    fn to_owned(&self) -> Self::Owned {
+        dyn_clone::clone_box(self)
+    }
 }
 
 pub trait TryFromValue<'a> {
