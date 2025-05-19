@@ -122,7 +122,7 @@ decl_value! {
         Int(i32),
         String(Cow<'a, Cow<'a, str>>),
         List(Rc<List<'a>>),
-        Fn(Cow<'static, dyn ClispFn>),
+        Fn(Box<dyn ClispFn>),
         Dyn(Box<dyn DynValue>),
     }
 }

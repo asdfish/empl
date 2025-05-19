@@ -38,7 +38,7 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    todo!()
+    Ok(Value::Fn(Box::new(|_, _| todo!())))
 }
 fn list<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     args
@@ -53,9 +53,9 @@ fn nil<'env, 'src>(_: &'env mut Environment<'src>, _: VecDeque<Expr<'src>>) -> R
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
-        ("cons", Value::Fn(Cow::Borrowed(&cons))),
-        ("lambda", Value::Fn(Cow::Borrowed(&lambda))),
-        ("list", Value::Fn(Cow::Borrowed(&list))),
-        ("nil", Value::Fn(Cow::Borrowed(&nil))),
+        ("cons", Value::Fn(Box::new(cons))),
+        ("lambda", Value::Fn(Box::new(lambda))),
+        ("list", Value::Fn(Box::new(list))),
+        ("nil", Value::Fn(Box::new(nil))),
     ])
 }
