@@ -1,18 +1,13 @@
 use {
     crate::{
         config::clisp::{
-            evaluator::{ClispFn, Environment, List, Expr, EvalError, TryFromValue, Value},
+            evaluator::{Environment, List, Expr, EvalError, TryFromValue, Value},
             lexer::Literal,
         },
-        cow::NonStaticCow,
         ext::{
             array::ArrayExt,
             iterator::IteratorExt,
         },
-    },
-    nonempty_collections::{
-        iter::{IntoIteratorExt, NonEmptyIterator},
-        vector::NEVec,
     },
     std::{
         borrow::Cow,
@@ -21,11 +16,6 @@ use {
         vec,
     },
 };
-
-// fn closure<F>(f: F) -> Box<dyn ClispFn>
-// where F: ClispFn + 'static {
-//     Box::new(f)
-// }
 
 fn cons<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     let [car, cdr] = args.into_iter().collect_array::<2>().ok_or(EvalError::WrongArity(2))?
@@ -47,14 +37,8 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
             Err(EvalError::NonIdentBinding(expr))
         })
         .collect::<Result<Vec<_>, _>>()?;
-    let body = args.try_into_nonempty_iter().ok_or(EvalError::NoBody)?
-        .collect::<NEVec<_>>();
 
-    Ok(Value::Fn(NonStaticCow::Owned(Box::<dyn ClispFn>::new(move |_, _| {
-        println!("{:?}", body);
-
-        todo!()
-    }))))
+    todo!()
 }
 fn list<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     args
@@ -69,10 +53,9 @@ fn nil<'env, 'src>(_: &'env mut Environment<'src>, _: VecDeque<Expr<'src>>) -> R
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
-        ("cons", Value::Fn(NonStaticCow::Borrowed(&cons))),
-        ("lambda", Value::Fn(NonStaticCow::Borrowed(&lambda))),
-        ("list", Value::Fn(NonStaticCow::Borrowed(&list))),
-        ("nil", Value::Fn(NonStaticCow::Borrowed(&nil))),
+        ("cons", Value::Fn(Cow::Borrowed(&cons))),
+        ("lambda", Value::Fn(Cow::Borrowed(&lambda))),
+        ("list", Value::Fn(Cow::Borrowed(&list))),
+        ("nil", Value::Fn(Cow::Borrowed(&nil))),
     ])
-    // Default::default()
 }
