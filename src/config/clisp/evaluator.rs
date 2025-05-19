@@ -61,6 +61,12 @@ impl<'src> Environment<'src> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
 }
+impl<'src> Default for Environment<'src>
+{
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 #[derive(Debug)]
 pub enum EvalError<'a> {

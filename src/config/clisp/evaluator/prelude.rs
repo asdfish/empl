@@ -21,7 +21,7 @@ use {
     },
 };
 
-fn cons<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
+fn cons<'src>(env: &mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     let [car, cdr] = args.into_iter().collect_array::<2>().ok_or(EvalError::WrongArity(2))?
         .map(|expr| env.eval(expr).map(Cow::into_owned))
         .transpose()?;
@@ -30,7 +30,7 @@ fn cons<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>
 
     Ok(Value::List(Rc::new(List::Cons(car, cdr))))
 }
-fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
+fn lambda<'src>(_: &mut Environment<'src>, mut args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     let Expr::List(bindings) = args.pop_front().ok_or(EvalError::WrongVariadicArity(2..))? else {
         return Err(EvalError::NoBindings);
     };
@@ -78,14 +78,14 @@ fn lambda<'env, 'src>(_: &'env mut Environment<'src>, mut args: VecDeque<Expr<'s
             .expect("should always have a value since the iterator is not empty")
     })))
 }
-fn list<'env, 'src>(env: &'env mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
+fn list<'src>(env: &mut Environment<'src>, args: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     args
         .into_iter()
         .rev()
         .try_fold(Rc::new(List::Nil), |accum, item| Ok(Rc::new(List::Cons(env.eval(item).map(Cow::into_owned)?, accum))))
         .map(Value::List)
 }
-fn nil<'env, 'src>(_: &'env mut Environment<'src>, _: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
+fn nil<'src>(_: &mut Environment<'src>, _: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
 
