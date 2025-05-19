@@ -1,10 +1,7 @@
 mod prelude;
 
 use {
-    crate::config::clisp::{
-        ast::Expr,
-        lexer::Literal,
-    },
+    crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
     nonempty_collections::iter::{IntoNonEmptyIterator, NonEmptyIterator},
     std::{
@@ -12,7 +9,7 @@ use {
         borrow::Cow,
         collections::HashMap,
         fmt::{self, Debug, Formatter},
-        iter::{self, FusedIterator},
+        iter,
         rc::Rc,
     },
 };
@@ -43,13 +40,12 @@ impl<'src> Environment<'src> {
                     .map(|expr| self.eval(expr).map(Cow::into_owned))
                     .collect::<Result<Vec<_>, _>>()?;
 
-                let func = match self.eval(func).map(Cow::into_owned)? {
-                    Value::Fn(f) => f,
+                match self.eval(func)?.as_ref() {
+                    Value::Fn(f) => f(args)
+                        .map(Cow::Owned)
+                        .map_err(EvalError::Fn),
                     _ => return Err(EvalError::NotAFunction),
-                };
-                func(&mut args.into_iter().fuse())
-                    .map(Cow::Owned)
-                    .map_err(EvalError::Fn)
+                }
             }
         }
     }
@@ -132,16 +128,13 @@ impl<'a> From<TryFromValueError<'a>> for FnCallError<'a> {
     }
 }
 
-pub trait Args<'a>: FusedIterator + Iterator<Item = Value<'a>> {}
-impl<'a, T> Args<'a> for T where T: FusedIterator + Iterator<Item = Value<'a>> {}
-
 pub trait ClispFn<'a>:
-    DynClone + Fn(&mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
+    DynClone + Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
 {
 }
 dyn_clone::clone_trait_object!(ClispFn<'_>);
 impl<'a, T> ClispFn<'a> for T where
-    T: Clone + Fn(&mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>>
+    T: Clone + Fn(Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>>
 {
 }
 

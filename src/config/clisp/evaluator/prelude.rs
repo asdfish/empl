@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::evaluator::{Args, List, FnCallError, TryFromValue, Value},
+        config::clisp::evaluator::{List, FnCallError, TryFromValue, Value},
         ext::iterator::IteratorExt,
     },
     std::{
@@ -9,19 +9,15 @@ use {
     },
 };
 
-fn cons<'a>(args: &mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>> {
-    let Some([car, cdr]) = args.collect_array() else {
+fn cons<'a>(args: Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {
+    let Some([car, cdr]) = args.into_iter().collect_array() else {
         return Err(FnCallError::WrongArity(2));
     };
     let cdr: Rc<List<'a>> = Rc::try_from_value(cdr)?;
 
     Ok(Value::List(Rc::new(List::Cons(car, cdr))))
 }
-fn nil<'a>(args: &mut dyn Args<'a>) -> Result<Value<'a>, FnCallError<'a>> {
-    let Some([]) = args.collect_array() else {
-        return Err(FnCallError::WrongArity(0));
-    };
-
+fn nil<'a>(_: Vec<Value<'a>>) -> Result<Value<'a>, FnCallError<'a>> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
 
