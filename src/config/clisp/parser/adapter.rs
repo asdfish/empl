@@ -48,7 +48,7 @@ where
     }
 }
 
-/// [Parser] created by [Parser::co_flatten_err]
+/// [Parser] created by [Parser::co_flatten]
 #[derive(Clone, Copy, Debug)]
 pub struct CoFlatten<'a, I, P>
 where
