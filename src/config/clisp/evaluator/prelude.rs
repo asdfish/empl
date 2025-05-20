@@ -164,6 +164,30 @@ fn list<'src>(
         })
         .map(Value::List)
 }
+fn math_fn<'src, O>(mut op: O) -> impl ClispFn<'src>
+where
+    O: Clone + Fn(i32, i32) -> Option<i32>,
+{
+    move |env, args| {
+        let mut args = args.into_iter();
+        let fst = args
+            .next()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
+            .and_then(|fst| env.eval(fst).map(Cow::into_owned))
+            .and_then(|fst| i32::try_from_value(fst).map_err(EvalError::WrongType))?;
+        let args = args
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
+
+        args.into_iter().try_fold(fst, |accum, i| {
+            env.eval(i)
+                .map(Cow::into_owned)
+                .and_then(|i| i32::try_from_value(i).map_err(EvalError::WrongType))
+                .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
+        })
+            .map(Value::Int)
+    }
+}
 fn nil<'src>(
     _: &mut Environment<'src>,
     _: VecDeque<Expr<'src>>,
@@ -173,6 +197,11 @@ fn nil<'src>(
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
+        ("+", Value::Fn(Box::new(math_fn(i32::checked_add)))),
+        ("-", Value::Fn(Box::new(math_fn(i32::checked_sub)))),
+        ("/", Value::Fn(Box::new(math_fn(i32::checked_div)))),
+        ("*", Value::Fn(Box::new(math_fn(i32::checked_mul)))),
+        ("%", Value::Fn(Box::new(math_fn(i32::checked_rem)))),
         ("cons", Value::Fn(Box::new(cons))),
         ("if", Value::Fn(Box::new(r#if))),
         ("lambda", Value::Fn(Box::new(lambda))),

@@ -83,6 +83,7 @@ pub enum EvalError<'a> {
     NoBody,
     NotAFunction,
     NotFound(&'a str),
+    Overflow,
     WrongType(TryFromValueError<'a>),
     WrongArity(Arity),
     WrongBindingArity(Arity),
