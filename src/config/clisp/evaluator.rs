@@ -70,12 +70,15 @@ pub enum EvalError<'a> {
     EmptyApply,
     MultipleBindings(&'a str),
     NonIdentBinding(Expr<'a>),
+    EmptyListBindings,
+    NonListBindings(Expr<'a>),
     NoBindings,
     NoBody,
     NotAFunction,
     NotFound(&'a str),
     WrongType(TryFromValueError<'a>),
     WrongArity(usize),
+    WrongBindingArity(usize),
     WrongVariadicArity(RangeFrom<usize>),
 }
 impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {

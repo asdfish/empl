@@ -18,6 +18,17 @@ use {
     },
 };
 
+fn eval_body<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
+where I: IntoIterator<Item = Expr<'src>> {
+    iter.try_into_nonempty_iter()
+        .ok_or(EvalError::NoBody)?
+        .into_iter()
+        .map(|expr| env.eval(expr).map(Cow::into_owned))
+        .try_fold(None, |_, expr| Ok(Some(expr?)))
+        .transpose()
+        .expect("should always have a value since the iterator is not empty")
+}
+
 fn cons<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
@@ -60,10 +71,7 @@ fn lambda<'src>(
             }
         },
     )?;
-    let body = args
-        .try_into_nonempty_iter()
-        .ok_or(EvalError::NoBody)?
-        .collect::<NEVec<_>>();
+    let body = args;
 
     Ok(Value::Fn(Box::new(move |env, args| {
         args.into_iter()
@@ -71,22 +79,47 @@ fn lambda<'src>(
             .try_for_each(|arg| match arg {
                 EitherOrBoth::Both(arg, binding) => {
                     let arg = env.eval(arg).map(Cow::into_owned)?;
-                    if env.last_mut().insert(binding, arg).is_none() {
-                        Ok(())
-                    } else {
-                        Err(EvalError::MultipleBindings(binding))
-                    }
+                    env.last_mut().insert(binding, arg);
+                    Ok(())
                 }
                 _ => Err(EvalError::WrongArity(bindings.len())),
             })?;
 
-        body.iter()
-            .cloned()
-            .map(|expr| env.eval(expr).map(Cow::into_owned))
-            .try_fold(None, |_, expr| Ok(Some(expr?)))
-            .transpose()
-            .expect("should always have a value since the iterator is not empty")
+        eval_body(env, body.iter().cloned())
     })))
+}
+fn r#let<'src>(
+    env: &mut Environment<'src>,
+    mut args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    args.pop_front()
+        .ok_or(EvalError::NoBindings)
+        .and_then(|bindings| match bindings {
+            Expr::List(bindings) if bindings.is_empty() => Err(EvalError::EmptyListBindings),
+            Expr::List(bindings) => Ok(bindings),
+            expr => Err(EvalError::NonListBindings(expr)),
+        })?
+        .into_iter()
+        .try_for_each(|binding| -> Result<(), EvalError<'src>> {
+            match binding {
+                Expr::List(binding) => {
+                    let [binding, value] = binding
+                        .into_iter()
+                        .collect_array::<2>()
+                        .ok_or(EvalError::WrongBindingArity(2))?;
+                    let Expr::Literal(Literal::Ident(binding)) = binding else {
+                        return Err(EvalError::NonIdentBinding(binding));
+                    };
+                    let value = env.eval(value).map(Cow::into_owned)?;
+                    env.last_mut().insert(binding, value);
+                    Ok(())
+                }
+                expr => Err(EvalError::NonListBindings(expr)),
+            }
+        })?;
+
+    let body = args;
+    eval_body(env, body.iter().cloned())
 }
 fn list<'src>(
     env: &mut Environment<'src>,
@@ -113,6 +146,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
         ("cons", Value::Fn(Box::new(cons))),
         ("lambda", Value::Fn(Box::new(lambda))),
+        ("let", Value::Fn(Box::new(r#let))),
         ("list", Value::Fn(Box::new(list))),
         ("nil", Value::Fn(Box::new(nil))),
     ])
