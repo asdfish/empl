@@ -1,6 +1,7 @@
 use {
     crate::config::clisp::{
         lexer::{Lexeme, Literal},
+        evaluator::Value,
         parser::{
             Parser, ParserOutput,
             recursive::RecursiveParser,
@@ -14,6 +15,8 @@ use {
 pub enum Expr<'a> {
     List(VecDeque<Self>),
     Literal(&'a Literal<'a>),
+    /// Should not be used when parsing tokens. This is just for calling [ClispFn][crate::config::clisp::evaluator::ClispFn] with pre-existing values.
+    Value(Value<'a>),
 }
 
 #[derive(Clone, Copy, Debug)]

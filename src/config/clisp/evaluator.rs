@@ -52,6 +52,7 @@ impl<'src> Environment<'src> {
 
                 output
             }
+            Expr::Value(value) => Ok(Cow::Owned(value)),
         }
     }
 
@@ -149,8 +150,8 @@ impl Debug for Value<'_> {
 
 pub trait ClispFn<'src>:
     DynClone
-    + for<'env> Fn(
-        &'env mut Environment<'src>,
+    + Fn(
+        &mut Environment<'src>,
         VecDeque<Expr<'src>>,
     ) -> Result<Value<'src>, EvalError<'src>>
 {
