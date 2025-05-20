@@ -19,7 +19,9 @@ use {
 };
 
 fn eval_body<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
-where I: IntoIterator<Item = Expr<'src>> {
+where
+    I: IntoIterator<Item = Expr<'src>>,
+{
     iter.try_into_nonempty_iter()
         .ok_or(EvalError::NoBody)?
         .into_iter()
