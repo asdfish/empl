@@ -124,15 +124,15 @@ pub enum Value<'src> {
     Int(i32),
     String(Cow<'src, Cow<'src, str>>),
     List(Rc<List<'src>>),
-    Fn(Box<dyn ClispFn<'src> + 'src>),
-    Dyn(Box<dyn DynValue>),
+    Fn(Rc<dyn ClispFn<'src> + 'src>),
+    Dyn(Rc<dyn DynValue>),
 }
 impl_value_variant!(Bool(bool));
 impl_value_variant!(Int(i32));
 impl_value_variant!(String(Cow<'a, Cow<'a, str>>));
 impl_value_variant!(List(Rc<List<'a>>));
-impl_value_variant!(Fn(Box<dyn ClispFn<'a> + 'a>));
-impl_value_variant!(Dyn(Box<dyn DynValue>));
+impl_value_variant!(Fn(Rc<dyn ClispFn<'a> + 'a>));
+impl_value_variant!(Dyn(Rc<dyn DynValue>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
@@ -165,10 +165,11 @@ impl<'src, T> ClispFn<'src> for T where
 {
 }
 impl ToOwned for dyn ClispFn<'_> {
-    type Owned = Box<Self>;
+    type Owned = Rc<Self>;
 
     fn to_owned(&self) -> Self::Owned {
         dyn_clone::clone_box(self)
+            .into()
     }
 }
 

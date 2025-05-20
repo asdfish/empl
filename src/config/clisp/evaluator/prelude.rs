@@ -105,7 +105,7 @@ fn lambda<'src>(
     )?;
     let body = args;
 
-    Ok(Value::Fn(Box::new(move |env, args| {
+    Ok(Value::Fn(Rc::new(move |env, args| {
         args.into_iter()
             .zip_all(&bindings)
             .try_for_each(|arg| match arg {
@@ -219,17 +219,17 @@ fn not<'src>(
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
-        ("+", Value::Fn(Box::new(math_fn(i32::checked_add)))),
-        ("-", Value::Fn(Box::new(math_fn(i32::checked_sub)))),
-        ("/", Value::Fn(Box::new(math_fn(i32::checked_div)))),
-        ("*", Value::Fn(Box::new(math_fn(i32::checked_mul)))),
-        ("%", Value::Fn(Box::new(math_fn(i32::checked_rem)))),
-        ("!", Value::Fn(Box::new(not))),
-        ("cons", Value::Fn(Box::new(cons))),
-        ("if", Value::Fn(Box::new(r#if))),
-        ("lambda", Value::Fn(Box::new(lambda))),
-        ("let", Value::Fn(Box::new(r#let))),
-        ("list", Value::Fn(Box::new(list))),
-        ("nil", Value::Fn(Box::new(nil))),
+        ("+", Value::Fn(Rc::new(math_fn(i32::checked_add)))),
+        ("-", Value::Fn(Rc::new(math_fn(i32::checked_sub)))),
+        ("/", Value::Fn(Rc::new(math_fn(i32::checked_div)))),
+        ("*", Value::Fn(Rc::new(math_fn(i32::checked_mul)))),
+        ("%", Value::Fn(Rc::new(math_fn(i32::checked_rem)))),
+        ("!", Value::Fn(Rc::new(not))),
+        ("cons", Value::Fn(Rc::new(cons))),
+        ("if", Value::Fn(Rc::new(r#if))),
+        ("lambda", Value::Fn(Rc::new(lambda))),
+        ("let", Value::Fn(Rc::new(r#let))),
+        ("list", Value::Fn(Rc::new(list))),
+        ("nil", Value::Fn(Rc::new(nil))),
     ])
 }
