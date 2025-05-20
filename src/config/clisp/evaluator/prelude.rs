@@ -11,6 +11,7 @@ use {
     std::{
         borrow::Cow,
         collections::{HashMap, HashSet, VecDeque},
+        ops::Not,
         rc::Rc,
     },
 };
@@ -179,12 +180,13 @@ where
             .try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
 
-        args.into_iter().try_fold(fst, |accum, i| {
-            env.eval(i)
-                .map(Cow::into_owned)
-                .and_then(|i| i32::try_from_value(i).map_err(EvalError::WrongType))
-                .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
-        })
+        args.into_iter()
+            .try_fold(fst, |accum, i| {
+                env.eval(i)
+                    .map(Cow::into_owned)
+                    .and_then(|i| i32::try_from_value(i).map_err(EvalError::WrongType))
+                    .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
+            })
             .map(Value::Int)
     }
 }
@@ -194,6 +196,24 @@ fn nil<'src>(
 ) -> Result<Value<'src>, EvalError<'src>> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
+fn not<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    let [predicate] = args
+        .into_iter()
+        .collect_array()
+        .ok_or(EvalError::WrongArity(Arity::Static(1)))?;
+
+    env.eval(predicate)
+        .map(Cow::into_owned)
+        .and_then(|predicate| {
+            bool::try_from_value(predicate)
+                .map(bool::not)
+                .map(Value::Bool)
+                .map_err(EvalError::WrongType)
+        })
+}
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
@@ -202,6 +222,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("/", Value::Fn(Box::new(math_fn(i32::checked_div)))),
         ("*", Value::Fn(Box::new(math_fn(i32::checked_mul)))),
         ("%", Value::Fn(Box::new(math_fn(i32::checked_rem)))),
+        ("!", Value::Fn(Box::new(not))),
         ("cons", Value::Fn(Box::new(cons))),
         ("if", Value::Fn(Box::new(r#if))),
         ("lambda", Value::Fn(Box::new(lambda))),
