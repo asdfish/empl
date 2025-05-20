@@ -269,6 +269,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("let", Value::Fn(Rc::new(r#let))),
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
+        ("progn", Value::Fn(Rc::new(eval_body))),
         (
             "seq-filter",
             Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, predicate, val| {
