@@ -98,18 +98,9 @@ pub trait DynValue: Any + DynClone {}
 impl<T> DynValue for T where T: Any + DynClone {}
 dyn_clone::clone_trait_object!(DynValue);
 
-macro_rules! decl_value {
-    (
-    $(#[$attr:meta])*
-    $vis:vis enum $ident:ident {
-        $($variant:ident($ty:ty)),* $(,)?
-    }) => {
-        $(#[$attr]),*
-        $vis enum $ident<'a> {
-            $($variant($ty)),*
-        }
-
-        $(impl<'a> From<$ty> for $ident<'a> {
+macro_rules! impl_value_variant {
+    ($variant:ident($ty:ty)) => {
+        impl<'a> From<$ty> for Value<'a> {
             fn from(val: $ty) -> Self {
                 Self::$variant(val)
             }
@@ -122,23 +113,30 @@ macro_rules! decl_value {
                     val => Err(TryFromValueError(val, type_name::<$ty>())),
                 }
             }
-        })*
+        }
     }
 }
-decl_value! {
-    #[derive(Clone)]
-    pub enum Value {
-        Bool(bool),
-        Int(i32),
-        String(Cow<'a, Cow<'a, str>>),
-        List(Rc<List<'a>>),
-        Fn(Box<dyn ClispFn<'a> + 'a>),
-        Dyn(Box<dyn DynValue>),
-    }
+#[derive(Clone, Default)]
+pub enum Value<'src> {
+    #[default]
+    Unit,
+    Bool(bool),
+    Int(i32),
+    String(Cow<'src, Cow<'src, str>>),
+    List(Rc<List<'src>>),
+    Fn(Box<dyn ClispFn<'src> + 'src>),
+    Dyn(Box<dyn DynValue>),
 }
+impl_value_variant!(Bool(bool));
+impl_value_variant!(Int(i32));
+impl_value_variant!(String(Cow<'a, Cow<'a, str>>));
+impl_value_variant!(List(Rc<List<'a>>));
+impl_value_variant!(Fn(Box<dyn ClispFn<'a> + 'a>));
+impl_value_variant!(Dyn(Box<dyn DynValue>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
+            Self::Unit => f.debug_tuple("Unit").field(&()).finish(),
             Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
             Self::Int(i) => f.debug_tuple("Int").field(i).finish(),
             Self::String(s) => f.debug_tuple("String").field(s).finish(),

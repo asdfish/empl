@@ -52,24 +52,26 @@ fn r#if<'src>(
     let predicate = args
         .next()
         .ok_or(EvalError::WrongArity(Arity::Range(2..3)))?;
+
     let then = args
         .next()
         .ok_or(EvalError::WrongArity(Arity::Range(2..3)))?;
-    let otherwise = args.next().unwrap_or(Expr::Literal(&Literal::Ident("nil")));
+    let otherwise = args.next();
+    if args.next().is_some() {
+        return Err(EvalError::WrongArity(Arity::Range(2..3)));
+    }
 
-    let predicate = env
+    if env
         .eval(predicate)
         .map(Cow::into_owned)
-        .and_then(|predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType))?;
-    let thunks = [then, otherwise]
-        .map(|thunk| {
-            env.eval(thunk).map(Cow::into_owned).and_then(|thunk| {
-                Box::<dyn ClispFn>::try_from_value(thunk).map_err(EvalError::WrongType)
-            })
-        })
-        .transpose()?;
-
-    thunks[usize::from(!predicate)](env, VecDeque::new())
+        .and_then(|predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType))?
+    {
+        env.eval(then).map(Cow::into_owned)
+    } else if let Some(otherwise) = otherwise {
+        env.eval(otherwise).map(Cow::into_owned)
+    } else {
+        Ok(Value::Unit)
+    }
 }
 fn lambda<'src>(
     _: &mut Environment<'src>,
