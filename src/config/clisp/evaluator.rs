@@ -168,8 +168,7 @@ impl ToOwned for dyn ClispFn<'_> {
     type Owned = Rc<Self>;
 
     fn to_owned(&self) -> Self::Owned {
-        dyn_clone::clone_box(self)
-            .into()
+        dyn_clone::clone_box(self).into()
     }
 }
 
@@ -194,6 +193,17 @@ where
 pub enum List<'a> {
     Nil,
     Cons(Value<'a>, Rc<Self>),
+}
+impl<'a> List<'a> {
+    pub fn new<C, I>(iter: C) -> Rc<List<'a>>
+    where
+        C: IntoIterator<IntoIter = I, Item = Value<'a>>,
+        I: DoubleEndedIterator + Iterator<Item = Value<'a>>,
+    {
+        iter.into_iter()
+            .rev()
+            .fold(Rc::new(List::Nil), |cdr, val| Rc::new(List::Cons(val, cdr)))
+    }
 }
 
 #[derive(Debug)]

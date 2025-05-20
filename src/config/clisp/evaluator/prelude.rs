@@ -10,7 +10,7 @@ use {
     nonempty_collections::iter::IntoIteratorExt,
     std::{
         borrow::Cow,
-        collections::{HashMap, HashSet, VecDeque},
+        collections::{HashMap, HashSet, VecDeque, vec_deque},
         ops::Not,
         rc::Rc,
     },
@@ -216,6 +216,45 @@ fn not<'src>(
                 .map_err(EvalError::WrongType)
         })
 }
+fn seq_fn<'src, ExtraArgs, GetExtraArgs, Morphism>(
+    arity: Arity,
+    get_extra_args: GetExtraArgs,
+    morphism: Morphism,
+) -> impl ClispFn<'src>
+where
+    GetExtraArgs: Clone + Fn(vec_deque::IntoIter<Expr<'src>>) -> Result<ExtraArgs, EvalError<'src>>,
+    Morphism: Clone
+        + Fn(
+            Rc<dyn ClispFn<'src>>,
+            Value<'src>,
+            &ExtraArgs,
+        ) -> Result<Option<Value<'src>>, EvalError<'src>>,
+{
+    move |env, args| {
+        let mut args = args.into_iter();
+        let input_morphism = args.next().ok_or(EvalError::WrongArity(arity.clone()))?;
+        let seq = args.next().ok_or(EvalError::WrongArity(arity.clone()))?;
+        let extra_args = get_extra_args(args)?;
+
+        let input_morphism =
+            env.eval(input_morphism)
+                .map(Cow::into_owned)
+                .and_then(|morphism| {
+                    Rc::<dyn ClispFn<'src>>::try_from_value(morphism).map_err(EvalError::WrongType)
+                })?;
+        let mut seq = env
+            .eval(seq)
+            .map(Cow::into_owned)
+            .and_then(|seq| Rc::<List>::try_from_value(seq).map_err(EvalError::WrongType))?;
+
+        // let mut items = Vec::new();
+        while let List::Cons(car, cdr) = &*seq {
+            // if let Some(item) = morphism(Rc::clone(&input_morphism), car.clone(), &extra_args)? {}
+        }
+
+        todo!()
+    }
+}
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
@@ -231,5 +270,13 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("let", Value::Fn(Rc::new(r#let))),
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
+        (
+            "seq-filter",
+            Value::Fn(Rc::new(seq_fn(
+                Arity::Static(2),
+                |_| Ok(()),
+                |predicate, val, _| todo!(),
+            ))),
+        ),
     ])
 }
