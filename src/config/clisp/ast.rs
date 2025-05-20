@@ -2,7 +2,7 @@ use {
     crate::config::clisp::{
         lexer::{Lexeme, Literal},
         parser::{
-            EofError, Parser, ParserError, ParserOutput,
+            Parser, ParserOutput,
             recursive::RecursiveParser,
             token::{Any, Just},
         },
@@ -14,13 +14,6 @@ use {
 pub enum Expr<'a> {
     List(VecDeque<Self>),
     Literal(&'a Literal<'a>),
-}
-
-pub enum ExprError<'a> {
-    Eof(EofError),
-    Delimiter(ParserError<&'a Lexeme<'a>>),
-    Whitespace(ParserError<&'a Lexeme<'a>>),
-    NonLiteral(&'a Lexeme<'a>),
 }
 
 #[derive(Clone, Copy, Debug)]

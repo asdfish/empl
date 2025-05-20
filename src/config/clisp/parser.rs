@@ -7,8 +7,6 @@ pub mod token;
 use {
     crate::{config::clisp::parser::adapter::*, either::Either},
     std::{
-        error::Error,
-        fmt::{self, Display, Formatter},
         marker::PhantomData,
         slice, str,
     },
@@ -131,7 +129,7 @@ where
         }
     }
 
-    /// Pick either heterogeneous parsers with an output of `Either<Self::Output, R::Output>` and an error of `R::Error`.
+    /// Pick either heterogeneous parsers.
     ///
     /// # Examples
     ///
@@ -264,7 +262,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::{Any, Just}}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::{Any, Just}}, either::Either};
     /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
     /// assert_eq!(lowercase.parse("a"), Some(ParserOutput::new("", 'a')));
     /// assert_eq!(lowercase.parse("A"), Some(ParserOutput::new("", 'a')));
@@ -287,7 +285,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// let count_a = Just('a').map_iter(|iter| iter.count());
     /// assert_eq!(count_a.parse("aaa"), Some(ParserOutput::new("", 3)));
     /// assert_eq!(count_a.parse("aaabbb"), Some(ParserOutput::new("bbb", 3)));
@@ -326,12 +324,12 @@ where
         }
     }
 
-    /// Pick either homogeneous parsers with an output of [Self::Output] and an error of `R::Error`.
+    /// Pick either homogeneous parsers.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just}, either::Either};
+    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Just}, either::Either};
     /// let a_or_b = Just('a').or(Just('b'));
     /// assert_eq!(a_or_b.parse("a"), Some(ParserOutput::new("", 'a')));
     /// assert_eq!(a_or_b.parse("b"), Some(ParserOutput::new("", 'b')));
@@ -355,7 +353,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, ParserError, token::Just};
+    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Some(ParserOutput::new("", ('h', 'i'))));
     /// assert_eq!(Just('h').then(Just('i')).parse("ho"), None);
     /// ```
@@ -511,35 +509,3 @@ where
         }
     }
 }
-
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
-pub struct EofError;
-impl Display for EofError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        f.write_str("end of file")
-    }
-}
-impl Error for EofError {}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum ParserError<T>
-where
-    T: ToOwned,
-{
-    Eof(EofError),
-    Match { expected: T, found: T },
-}
-impl<T> Display for ParserError<T>
-where
-    T: Display + ToOwned,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Eof(e) => e.fmt(f),
-            Self::Match { expected, found } => {
-                write!(f, "`{found}` does not match `{expected}`")
-            }
-        }
-    }
-}
-impl<T> Error for ParserError<T> where T: fmt::Debug + Display + ToOwned {}

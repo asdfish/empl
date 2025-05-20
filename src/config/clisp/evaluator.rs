@@ -8,7 +8,7 @@ use {
         any::{Any, type_name},
         borrow::Cow,
         collections::{HashMap, VecDeque},
-        fmt::{self, Debug, Formatter},
+        fmt::{self, Debug, Display, Formatter},
         ops::{Range, RangeFrom},
         rc::Rc,
     },
@@ -198,3 +198,8 @@ pub enum List<'a> {
 
 #[derive(Debug)]
 pub struct TryFromValueError<'a>(Value<'a>, &'static str);
+impl<'a> Display for TryFromValueError<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "`{:?}` is not of type `{}`", self.0, self.1)
+    }
+}

@@ -1,7 +1,7 @@
 use {
     crate::{
         config::clisp::parser::{
-            EofError, Parser, ParserError, ParserOutput, PureParser,
+            Parser, ParserOutput, PureParser,
             token::{Any, Just, Select},
         },
         either::Either,
@@ -9,10 +9,7 @@ use {
     },
     std::{
         borrow::Cow,
-        error::Error,
-        fmt::{self, Display, Formatter},
         marker::PhantomData,
-        num::ParseIntError,
     },
     unicode_ident::{is_xid_continue, is_xid_start},
 };
@@ -69,26 +66,6 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum IdentError {
-    Eof(EofError),
-    NotXidStart(char),
-}
-impl Display for IdentError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Eof(e) => e.fmt(f),
-            Self::NotXidStart(ch) => write!(f, "`{ch}` is not `Xid_Start`"),
-        }
-    }
-}
-impl Error for IdentError {}
-impl From<EofError> for IdentError {
-    fn from(err: EofError) -> Self {
-        Self::Eof(err)
-    }
-}
-
 /// Identifier parser.
 ///
 /// # Examples
@@ -114,28 +91,6 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
             )
             .as_slice()
             .parse(input)
-    }
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub enum IntError {
-    Eof(EofError),
-    NonDigit(char),
-    Overflow,
-}
-impl Display for IntError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Eof(e) => e.fmt(f),
-            Self::NonDigit(ch) => write!(f, "`{ch}` is not a digit"),
-            Self::Overflow => f.write_str("integer is too large"),
-        }
-    }
-}
-impl Error for IntError {}
-impl From<EofError> for IntError {
-    fn from(err: EofError) -> Self {
-        Self::Eof(err)
     }
 }
 
@@ -178,38 +133,6 @@ where
             .map(|digits| N::from_str_radix(digits, RADIX).ok())
             .flatten()
             .parse(input)
-    }
-}
-
-#[derive(Clone, Debug, PartialEq)]
-pub enum EscapeCharacterError {
-    Eof(EofError),
-    InvalidUnicodeScalar(u32),
-    ParseUnicode(ParseIntError),
-    UnknownEscape(char),
-}
-impl Display for EscapeCharacterError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            Self::Eof(e) => e.fmt(f),
-            Self::InvalidUnicodeScalar(i) => write!(f, "`{i:x}` is not a valid unicode scalar"),
-            Self::ParseUnicode(e) => write!(f, "failed to parse unicode scalar value: {e}"),
-            Self::UnknownEscape(ch) => write!(f, "unknown escape character `{ch}`"),
-        }
-    }
-}
-impl Error for EscapeCharacterError {}
-impl From<ParseIntError> for EscapeCharacterError {
-    fn from(err: ParseIntError) -> Self {
-        Self::ParseUnicode(err)
-    }
-}
-impl From<ParserError<char>> for EscapeCharacterError {
-    fn from(err: ParserError<char>) -> Self {
-        match err {
-            ParserError::Eof(e) => Self::Eof(e),
-            ParserError::Match { found, .. } => Self::UnknownEscape(found),
-        }
     }
 }
 

@@ -7,10 +7,7 @@ use {
         either::EitherOrBoth,
         ext::{array::ArrayExt, iterator::IteratorExt},
     },
-    nonempty_collections::{
-        iter::{IntoIteratorExt, NonEmptyIterator},
-        vector::NEVec,
-    },
+    nonempty_collections::iter::IntoIteratorExt,
     std::{
         borrow::Cow,
         collections::{HashMap, HashSet, VecDeque},
