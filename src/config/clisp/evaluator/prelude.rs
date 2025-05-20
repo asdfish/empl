@@ -225,7 +225,8 @@ where
     GetExtraArgs: Clone + Fn(vec_deque::IntoIter<Expr<'src>>) -> Result<ExtraArgs, EvalError<'src>>,
     Morphism: Clone
         + Fn(
-            Rc<dyn ClispFn<'src>>,
+            &mut Environment<'src>,
+            &Rc<dyn ClispFn<'src> + 'src>,
             Value<'src>,
             &ExtraArgs,
         ) -> Result<Option<Value<'src>>, EvalError<'src>>,
@@ -236,13 +237,10 @@ where
         let seq = args.next().ok_or(EvalError::WrongArity(arity.clone()))?;
         let extra_args = get_extra_args(args)?;
 
-        let input_morphism =
-            env.eval(input_morphism)
-                .map(Cow::into_owned)
-                .and_then(|input_morphism| {
-                    Rc::<dyn ClispFn<'src>>::try_from_value(input_morphism)
-                        .map_err(EvalError::WrongType)
-                })?;
+        let mut input_morphism = env
+            .eval(input_morphism)
+            .map(Cow::into_owned)
+            .and_then(|input_morphism| Rc::<dyn ClispFn<'src>>::try_from_value(input_morphism).map_err(EvalError::WrongType))?;
         let mut seq = env
             .eval(seq)
             .map(Cow::into_owned)
@@ -250,7 +248,7 @@ where
 
         let mut items = Vec::new();
         while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {
-            if let Some(item) = morphism(Rc::clone(&input_morphism), car.clone(), &extra_args)? {
+            if let Some(item) = morphism(env, &input_morphism, car.clone(), &extra_args)? {
                 items.push(item);
             }
             seq = cdr;
@@ -279,7 +277,9 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         //     Value::Fn(Rc::new(seq_fn(
         //         Arity::Static(2),
         //         |_| Ok(()),
-        //         |_predicate, _val, _| todo!(),
+        //         |env, predicate, val, _| predicate(env, VecDeque::from([env.eval(val)?]))
+        //             .and_then(|predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType))
+        //             .map(move |predicate| predicate.then_some(val))
         //     ))),
         // ),
     ])
