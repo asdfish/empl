@@ -79,11 +79,14 @@ where
 
     /// # Panics
     ///
-    /// If this is called before [Self::declare] returns, it will panic.
+    /// When debug assertions are enabled, this function will panic if [Self::declare] was not called before this function.
+    ///
+    /// In release mode, this will simply return [None].
     fn parse(&self, input: I) -> Option<ParserOutput<'src, I, Self::Output>> {
-        self.parser
-            .get()
-            .expect("`RecursiveParser` should not be called before being declared")
-            .parse(input)
+        let parser = self.parser.get();
+        debug_assert!(parser.is_some(), "`RecursiveParser::parse` was called before it was intialized");
+
+        parser
+            .and_then(|parser| parser.parse(input))
     }
 }
