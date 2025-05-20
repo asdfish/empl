@@ -104,6 +104,9 @@ fn lambda<'src>(
         },
     )?;
     let body = args;
+    if body.is_empty() {
+        return Err(EvalError::NoBody);
+    }
 
     Ok(Value::Fn(Rc::new(move |env, args| {
         args.into_iter()
