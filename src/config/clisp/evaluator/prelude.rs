@@ -16,19 +16,6 @@ use {
     },
 };
 
-fn eval_body<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
-where
-    I: IntoIterator<Item = Expr<'src>>,
-{
-    iter.try_into_nonempty_iter()
-        .ok_or(EvalError::NoBody)?
-        .into_iter()
-        .map(|expr| env.eval(expr).map(Cow::into_owned))
-        .try_fold(None, |_, expr| Ok(Some(expr?)))
-        .transpose()
-        .expect("should always have a value since the iterator is not empty")
-}
-
 fn cons<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
@@ -120,7 +107,7 @@ fn lambda<'src>(
                 _ => Err(EvalError::WrongArity(Arity::Static(bindings.len()))),
             })?;
 
-        eval_body(env, body.iter().cloned())
+        progn(env, body.iter().cloned())
     })))
 }
 fn r#let<'src>(
@@ -154,7 +141,7 @@ fn r#let<'src>(
         })?;
 
     let body = args;
-    eval_body(env, body.iter().cloned())
+    progn(env, body.iter().cloned())
 }
 fn list<'src>(
     env: &mut Environment<'src>,
@@ -219,6 +206,18 @@ fn not<'src>(
                 .map_err(EvalError::WrongType)
         })
 }
+fn progn<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
+where
+    I: IntoIterator<Item = Expr<'src>>,
+{
+    iter.try_into_nonempty_iter()
+        .ok_or(EvalError::NoBody)?
+        .into_iter()
+        .map(|expr| env.eval(expr).map(Cow::into_owned))
+        .try_fold(None, |_, expr| Ok(Some(expr?)))
+        .transpose()
+        .expect("should always have a value since the iterator is not empty")
+}
 fn seq_fn<'src, Morphism>(arity: Arity, morphism: Morphism) -> impl ClispFn<'src>
 where
     Morphism: Clone
@@ -272,7 +271,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
         ("not", Value::Fn(Rc::new(not))),
-        ("progn", Value::Fn(Rc::new(eval_body))),
+        ("progn", Value::Fn(Rc::new(progn))),
         (
             "seq-filter",
             Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, predicate, val| {
