@@ -239,20 +239,24 @@ where
         let input_morphism =
             env.eval(input_morphism)
                 .map(Cow::into_owned)
-                .and_then(|morphism| {
-                    Rc::<dyn ClispFn<'src>>::try_from_value(morphism).map_err(EvalError::WrongType)
+                .and_then(|input_morphism| {
+                    Rc::<dyn ClispFn<'src>>::try_from_value(input_morphism)
+                        .map_err(EvalError::WrongType)
                 })?;
         let mut seq = env
             .eval(seq)
             .map(Cow::into_owned)
-            .and_then(|seq| Rc::<List>::try_from_value(seq).map_err(EvalError::WrongType))?;
+            .and_then(|seq| Rc::<List<'src>>::try_from_value(seq).map_err(EvalError::WrongType))?;
 
-        // let mut items = Vec::new();
-        while let List::Cons(car, cdr) = &*seq {
-            // if let Some(item) = morphism(Rc::clone(&input_morphism), car.clone(), &extra_args)? {}
+        let mut items = Vec::new();
+        while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {
+            if let Some(item) = morphism(Rc::clone(&input_morphism), car.clone(), &extra_args)? {
+                items.push(item);
+            }
+            seq = cdr;
         }
 
-        todo!()
+        Ok(Value::List(List::new(items)))
     }
 }
 
@@ -270,13 +274,13 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("let", Value::Fn(Rc::new(r#let))),
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
-        (
-            "seq-filter",
-            Value::Fn(Rc::new(seq_fn(
-                Arity::Static(2),
-                |_| Ok(()),
-                |predicate, val, _| todo!(),
-            ))),
-        ),
+        // (
+        //     "seq-filter",
+        //     Value::Fn(Rc::new(seq_fn(
+        //         Arity::Static(2),
+        //         |_| Ok(()),
+        //         |_predicate, _val, _| todo!(),
+        //     ))),
+        // ),
     ])
 }
