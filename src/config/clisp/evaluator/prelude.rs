@@ -216,26 +216,20 @@ fn not<'src>(
                 .map_err(EvalError::WrongType)
         })
 }
-fn seq_fn<'src, ExtraArgs, GetExtraArgs, Morphism>(
-    arity: Arity,
-    get_extra_args: GetExtraArgs,
-    morphism: Morphism,
-) -> impl ClispFn<'src>
+fn seq_fn<'src, Morphism>(arity: Arity, morphism: Morphism) -> impl ClispFn<'src>
 where
-    GetExtraArgs: Clone + Fn(vec_deque::IntoIter<Expr<'src>>) -> Result<ExtraArgs, EvalError<'src>>,
     Morphism: Clone
         + Fn(
             &mut Environment<'src>,
             &Rc<dyn ClispFn<'src> + 'src>,
             Value<'src>,
-            &ExtraArgs,
         ) -> Result<Option<Value<'src>>, EvalError<'src>>,
 {
     move |env, args| {
-        let mut args = args.into_iter();
-        let input_morphism = args.next().ok_or(EvalError::WrongArity(arity.clone()))?;
-        let seq = args.next().ok_or(EvalError::WrongArity(arity.clone()))?;
-        let extra_args = get_extra_args(args)?;
+        let [input_morphism, seq] = args
+            .into_iter()
+            .collect_array()
+            .ok_or_else(|| EvalError::WrongArity(arity.clone()))?;
 
         let input_morphism =
             env.eval(input_morphism)
@@ -251,7 +245,7 @@ where
 
         let mut items = Vec::new();
         while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {
-            if let Some(item) = morphism(env, &input_morphism, car.clone(), &extra_args)? {
+            if let Some(item) = morphism(env, &input_morphism, car.clone())? {
                 items.push(item);
             }
             seq = cdr;
@@ -277,17 +271,19 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("nil", Value::Fn(Rc::new(nil))),
         (
             "seq-filter",
-            Value::Fn(Rc::new(seq_fn(
-                Arity::Static(2),
-                |_| Ok(()),
-                |env, predicate, val, _| {
-                    predicate(env, VecDeque::from([Expr::Value(val.clone())]))
-                        .and_then(|predicate| {
-                            bool::try_from_value(predicate).map_err(EvalError::WrongType)
-                        })
-                        .map(move |predicate| predicate.then_some(val))
-                },
-            ))),
+            Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, predicate, val| {
+                predicate(env, VecDeque::from([Expr::Value(val.clone())]))
+                    .and_then(|predicate| {
+                        bool::try_from_value(predicate).map_err(EvalError::WrongType)
+                    })
+                    .map(move |predicate| predicate.then_some(val))
+            }))),
+        ),
+        (
+            "seq-map",
+            Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, map, val| {
+                map(env, VecDeque::from([Expr::Value(val)])).map(Some)
+            }))),
         ),
     ])
 }
