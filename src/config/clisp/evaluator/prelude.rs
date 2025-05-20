@@ -167,7 +167,7 @@ fn list<'src>(
         })
         .map(Value::List)
 }
-fn math_fn<'src, O>(mut op: O) -> impl ClispFn<'src>
+fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
 where
     O: Clone + Fn(i32, i32) -> Option<i32>,
 {

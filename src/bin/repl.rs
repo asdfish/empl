@@ -38,7 +38,7 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
             return 1;
         }
     };
-    println!("{:?}", config);
+    println!("{config:?}");
 
     let mut buf = String::new();
     loop {

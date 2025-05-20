@@ -84,9 +84,11 @@ where
     /// In release mode, this will simply return [None].
     fn parse(&self, input: I) -> Option<ParserOutput<'src, I, Self::Output>> {
         let parser = self.parser.get();
-        debug_assert!(parser.is_some(), "`RecursiveParser::parse` was called before it was intialized");
+        debug_assert!(
+            parser.is_some(),
+            "`RecursiveParser::parse` was called before it was intialized"
+        );
 
-        parser
-            .and_then(|parser| parser.parse(input))
+        parser.and_then(|parser| parser.parse(input))
     }
 }

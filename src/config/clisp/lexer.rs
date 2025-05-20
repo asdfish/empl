@@ -7,10 +7,7 @@ use {
         either::Either,
         ext::int::FromStrRadix,
     },
-    std::{
-        borrow::Cow,
-        marker::PhantomData,
-    },
+    std::{borrow::Cow, marker::PhantomData},
     unicode_ident::{is_xid_continue, is_xid_start},
 };
 

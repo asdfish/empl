@@ -114,7 +114,7 @@ macro_rules! impl_value_variant {
                 }
             }
         }
-    }
+    };
 }
 #[derive(Clone, Default)]
 pub enum Value<'src> {

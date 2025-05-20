@@ -6,10 +6,7 @@ pub mod token;
 
 use {
     crate::{config::clisp::parser::adapter::*, either::Either},
-    std::{
-        marker::PhantomData,
-        slice, str,
-    },
+    std::{marker::PhantomData, slice, str},
 };
 
 /// Trait for types that can be used by a [Parser].
