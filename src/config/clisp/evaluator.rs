@@ -9,7 +9,7 @@ use {
         borrow::Cow,
         collections::{HashMap, VecDeque},
         fmt::{self, Debug, Formatter},
-        ops::RangeFrom,
+        ops::{Range, RangeFrom},
         rc::Rc,
     },
 };
@@ -65,6 +65,13 @@ impl<'src> Default for Environment<'src> {
     }
 }
 
+#[derive(Clone, Debug)]
+pub enum Arity {
+    Static(usize),
+    RangeFrom(RangeFrom<usize>),
+    Range(Range<usize>),
+}
+
 #[derive(Debug)]
 pub enum EvalError<'a> {
     EmptyApply,
@@ -77,9 +84,8 @@ pub enum EvalError<'a> {
     NotAFunction,
     NotFound(&'a str),
     WrongType(TryFromValueError<'a>),
-    WrongArity(usize),
-    WrongBindingArity(usize),
-    WrongVariadicArity(RangeFrom<usize>),
+    WrongArity(Arity),
+    WrongBindingArity(Arity),
 }
 impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
     fn from(err: TryFromValueError<'a>) -> Self {

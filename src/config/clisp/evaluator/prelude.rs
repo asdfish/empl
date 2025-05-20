@@ -1,7 +1,7 @@
 use {
     crate::{
         config::clisp::{
-            evaluator::{Environment, EvalError, Expr, List, TryFromValue, Value},
+            evaluator::{Arity, ClispFn, Environment, EvalError, Expr, List, TryFromValue, Value},
             lexer::Literal,
         },
         either::EitherOrBoth,
@@ -38,7 +38,7 @@ fn cons<'src>(
     let [car, cdr] = args
         .into_iter()
         .collect_array::<2>()
-        .ok_or(EvalError::WrongArity(2))?
+        .ok_or(EvalError::WrongArity(Arity::Static(2)))?
         .map(|expr| env.eval(expr).map(Cow::into_owned))
         .transpose()?;
 
@@ -46,11 +46,41 @@ fn cons<'src>(
 
     Ok(Value::List(Rc::new(List::Cons(car, cdr))))
 }
+fn r#if<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    let mut args = args.into_iter();
+    let predicate = args
+        .next()
+        .ok_or(EvalError::WrongArity(Arity::Range(2..3)))?;
+    let then = args
+        .next()
+        .ok_or(EvalError::WrongArity(Arity::Range(2..3)))?;
+    let otherwise = args.next().unwrap_or(Expr::Literal(&Literal::Ident("nil")));
+
+    let predicate = env
+        .eval(predicate)
+        .map(Cow::into_owned)
+        .and_then(|predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType))?;
+    let thunks = [then, otherwise]
+        .map(|thunk| {
+            env.eval(thunk).map(Cow::into_owned).and_then(|thunk| {
+                Box::<dyn ClispFn>::try_from_value(thunk).map_err(EvalError::WrongType)
+            })
+        })
+        .transpose()?;
+
+    thunks[usize::from(!predicate)](env, VecDeque::new())
+}
 fn lambda<'src>(
     _: &mut Environment<'src>,
     mut args: VecDeque<Expr<'src>>,
 ) -> Result<Value<'src>, EvalError<'src>> {
-    let Expr::List(bindings) = args.pop_front().ok_or(EvalError::WrongVariadicArity(2..))? else {
+    let Expr::List(bindings) = args
+        .pop_front()
+        .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
+    else {
         return Err(EvalError::NoBindings);
     };
     let bindings = bindings
@@ -84,7 +114,7 @@ fn lambda<'src>(
                     env.last_mut().insert(binding, arg);
                     Ok(())
                 }
-                _ => Err(EvalError::WrongArity(bindings.len())),
+                _ => Err(EvalError::WrongArity(Arity::Static(bindings.len()))),
             })?;
 
         eval_body(env, body.iter().cloned())
@@ -108,7 +138,7 @@ fn r#let<'src>(
                     let [binding, value] = binding
                         .into_iter()
                         .collect_array::<2>()
-                        .ok_or(EvalError::WrongBindingArity(2))?;
+                        .ok_or(EvalError::WrongBindingArity(Arity::Static(2)))?;
                     let Expr::Literal(Literal::Ident(binding)) = binding else {
                         return Err(EvalError::NonIdentBinding(binding));
                     };
@@ -147,6 +177,7 @@ fn nil<'src>(
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
         ("cons", Value::Fn(Box::new(cons))),
+        ("if", Value::Fn(Box::new(r#if))),
         ("lambda", Value::Fn(Box::new(lambda))),
         ("let", Value::Fn(Box::new(r#let))),
         ("list", Value::Fn(Box::new(list))),
