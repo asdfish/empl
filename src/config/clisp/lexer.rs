@@ -74,6 +74,7 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
 /// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput}};
 /// assert_eq!(IdentParser.parse(""), None);
 /// assert_eq!(IdentParser.parse("foo"), Some(ParserOutput::new("", "foo")));
+/// assert_eq!(IdentParser.parse("*"), Some(ParserOutput::new("", "*")));
 /// assert_eq!(IdentParser.parse("1foo"), None);
 /// ```
 #[derive(Clone, Copy, Debug)]
@@ -82,11 +83,15 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
     type Output = &'a str;
 
     fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, &'a str>> {
+        fn special_char(ch: char) -> bool {
+            matches!(ch, '-' | '+' | '*' | '/')
+        }
+
         Any::new()
-            .filter(|ch| is_xid_start(*ch))
+            .filter(|ch| is_xid_start(*ch) || special_char(*ch))
             .then(
                 Any::new()
-                    .filter(|ch: &char| is_xid_continue(*ch))
+                    .filter(|ch: &char| is_xid_continue(*ch) || special_char(*ch))
                     .repeated(),
             )
             .as_slice()
