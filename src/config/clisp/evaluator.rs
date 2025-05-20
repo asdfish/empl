@@ -149,11 +149,7 @@ impl Debug for Value<'_> {
 }
 
 pub trait ClispFn<'src>:
-    DynClone
-    + Fn(
-        &mut Environment<'src>,
-        VecDeque<Expr<'src>>,
-    ) -> Result<Value<'src>, EvalError<'src>>
+    DynClone + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>>
 {
 }
 dyn_clone::clone_trait_object!(ClispFn<'_>);

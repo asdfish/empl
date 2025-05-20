@@ -1,7 +1,7 @@
 use {
     crate::config::clisp::{
-        lexer::{Lexeme, Literal},
         evaluator::Value,
+        lexer::{Lexeme, Literal},
         parser::{
             Parser, ParserOutput,
             recursive::RecursiveParser,

@@ -10,7 +10,7 @@ use {
     nonempty_collections::iter::IntoIteratorExt,
     std::{
         borrow::Cow,
-        collections::{HashMap, HashSet, VecDeque, vec_deque},
+        collections::{HashMap, HashSet, VecDeque},
         ops::Not,
         rc::Rc,
     },
