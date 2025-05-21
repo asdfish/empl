@@ -49,9 +49,7 @@ fn r#if<'src>(
     }
 
     if env
-        .eval(predicate)
-        .map(Cow::into_owned)
-        .and_then(|predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType))?
+        .eval_into::<bool>(predicate)?
     {
         env.eval(then).map(Cow::into_owned)
     } else if let Some(otherwise) = otherwise {
@@ -166,17 +164,14 @@ where
         let fst = args
             .next()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-            .and_then(|fst| env.eval(fst).map(Cow::into_owned))
-            .and_then(|fst| i32::try_from_value(fst).map_err(EvalError::WrongType))?;
+            .and_then(|fst| env.eval_into::<i32>(fst))?;
         let args = args
             .try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
 
         args.into_iter()
             .try_fold(fst, |accum, i| {
-                env.eval(i)
-                    .map(Cow::into_owned)
-                    .and_then(|i| i32::try_from_value(i).map_err(EvalError::WrongType))
+                env.eval_into::<i32>(i)
                     .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
             })
             .map(Value::Int)
@@ -197,14 +192,9 @@ fn not<'src>(
         .collect_array()
         .ok_or(EvalError::WrongArity(Arity::Static(1)))?;
 
-    env.eval(predicate)
-        .map(Cow::into_owned)
-        .and_then(|predicate| {
-            bool::try_from_value(predicate)
-                .map(bool::not)
-                .map(Value::Bool)
-                .map_err(EvalError::WrongType)
-        })
+    env.eval_into::<bool>(predicate)
+        .map(bool::not)
+        .map(Value::Bool)
 }
 fn progn<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
 where
@@ -234,17 +224,8 @@ where
             .collect_array()
             .ok_or_else(|| EvalError::WrongArity(arity.clone()))?;
 
-        let input_morphism =
-            env.eval(input_morphism)
-                .map(Cow::into_owned)
-                .and_then(|input_morphism| {
-                    Rc::<dyn ClispFn<'src>>::try_from_value(input_morphism)
-                        .map_err(EvalError::WrongType)
-                })?;
-        let mut seq = env
-            .eval(seq)
-            .map(Cow::into_owned)
-            .and_then(|seq| Rc::<List<'src>>::try_from_value(seq).map_err(EvalError::WrongType))?;
+        let input_morphism = env.eval_into::<Rc<dyn ClispFn<'src>>>(input_morphism)?;
+        let mut seq = env.eval_into::<Rc<List<'src>>>(seq)?;
 
         let mut items = Vec::new();
         while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {

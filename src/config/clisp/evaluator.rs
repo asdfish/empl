@@ -56,6 +56,14 @@ impl<'src> Environment<'src> {
             Expr::Value(value) => Ok(Cow::Owned(value)),
         }
     }
+    pub fn eval_into<'env, T>(&'env mut self, expr: Expr<'src>) -> Result<T, EvalError<'src>>
+    where
+        T: TryFromValue<'src>
+    {
+        self.eval(expr)
+            .map(Cow::into_owned)
+            .and_then(|expr| T::try_from_value(expr).map_err(EvalError::WrongType))
+    }
 
     pub fn get<'env>(&'env self, ident: &'src str) -> Option<&'env Value<'src>> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
