@@ -18,6 +18,15 @@ use {
     },
 };
 
+trait Values<'src>:
+    DoubleEndedIterator + Iterator<Item = Result<Value<'src>, EvalError<'src>>>
+{
+}
+impl<'src, T> Values<'src> for T where
+    T: DoubleEndedIterator + Iterator<Item = Result<Value<'src>, EvalError<'src>>>
+{
+}
+
 const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
 where
     O: Clone + Fn(i32, i32) -> Option<i32>,
@@ -80,10 +89,7 @@ where
 }
 const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
-    F: Clone
-        + Fn(
-            &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
-        ) -> Result<Value<'src>, EvalError<'src>>,
+    F: Clone + Fn(&mut dyn Values<'src>) -> Result<Value<'src>, EvalError<'src>>,
 {
     move |env, args| {
         f(&mut args
@@ -349,6 +355,20 @@ const fn seq_map<'src>() -> impl ClispFn<'src> {
         },
     )
 }
+fn seq_rev<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    args.into_iter()
+        .collect_array()
+        .ok_or(EvalError::WrongArity(Arity::Static(1)))
+        .and_then(|[seq]| env.eval_into::<Rc<List<'src>>>(seq))
+        .map(|seq| {
+            seq.iter()
+                .fold(Rc::new(List::Nil), |cdr, car| Rc::new(List::Cons(car, cdr)))
+        })
+        .map(Value::List)
+}
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
@@ -370,5 +390,6 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("seq-flat-map", Value::Fn(Rc::new(const { seq_flat_map() }))),
         ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
         ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
+        ("seq-rev", Value::Fn(Rc::new(seq_rev))),
     ])
 }
