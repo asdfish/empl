@@ -104,7 +104,6 @@ impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
     }
 }
 
-
 macro_rules! impl_value_variant {
     ($variant:ident($ty:ty)) => {
         impl<'a> From<$ty> for Value<'a> {
@@ -141,7 +140,7 @@ impl_value_variant!(Fn(Rc<dyn ClispFn<'a> + 'a>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Unit => f.debug_tuple("Unit").field(&()).finish(),
+            Self::Unit => f.debug_tuple("Unit").finish(),
             Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
             Self::Int(i) => f.debug_tuple("Int").field(i).finish(),
             Self::String(s) => f.debug_tuple("String").field(s).finish(),
@@ -170,10 +169,7 @@ pub trait ClispFn<'src>:
 dyn_clone::clone_trait_object!(ClispFn<'_>);
 impl<'src, T> ClispFn<'src> for T where
     T: DynClone
-        + for<'env> Fn(
-            &'env mut Environment<'src>,
-            VecDeque<Expr<'src>>,
-        ) -> Result<Value<'src>, EvalError<'src>>
+        + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>>
 {
 }
 impl ToOwned for dyn ClispFn<'_> {

@@ -18,6 +18,19 @@ use {
     },
 };
 
+fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
+where
+    F: Clone + Fn(
+        &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
+    ) -> Result<Value<'src>, EvalError<'src>>,
+{
+    move |env, args| {
+        f(&mut args
+            .into_iter()
+            .map(|expr| env.eval(expr).map(Cow::into_owned)))
+    }
+}
+
 fn cons<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
@@ -159,23 +172,42 @@ fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
 where
     O: Clone + Fn(i32, i32) -> Option<i32>,
 {
-    move |env, args| {
-        let mut args = args.into_iter();
+    value_fn(|args| {
         let fst = args
             .next()
-            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-            .and_then(|fst| env.eval_into::<i32>(fst))?;
-        let args = args
-            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
+            .and_then(|fst| i32::try_from_value(fst).map_err(EvalError::WrongType))?;
+        let mut args =
+            args.try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
 
-        args.into_iter()
-            .try_fold(fst, |accum, i| {
-                env.eval_into::<i32>(i)
-                    .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
-            })
-            .map(Value::Int)
-    }
+        // args
+        //     .into_iter()
+        //     .try_fold(fst, |accum, operand| {
+        //     operand
+        //         .and_then(|operand| i32::try_from_value(operand).map_err(EvalError::WrongType))
+        //         .map(|operand| op(accum, operand))
+        // });
+
+        todo!()
+    })
+    // move |env, args| {
+    //     let mut args = args.into_iter();
+    //     let fst = args
+    //         .next()
+    //         .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
+    //         .and_then(|fst| env.eval_into::<i32>(fst))?;
+    //     let args = args
+    //         .try_into_nonempty_iter()
+    //         .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
+
+    //     args.into_iter()
+    //         .try_fold(fst, |accum, i| {
+    //             env.eval_into::<i32>(i)
+    //                 .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
+    //         })
+    //         .map(Value::Int)
+    // }
 }
 fn nil<'src>(
     _: &mut Environment<'src>,

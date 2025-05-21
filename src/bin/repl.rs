@@ -62,6 +62,7 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         }
 
         let Some(ast) = ExprParser.parse(&lexemes) else {
+            println!("invalid syntax");
             continue;
         };
         if config.stage == Stage::Parse {
