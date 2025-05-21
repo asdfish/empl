@@ -211,7 +211,11 @@ where
 fn seq_fn<'src, A, E, EO, F, FO>(arity: A, get_extra_args: E, morphism: F) -> impl ClispFn<'src>
 where
     A: Clone + Fn() -> Arity,
-    E: Clone + Fn(&mut Environment<'src>, &mut vec_deque::IntoIter<Expr<'src>>) -> Result<EO, EvalError<'src>>,
+    E: Clone
+        + Fn(
+            &mut Environment<'src>,
+            &mut vec_deque::IntoIter<Expr<'src>>,
+        ) -> Result<EO, EvalError<'src>>,
     F: Clone
         + Fn(
             &mut Environment<'src>,
@@ -320,15 +324,22 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
                 },
             ))),
         ),
-        ("seq-fold", Value::Fn(Rc::new(seq_fn(|| Arity::Static(3), |env, args| {
-            args.next()
-                .ok_or(EvalError::WrongArity(Arity::Static(3)))
-                .and_then(|expr| env.eval(expr).map(Cow::into_owned))
-        }, |env, accum, fold, mut items| {
-            items.try_fold(accum, |accum, item| {
-                fold(env, VecDeque::from([accum, item].map(Expr::Value)))
-            })
-        })))),
+        (
+            "seq-fold",
+            Value::Fn(Rc::new(seq_fn(
+                || Arity::Static(3),
+                |env, args| {
+                    args.next()
+                        .ok_or(EvalError::WrongArity(Arity::Static(3)))
+                        .and_then(|expr| env.eval(expr).map(Cow::into_owned))
+                },
+                |env, accum, fold, mut items| {
+                    items.try_fold(accum, |accum, item| {
+                        fold(env, VecDeque::from([accum, item].map(Expr::Value)))
+                    })
+                },
+            ))),
+        ),
         (
             "seq-map",
             Value::Fn(Rc::new(seq_fn(
