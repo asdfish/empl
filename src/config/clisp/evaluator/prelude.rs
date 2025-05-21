@@ -218,14 +218,15 @@ where
         .transpose()
         .expect("should always have a value since the iterator is not empty")
 }
-fn seq_fn<'src, Morphism>(arity: Arity, morphism: Morphism) -> impl ClispFn<'src>
+fn seq_fn<'src, Morphism, Output>(arity: Arity, morphism: Morphism) -> impl ClispFn<'src>
 where
     Morphism: Clone
         + Fn(
             &mut Environment<'src>,
             &Rc<dyn ClispFn<'src> + 'src>,
             Value<'src>,
-        ) -> Result<Option<Value<'src>>, EvalError<'src>>,
+        ) -> Result<Output, EvalError<'src>>,
+    Output: IntoIterator<Item = Value<'src>>,
 {
     move |env, args| {
         let [input_morphism, seq] = args
@@ -247,9 +248,7 @@ where
 
         let mut items = Vec::new();
         while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {
-            if let Some(item) = morphism(env, &input_morphism, car.clone())? {
-                items.push(item);
-            }
+            items.extend(morphism(env, &input_morphism, car.clone())?);
             seq = cdr;
         }
 
@@ -286,6 +285,14 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
             "seq-map",
             Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, map, val| {
                 map(env, VecDeque::from([Expr::Value(val)])).map(Some)
+            }))),
+        ),
+        (
+            "seq-flat-map",
+            Value::Fn(Rc::new(seq_fn(Arity::Static(2), |env, map, val| {
+                Rc::<List<'a>>::try_from_value(map(env, VecDeque::from([Expr::Value(val)]))?)
+                    .map(List::iter)
+                    .map_err(EvalError::WrongType)
             }))),
         ),
     ])

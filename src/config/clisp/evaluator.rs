@@ -1,3 +1,4 @@
+mod list;
 mod prelude;
 
 use {
@@ -200,6 +201,10 @@ impl<'a> List<'a> {
         iter.into_iter()
             .rev()
             .fold(Rc::new(List::Nil), |cdr, val| Rc::new(List::Cons(val, cdr)))
+    }
+
+    pub fn iter(self: Rc<Self>) -> list::Iter<'a> {
+        list::Iter(self)
     }
 }
 
