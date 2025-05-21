@@ -18,15 +18,6 @@ use {
     },
 };
 
-trait Values<'src>:
-    DoubleEndedIterator + Iterator<Item = Result<Value<'src>, EvalError<'src>>>
-{
-}
-impl<'src, T> Values<'src> for T where
-    T: DoubleEndedIterator + Iterator<Item = Result<Value<'src>, EvalError<'src>>>
-{
-}
-
 const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
 where
     O: Clone + Fn(i32, i32) -> Option<i32>,
@@ -89,7 +80,7 @@ where
 }
 const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
-    F: Clone + Fn(&mut dyn Values<'src>) -> Result<Value<'src>, EvalError<'src>>,
+    F: Clone + Fn(&mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>) -> Result<Value<'src>, EvalError<'src>>,
 {
     move |env, args| {
         f(&mut args
