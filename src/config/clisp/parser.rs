@@ -256,7 +256,7 @@ where
 
     fn iter(self, input: I) -> Iter<'a, I, Self>
     where
-        Self: Sized
+        Self: Sized,
     {
         Iter {
             input,

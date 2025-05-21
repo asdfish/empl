@@ -321,9 +321,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
                             })
                         })
                         .collect::<Result<Vec<_>, _>>()
-                        .map(|list| list.into_iter()
-                            .flat_map(List::iter)
-                            .collect::<Vec<_>>())
+                        .map(|list| list.into_iter().flat_map(List::iter).collect::<Vec<_>>())
                         .map(List::new)
                         .map(Value::List)
                 },
