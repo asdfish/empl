@@ -156,6 +156,18 @@ impl Debug for Value<'_> {
         }
     }
 }
+impl<'src> PartialEq for Value<'src> {
+    fn eq(&self, r: &Self) -> bool {
+        match (self, r) {
+            (Self::Unit, Self::Unit) => true,
+            (Self::Bool(l), Self::Bool(r)) => l == r,
+            (Self::Int(l), Self::Int(r)) => l == r,
+            (Self::String(l), Self::String(r)) => l == r,
+            (Self::List(l), Self::List(r)) => l == r,
+            _ => false,
+        }
+    }
+}
 
 pub trait ClispFn<'src>:
     DynClone + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError<'src>>
@@ -195,7 +207,7 @@ where
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum List<'a> {
     Nil,
     Cons(Value<'a>, Rc<Self>),

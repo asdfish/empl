@@ -11,7 +11,7 @@ use {
     std::collections::VecDeque,
 };
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 pub enum Expr<'a> {
     List(VecDeque<Self>),
     Literal(&'a Literal<'a>),
