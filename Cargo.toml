@@ -17,6 +17,10 @@ path = "src/main.rs"
 name = "repl"
 path = "src/bin/repl.rs"
 
+[[bench]]
+name = "seq_fns"
+harness = false
+
 [dependencies]
 arrayvec = { version = "0.7.6", default-features = false }
 awedio = { version = "0.4.1", default-features = false, features = ["async", "cpal", "symphonia-all"] }
@@ -32,3 +36,6 @@ pin-project-lite = { version = "0.2.16", default-features = false }
 tokio = { version = "1.45.0", default-features = false, features = ["io-std", "io-util", "rt", "sync"] }
 unicode-ident = { version = "1.0.18", default-features = false }
 unicode-width = { version = "0.2.0", default-features = false }
+
+[dev-dependencies]
+criterion = { version = "0.6.0", default-features = false }

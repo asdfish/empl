@@ -425,9 +425,9 @@ where
     I: Parsable<'a>,
     P: Parser<'a, I>,
 {
-    input: I,
-    parser: P,
-    _marker: PhantomData<&'a ()>,
+    pub(super) input: I,
+    pub(super) parser: P,
+    pub(super) _marker: PhantomData<&'a ()>,
 }
 impl<'a, I, P> Iterator for Iter<'a, I, P>
 where

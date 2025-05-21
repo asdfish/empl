@@ -254,6 +254,17 @@ where
         }
     }
 
+    fn iter(self, input: I) -> Iter<'a, I, Self>
+    where
+        Self: Sized
+    {
+        Iter {
+            input,
+            parser: self,
+            _marker: PhantomData,
+        }
+    }
+
     /// Transform the output of the current [Parser].
     ///
     /// # Examples
