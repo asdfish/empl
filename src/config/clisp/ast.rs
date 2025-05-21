@@ -60,7 +60,6 @@ impl<'a> Parser<'a, &'a [Lexeme<'a>]> for ExprParser {
                         })
                         .map(Expr::Literal)),
                 )
-                .then_ignore(Just(&Lexeme::Whitespace).maybe())
         });
 
         parser.parse(input)
