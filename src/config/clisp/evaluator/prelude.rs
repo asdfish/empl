@@ -309,6 +309,27 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
             ))),
         ),
         (
+            "seq-find",
+            Value::Fn(Rc::new(seq_fn(
+                || Arity::Static(2),
+                |_| Ok(()),
+                |env, _, predicate, mut items| {
+                    items
+                        .find_map(|item| {
+                            match predicate(env, VecDeque::from([Expr::Value(item.clone())]))
+                                .and_then(|predicate| {
+                                    bool::try_from_value(predicate).map_err(EvalError::WrongType)
+                                }) {
+                                Ok(true) => Some(Ok(item)),
+                                Ok(false) => None,
+                                Err(err) => Some(Err(err)),
+                            }
+                        })
+                        .unwrap_or(Ok(Value::Unit))
+                },
+            ))),
+        ),
+        (
             "seq-flat-map",
             Value::Fn(Rc::new(seq_fn(
                 || Arity::Static(2),
