@@ -6,7 +6,7 @@ use {
     dyn_clone::DynClone,
     nonempty_collections::vector::NEVec,
     std::{
-        any::{Any, type_name},
+        any::type_name,
         borrow::Cow,
         collections::{HashMap, VecDeque},
         fmt::{self, Debug, Display, Formatter},
@@ -104,9 +104,6 @@ impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
     }
 }
 
-pub trait DynValue: Any + DynClone {}
-impl<T> DynValue for T where T: Any + DynClone {}
-dyn_clone::clone_trait_object!(DynValue);
 
 macro_rules! impl_value_variant {
     ($variant:ident($ty:ty)) => {
@@ -135,14 +132,12 @@ pub enum Value<'src> {
     String(Cow<'src, Cow<'src, str>>),
     List(Rc<List<'src>>),
     Fn(Rc<dyn ClispFn<'src> + 'src>),
-    Dyn(Rc<dyn DynValue>),
 }
 impl_value_variant!(Bool(bool));
 impl_value_variant!(Int(i32));
 impl_value_variant!(String(Cow<'a, Cow<'a, str>>));
 impl_value_variant!(List(Rc<List<'a>>));
 impl_value_variant!(Fn(Rc<dyn ClispFn<'a> + 'a>));
-impl_value_variant!(Dyn(Rc<dyn DynValue>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
@@ -152,7 +147,6 @@ impl Debug for Value<'_> {
             Self::String(s) => f.debug_tuple("String").field(s).finish(),
             Self::List(l) => f.debug_tuple("List").field(l).finish(),
             Self::Fn(_) => f.debug_tuple("Fn").finish_non_exhaustive(),
-            Self::Dyn(_) => f.debug_tuple("Dyn").finish_non_exhaustive(),
         }
     }
 }
