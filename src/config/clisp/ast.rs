@@ -30,32 +30,35 @@ impl<'a> Parser<'a, &'a [Lexeme<'a>]> for ExprParser {
     ) -> Option<ParserOutput<'a, &'a [Lexeme<'a>], Self::Output>> {
         let parser = RecursiveParser::new();
         parser.declare(|expr| {
-            expr.then(
-                Just(&Lexeme::Whitespace)
-                    .ignore_then(expr)
-                    .map_iter(|iter| iter.collect::<VecDeque<_>>()),
-            )
-            .maybe()
-            .delimited_by(
-                Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace).maybe()),
-                Just(&Lexeme::Whitespace)
-                    .maybe()
-                    .then(Just(&Lexeme::RParen)),
-            )
-            .map(|args| {
-                args.map(|(head, mut tail)| {
-                    tail.push_front(head);
-                    tail
+            Just(&Lexeme::Whitespace).maybe().ignore_then(
+                expr.then(
+                    Just(&Lexeme::Whitespace)
+                        .ignore_then(expr)
+                        .map_iter(|iter| iter.collect::<VecDeque<_>>()),
+                )
+                .maybe()
+                .delimited_by(
+                    Just(&Lexeme::LParen).then(Just(&Lexeme::Whitespace).maybe()),
+                    Just(&Lexeme::Whitespace)
+                        .maybe()
+                        .then(Just(&Lexeme::RParen)),
+                )
+                .map(|args| {
+                    args.map(|(head, mut tail)| {
+                        tail.push_front(head);
+                        tail
+                    })
+                    .unwrap_or_default()
                 })
-                .unwrap_or_default()
-            })
-            .map(Expr::List)
-            .or(Any::new()
-                .filter_map(|lexeme: &'a Lexeme<'a>| match lexeme {
-                    Lexeme::Literal(literal) => Some(literal),
-                    _ => None,
-                })
-                .map(Expr::Literal))
+                .map(Expr::List)
+                .or(Any::new()
+                    .filter_map(|lexeme: &'a Lexeme<'a>| match lexeme {
+                        Lexeme::Literal(literal) => Some(literal),
+                        _ => None,
+                    })
+                    .map(Expr::Literal)),
+            )
+                .then_ignore(Just(&Lexeme::Whitespace).maybe())
         });
 
         parser.parse(input)
