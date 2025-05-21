@@ -18,11 +18,72 @@ use {
     },
 };
 
-fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
+const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
 where
-    F: Clone + Fn(
-        &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
-    ) -> Result<Value<'src>, EvalError<'src>>,
+    O: Clone + Fn(i32, i32) -> Option<i32>,
+{
+    value_fn(move |args| {
+        let fst = args
+            .next()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
+            .and_then(|fst| i32::try_from_value(fst).map_err(EvalError::WrongType))?;
+
+        args.try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
+            .into_iter()
+            .try_fold(fst, |accum, operand| {
+                operand
+                    .and_then(|operand| i32::try_from_value(operand).map_err(EvalError::WrongType))
+                    .and_then(|operand| op(accum, operand).ok_or(EvalError::Overflow))
+            })
+            .map(Value::Int)
+    })
+}
+const fn seq_fn<'src, A, E, EO, F, FO>(
+    arity: A,
+    get_extra_args: E,
+    morphism: F,
+) -> impl ClispFn<'src>
+where
+    A: Clone + Fn() -> Arity,
+    E: Clone
+        + Fn(
+            &mut Environment<'src>,
+            &mut vec_deque::IntoIter<Expr<'src>>,
+        ) -> Result<EO, EvalError<'src>>,
+    F: Clone
+        + Fn(
+            &mut Environment<'src>,
+            EO,
+            Rc<dyn ClispFn<'src> + 'src>,
+            list::Iter<'src>,
+        ) -> Result<FO, EvalError<'src>>,
+    FO: Into<Value<'src>>,
+{
+    move |env, args| {
+        let mut args = args.into_iter();
+        let map = args
+            .next()
+            .ok_or(EvalError::WrongArity(arity()))
+            .and_then(|map| env.eval_into::<Rc<dyn ClispFn<'src>>>(map))?;
+        let seq = args
+            .next()
+            .ok_or(EvalError::WrongArity(arity()))
+            .and_then(|seq| env.eval_into::<Rc<List<'src>>>(seq))?;
+        let extra_args = get_extra_args(env, &mut args)?;
+        if args.next().is_some() {
+            return Err(EvalError::WrongArity(arity()));
+        }
+
+        morphism(env, extra_args, map, seq.iter()).map(FO::into)
+    }
+}
+const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
+where
+    F: Clone
+        + Fn(
+            &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
+        ) -> Result<Value<'src>, EvalError<'src>>,
 {
     move |env, args| {
         f(&mut args
@@ -168,47 +229,6 @@ fn list<'src>(
         })
         .map(Value::List)
 }
-fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
-where
-    O: Clone + Fn(i32, i32) -> Option<i32>,
-{
-    value_fn(|args| {
-        let fst = args
-            .next()
-            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
-            .and_then(|fst| i32::try_from_value(fst).map_err(EvalError::WrongType))?;
-        let mut args =
-            args.try_into_nonempty_iter()
-            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
-
-        // args
-        //     .into_iter()
-        //     .try_fold(fst, |accum, operand| {
-        //     operand
-        //         .and_then(|operand| i32::try_from_value(operand).map_err(EvalError::WrongType))
-        //         .map(|operand| op(accum, operand))
-        // });
-
-        todo!()
-    })
-    // move |env, args| {
-    //     let mut args = args.into_iter();
-    //     let fst = args
-    //         .next()
-    //         .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-    //         .and_then(|fst| env.eval_into::<i32>(fst))?;
-    //     let args = args
-    //         .try_into_nonempty_iter()
-    //         .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?;
-
-    //     args.into_iter()
-    //         .try_fold(fst, |accum, i| {
-    //             env.eval_into::<i32>(i)
-    //                 .and_then(|i| op(accum, i).ok_or(EvalError::Overflow))
-    //         })
-    //         .map(Value::Int)
-    // }
-}
 fn nil<'src>(
     _: &mut Environment<'src>,
     _: VecDeque<Expr<'src>>,
@@ -240,49 +260,103 @@ where
         .transpose()
         .expect("should always have a value since the iterator is not empty")
 }
-fn seq_fn<'src, A, E, EO, F, FO>(arity: A, get_extra_args: E, morphism: F) -> impl ClispFn<'src>
-where
-    A: Clone + Fn() -> Arity,
-    E: Clone
-        + Fn(
-            &mut Environment<'src>,
-            &mut vec_deque::IntoIter<Expr<'src>>,
-        ) -> Result<EO, EvalError<'src>>,
-    F: Clone
-        + Fn(
-            &mut Environment<'src>,
-            EO,
-            Rc<dyn ClispFn<'src> + 'src>,
-            list::Iter<'src>,
-        ) -> Result<FO, EvalError<'src>>,
-    FO: Into<Value<'src>>,
-{
-    move |env, args| {
-        let mut args = args.into_iter();
-        let map = args
-            .next()
-            .ok_or(EvalError::WrongArity(arity()))
-            .and_then(|map| env.eval_into::<Rc<dyn ClispFn<'src>>>(map))?;
-        let seq = args
-            .next()
-            .ok_or(EvalError::WrongArity(arity()))
-            .and_then(|seq| env.eval_into::<Rc<List<'src>>>(seq))?;
-        let extra_args = get_extra_args(env, &mut args)?;
-        if args.next().is_some() {
-            return Err(EvalError::WrongArity(arity()));
-        }
+const fn seq_filter<'src>() -> impl ClispFn<'src> {
+    seq_fn(
+        || Arity::Static(2),
+        |_, _| Ok(()),
+        |env, _, predicate, items| {
+            let predicates = items
+                .clone()
+                .map(|item| {
+                    predicate(env, VecDeque::from([Expr::Value(item)])).and_then(|filter| {
+                        bool::try_from_value(filter).map_err(EvalError::WrongType)
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()?;
 
-        morphism(env, extra_args, map, seq.iter()).map(FO::into)
-    }
+            Ok(Value::List(List::new(
+                items
+                    .zip(predicates)
+                    .filter(|(_, predicate)| *predicate)
+                    .map(|(item, _)| item)
+                    .collect::<Vec<_>>(),
+            )))
+        },
+    )
+}
+const fn seq_find<'src>() -> impl ClispFn<'src> {
+    seq_fn(
+        || Arity::Static(2),
+        |_, _| Ok(()),
+        |env, _, predicate, mut items| {
+            items
+                .find_map(|item| {
+                    match predicate(env, VecDeque::from([Expr::Value(item.clone())])).and_then(
+                        |predicate| bool::try_from_value(predicate).map_err(EvalError::WrongType),
+                    ) {
+                        Ok(true) => Some(Ok(item)),
+                        Ok(false) => None,
+                        Err(err) => Some(Err(err)),
+                    }
+                })
+                .unwrap_or(Ok(Value::Unit))
+        },
+    )
+}
+const fn seq_flat_map<'src>() -> impl ClispFn<'src> {
+    seq_fn(
+        || Arity::Static(2),
+        |_, _| Ok(()),
+        |env, _, map, items| {
+            items
+                .map(|item| {
+                    map(env, VecDeque::from([Expr::Value(item)])).and_then(|item| {
+                        Rc::<List<'src>>::try_from_value(item).map_err(EvalError::WrongType)
+                    })
+                })
+                .collect::<Result<Vec<_>, _>>()
+                .map(|list| list.into_iter().flat_map(List::iter).collect::<Vec<_>>())
+                .map(List::new)
+                .map(Value::List)
+        },
+    )
+}
+const fn seq_fold<'src>() -> impl ClispFn<'src> {
+    seq_fn(
+        || Arity::Static(3),
+        |env, args| {
+            args.next()
+                .ok_or(EvalError::WrongArity(Arity::Static(3)))
+                .and_then(|expr| env.eval(expr).map(Cow::into_owned))
+        },
+        |env, accum, fold, mut items| {
+            items.try_fold(accum, |accum, item| {
+                fold(env, VecDeque::from([accum, item].map(Expr::Value)))
+            })
+        },
+    )
+}
+const fn seq_map<'src>() -> impl ClispFn<'src> {
+    seq_fn(
+        || Arity::Static(2),
+        |_, _| Ok(()),
+        |env, _, map, items| {
+            items
+                .map(|item| map(env, VecDeque::from([Expr::Value(item)])))
+                .collect::<Result<Vec<_>, _>>()
+                .map(List::new)
+                .map(Value::List)
+        },
+    )
 }
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
-        ("+", Value::Fn(Rc::new(math_fn(i32::checked_add)))),
-        ("-", Value::Fn(Rc::new(math_fn(i32::checked_sub)))),
-        ("/", Value::Fn(Rc::new(math_fn(i32::checked_div)))),
-        ("*", Value::Fn(Rc::new(math_fn(i32::checked_mul)))),
-        ("%", Value::Fn(Rc::new(math_fn(i32::checked_rem)))),
+        ("+", Value::Fn(Rc::new(const { math_fn(i32::checked_add) }))),
+        ("-", Value::Fn(Rc::new(const { math_fn(i32::checked_sub) }))),
+        ("/", Value::Fn(Rc::new(const { math_fn(i32::checked_div) }))),
+        ("*", Value::Fn(Rc::new(const { math_fn(i32::checked_mul) }))),
+        ("%", Value::Fn(Rc::new(const { math_fn(i32::checked_rem) }))),
         ("cons", Value::Fn(Rc::new(cons))),
         ("if", Value::Fn(Rc::new(r#if))),
         ("lambda", Value::Fn(Rc::new(lambda))),
@@ -291,100 +365,10 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("nil", Value::Fn(Rc::new(nil))),
         ("not", Value::Fn(Rc::new(not))),
         ("progn", Value::Fn(Rc::new(progn))),
-        (
-            "seq-filter",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(2),
-                |_, _| Ok(()),
-                |env, _, predicate, items| {
-                    let predicates = items
-                        .clone()
-                        .map(|item| {
-                            predicate(env, VecDeque::from([Expr::Value(item)])).and_then(|filter| {
-                                bool::try_from_value(filter).map_err(EvalError::WrongType)
-                            })
-                        })
-                        .collect::<Result<Vec<_>, _>>()?;
-
-                    Ok(Value::List(List::new(
-                        items
-                            .zip(predicates)
-                            .filter(|(_, predicate)| *predicate)
-                            .map(|(item, _)| item)
-                            .collect::<Vec<_>>(),
-                    )))
-                },
-            ))),
-        ),
-        (
-            "seq-find",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(2),
-                |_, _| Ok(()),
-                |env, _, predicate, mut items| {
-                    items
-                        .find_map(|item| {
-                            match predicate(env, VecDeque::from([Expr::Value(item.clone())]))
-                                .and_then(|predicate| {
-                                    bool::try_from_value(predicate).map_err(EvalError::WrongType)
-                                }) {
-                                Ok(true) => Some(Ok(item)),
-                                Ok(false) => None,
-                                Err(err) => Some(Err(err)),
-                            }
-                        })
-                        .unwrap_or(Ok(Value::Unit))
-                },
-            ))),
-        ),
-        (
-            "seq-flat-map",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(2),
-                |_, _| Ok(()),
-                |env, _, map, items| {
-                    items
-                        .map(|item| {
-                            map(env, VecDeque::from([Expr::Value(item)])).and_then(|item| {
-                                Rc::<List<'a>>::try_from_value(item).map_err(EvalError::WrongType)
-                            })
-                        })
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(|list| list.into_iter().flat_map(List::iter).collect::<Vec<_>>())
-                        .map(List::new)
-                        .map(Value::List)
-                },
-            ))),
-        ),
-        (
-            "seq-fold",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(3),
-                |env, args| {
-                    args.next()
-                        .ok_or(EvalError::WrongArity(Arity::Static(3)))
-                        .and_then(|expr| env.eval(expr).map(Cow::into_owned))
-                },
-                |env, accum, fold, mut items| {
-                    items.try_fold(accum, |accum, item| {
-                        fold(env, VecDeque::from([accum, item].map(Expr::Value)))
-                    })
-                },
-            ))),
-        ),
-        (
-            "seq-map",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(2),
-                |_, _| Ok(()),
-                |env, _, map, items| {
-                    items
-                        .map(|item| map(env, VecDeque::from([Expr::Value(item)])))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(List::new)
-                        .map(Value::List)
-                },
-            ))),
-        ),
+        ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
+        ("seq-find", Value::Fn(Rc::new(const { seq_find() }))),
+        ("seq-flat-map", Value::Fn(Rc::new(const { seq_flat_map() }))),
+        ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
+        ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
     ])
 }
