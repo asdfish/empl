@@ -1,4 +1,4 @@
-mod list;
+pub mod list;
 mod prelude;
 
 use {
@@ -58,7 +58,7 @@ impl<'src> Environment<'src> {
     }
     pub fn eval_into<'env, T>(&'env mut self, expr: Expr<'src>) -> Result<T, EvalError<'src>>
     where
-        T: TryFromValue<'src>
+        T: TryFromValue<'src>,
     {
         self.eval(expr)
             .map(Cow::into_owned)
