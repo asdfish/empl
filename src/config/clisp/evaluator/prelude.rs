@@ -208,34 +208,6 @@ where
         .transpose()
         .expect("should always have a value since the iterator is not empty")
 }
-// fn seq_fn<'src, Morphism, Output>(arity: Arity, morphism: Morphism) -> impl ClispFn<'src>
-// where
-//     Morphism: Clone
-//         + Fn(
-//             &mut Environment<'src>,
-//             &Rc<dyn ClispFn<'src> + 'src>,
-//             Value<'src>,
-//         ) -> Result<Output, EvalError<'src>>,
-//     Output: IntoIterator<Item = Value<'src>>,
-// {
-//     move |env, args| {
-//         let [input_morphism, seq] = args
-//             .into_iter()
-//             .collect_array()
-//             .ok_or_else(|| EvalError::WrongArity(arity.clone()))?;
-
-//         let input_morphism = env.eval_into::<Rc<dyn ClispFn<'src>>>(input_morphism)?;
-//         let mut seq = env.eval_into::<Rc<List<'src>>>(seq)?;
-
-//         let mut items = Vec::new();
-//         while let List::Cons(car, cdr) = Rc::unwrap_or_clone(seq) {
-//             items.extend(morphism(env, &input_morphism, car.clone())?);
-//             seq = cdr;
-//         }
-
-//         Ok(Value::List(List::new(items)))
-//     }
-// }
 fn seq_fn<'src, A, E, EO, F, FO>(arity: A, get_extra_args: E, morphism: F) -> impl ClispFn<'src>
 where
     A: Clone + Fn() -> Arity,
