@@ -8,7 +8,7 @@ use {
     },
 };
 
-fn benchmark(c: &mut Criterion) {
+fn bench(c: &mut Criterion) {
     let lexemes = LexemeParser.iter("(progn
     (seq-map (lambda (x) 1) (list 2 2 2))
     (seq-filter (lambda (x) #t) (list 1 2 3))
@@ -18,10 +18,12 @@ fn benchmark(c: &mut Criterion) {
     let expr = ExprParser.parse(&lexemes).unwrap().output;
     let mut env = Environment::new();
 
-    c.bench_function("seq-fns", |b| b.iter_batched(|| expr.clone(), |expr| {
+    let mut c = c.benchmark_group("seq-*");
+    c.sample_size(10_000);
+    c.bench_function("progn", |b| b.iter_batched(|| expr.clone(), |expr| {
         env.eval(expr).unwrap();
     }, BatchSize::SmallInput));
 }
 
-criterion_group!(seq_fns, benchmark);
-criterion_main!(seq_fns);
+criterion_group!(benches, bench);
+criterion_main!(benches);
