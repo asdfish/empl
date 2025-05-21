@@ -309,20 +309,6 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
             ))),
         ),
         (
-            "seq-map",
-            Value::Fn(Rc::new(seq_fn(
-                || Arity::Static(2),
-                |_| Ok(()),
-                |env, _, map, items| {
-                    items
-                        .map(|item| map(env, VecDeque::from([Expr::Value(item)])))
-                        .collect::<Result<Vec<_>, _>>()
-                        .map(List::new)
-                        .map(Value::List)
-                },
-            ))),
-        ),
-        (
             "seq-flat-map",
             Value::Fn(Rc::new(seq_fn(
                 || Arity::Static(2),
@@ -338,6 +324,20 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
                         .map(|list| list.into_iter()
                             .flat_map(List::iter)
                             .collect::<Vec<_>>())
+                        .map(List::new)
+                        .map(Value::List)
+                },
+            ))),
+        ),
+        (
+            "seq-map",
+            Value::Fn(Rc::new(seq_fn(
+                || Arity::Static(2),
+                |_| Ok(()),
+                |env, _, map, items| {
+                    items
+                        .map(|item| map(env, VecDeque::from([Expr::Value(item)])))
+                        .collect::<Result<Vec<_>, _>>()
                         .map(List::new)
                         .map(Value::List)
                 },
