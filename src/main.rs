@@ -3,7 +3,7 @@
 use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
-        config::{Config, SelectedConfig},
+        config::Config,
         flag::{Arguments, ArgumentsError, Flag},
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
@@ -43,19 +43,20 @@ Options:
             }
         }
 
-        let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
+        todo!()
+        // let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
 
-        let runtime = runtime::Builder::new_current_thread()
-            .build()
-            .map_err(MainError::Runtime)?;
-        runtime.block_on(async move {
-            TaskManager::new(&playlists)
-                .await
-                .map_err(MainError::NewTaskManager)?
-                .run()
-                .await
-                .map_err(MainError::Unrecoverable)
-        })
+        // let runtime = runtime::Builder::new_current_thread()
+        //     .build()
+        //     .map_err(MainError::Runtime)?;
+        // runtime.block_on(async move {
+        //     TaskManager::new(&playlists)
+        //         .await
+        //         .map_err(MainError::NewTaskManager)?
+        //         .run()
+        //         .await
+        //         .map_err(MainError::Unrecoverable)
+        // })
     })() {
         Ok(()) => 0,
         Err(err) => {

@@ -6,7 +6,7 @@ pub mod terminal_event;
 
 use {
     crate::{
-        config::Playlists,
+        config::{Config, Playlists},
         ext::{
             command::{CommandChain, CommandExt},
             future::FutureExt,
@@ -48,10 +48,10 @@ pub struct TaskManager<'a> {
     audio_completion: AudioCompletionTask,
     display: DisplayTask<'a>,
     state: StateTask<'a>,
-    terminal_event: TerminalEventTask,
+    terminal_event: TerminalEventTask<'a>,
 }
 impl<'a> TaskManager<'a> {
-    pub async fn new(playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
+    pub async fn new(config: &'a Config, playlists: &'a Playlists) -> Result<Self, NewTaskManagerError> {
         let (audio_action_tx, audio_action_rx) = mpsc::channel(1);
         let _ = audio_action_tx
             .send(AudioAction::Play(Arc::clone(
@@ -61,7 +61,7 @@ impl<'a> TaskManager<'a> {
         let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::channel(1);
         let (event_tx, event_rx) = mpsc::channel(1);
         let (display_tx, display_rx) = mpsc::channel(1);
-        let display_state = DisplayState::new(playlists);
+        let display_state = DisplayState::new(config, playlists);
         let _ = display_tx
             .send(DamageList::new(
                 EnumMap::from_fn(|damage| matches!(damage, Damage::FullRedraw)),
@@ -92,13 +92,13 @@ impl<'a> TaskManager<'a> {
             ),
             display: DisplayTask::new(alloc, stdout, display_rx),
             state: StateTask::new(
+                config,
                 display_state,
-                playlists,
                 audio_action_tx,
                 display_tx,
                 event_rx,
             ),
-            terminal_event: TerminalEventTask::new(event_tx),
+            terminal_event: TerminalEventTask::new(config, event_tx),
         })
     }
 

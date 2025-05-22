@@ -1,7 +1,7 @@
 use {
     crate::{
         command::PrintPadded,
-        config::{Config, Playlists, SelectedConfig},
+        config::{Config, Playlists},
         ext::{
             colors::ColorsExt,
             command::{CommandChain, CommandExt},
@@ -38,6 +38,7 @@ impl Marker {
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct DisplayState<'a> {
+    config: &'a Config,
     pub focus: Focus,
     pub cursors: EnumMap<Focus, u16>,
     pub offsets: EnumMap<Focus, u16>,
@@ -47,8 +48,9 @@ pub struct DisplayState<'a> {
     pub(super) playlists: &'a Playlists,
 }
 impl<'a> DisplayState<'a> {
-    pub fn new(playlists: &'a Playlists) -> Self {
+    pub fn new(config: &'a Config, playlists: &'a Playlists) -> Self {
         Self {
+            config,
             focus: Focus::Playlists,
             cursors: EnumMap::default(),
             offsets: EnumMap::default(),
@@ -140,15 +142,15 @@ impl<'a> DisplayState<'a> {
             .checked_sub(self.offsets[focus])
             .and_then(|y| self.row(focus).map(|Row { x, width }| (x, y, width)))
             .map(|(x, y, width)| {
-                let mut colors = SelectedConfig::MENU_COLORS;
+                let mut colors = self.config.menu_colors;
                 if self.focus == focus && index == Marker::Cursor.get(focus, self) {
-                    colors.join(&SelectedConfig::CURSOR_COLORS);
+                    colors.join(&self.config.cursor_colors);
                 }
                 if ((focus == Focus::Songs && self.selected_menu == self.selected_song.playlist)
                     || focus == Focus::Playlists)
                     && index == Marker::Selection.get(focus, self)
                 {
-                    colors.join(&SelectedConfig::SELECTION_COLORS);
+                    colors.join(&self.config.selection_colors);
                 }
 
                 SetColors(colors).adapt().then(MoveTo(x, y).adapt()).then(

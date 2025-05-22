@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::{KeyAction, Playlists},
+        config::{Config, KeyAction, Playlists},
         tasks::{
             ChannelError,
             audio::AudioAction,
@@ -21,6 +21,7 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
+    config: &'a Config,
     cursor_cache: Box<[u16]>,
     pub audio_action_tx: mpsc::Sender<AudioAction>,
     pub display_tx: mpsc::Sender<DamageList<'a>>,
@@ -30,14 +31,15 @@ pub struct StateTask<'a> {
 }
 impl<'a> StateTask<'a> {
     pub fn new(
+        config: &'a Config,
         display_state: DisplayState<'a>,
-        playlists: &'a Playlists,
         audio_action_tx: mpsc::Sender<AudioAction>,
         display_tx: mpsc::Sender<DamageList<'a>>,
         event_rx: mpsc::Receiver<Event>,
     ) -> Self {
         Self {
-            cursor_cache: (0..playlists.len().get()).map(|_| 0).collect(),
+            config,
+            cursor_cache: (0..config.playlists.len().get()).map(|_| 0).collect(),
             audio_action_tx,
             display_tx,
             display_state,
@@ -100,11 +102,11 @@ impl<'a> StateTask<'a> {
                     }
                 }
                 Event::KeyBinding(KeyAction::Quit) => break Ok(()),
-                Event::KeyBinding(KeyAction::MoveUp(n)) => self.display_state.write(|state| {
-                    state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(n);
+                Event::KeyBinding(KeyAction::MoveUp) => self.display_state.write(|state| {
+                    state.cursors[state.focus] = state.cursors[state.focus].saturating_sub(1);
                 }),
-                Event::KeyBinding(KeyAction::MoveDown(n)) => self.display_state.write(|state| {
-                    state.cursors[state.focus] = state.cursors[state.focus].saturating_add(n);
+                Event::KeyBinding(KeyAction::MoveDown) => self.display_state.write(|state| {
+                    state.cursors[state.focus] = state.cursors[state.focus].saturating_add(1);
                 }),
                 Event::KeyBinding(KeyAction::MoveLeft) => self
                     .display_state

@@ -10,159 +10,168 @@ use {
         NEVec,
         iter::{IntoIteratorExt, NonEmptyIterator},
     },
-    std::{ffi::OsString, num::NonZeroUsize, path::Path, sync::Arc},
+    std::{error::Error, ffi::OsString, fmt::{self, Display, Formatter}, num::NonZeroUsize, path::Path, sync::Arc},
 };
 
-pub type SelectedConfig = DefaultConfig;
-
-#[expect(dead_code)]
-const fn take_config<C: Config>() {}
-const _: fn() = take_config::<SelectedConfig>;
-
-const fn get_max_key_binding_len(
-    current_max: Option<usize>,
-    cons: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])],
-) -> Option<usize> {
-    match (cons, current_max) {
-        ([(_, car), cdr @ ..], Some(current_max)) if car.len() > current_max => {
-            get_max_key_binding_len(Some(car.len()), cdr)
-        }
-        ([_, cdr @ ..], Some(current_max)) => get_max_key_binding_len(Some(current_max), cdr),
-        ([(_, car), cdr @ ..], None) => get_max_key_binding_len(Some(car.len()), cdr),
-        ([], current_max) => current_max,
-    }
+#[derive(Clone, Debug, PartialEq)]
+pub struct Config {
+    pub cursor_colors: Colors,
+    pub menu_colors: Colors,
+    pub selection_colors: Colors,
+    pub key_bindings: NEVec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
+    pub playlists: Playlists,
 }
-
 pub type Playlists = NEVec<(String, NEVec<(String, Arc<Path>)>)>;
 
-pub trait Config {
-    const CURSOR_COLORS: Colors;
-    const MENU_COLORS: Colors;
-    const SELECTION_COLORS: Colors;
+// pub type SelectedConfig = DefaultConfig;
 
-    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])];
-    const MAX_KEY_BINDING_LEN: NonZeroUsize =
-        NonZeroUsize::new(get_max_key_binding_len(None, Self::KEY_BINDINGS).unwrap()).unwrap();
+// #[expect(dead_code)]
+// const fn take_config<C: Config>() {}
+// const _: fn() = take_config::<SelectedConfig>;
 
-    fn get_playlists() -> Option<Playlists>;
-}
+// const fn get_max_key_binding_len(
+//     current_max: Option<usize>,
+//     cons: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])],
+// ) -> Option<usize> {
+//     match (cons, current_max) {
+//         ([(_, car), cdr @ ..], Some(current_max)) if car.len() > current_max => {
+//             get_max_key_binding_len(Some(car.len()), cdr)
+//         }
+//         ([_, cdr @ ..], Some(current_max)) => get_max_key_binding_len(Some(current_max), cdr),
+//         ([(_, car), cdr @ ..], None) => get_max_key_binding_len(Some(car.len()), cdr),
+//         ([], current_max) => current_max,
+//     }
+// }
 
-pub struct DefaultConfig;
-impl Config for DefaultConfig {
-    const CURSOR_COLORS: Colors = Colors {
-        foreground: Some(Color::Black),
-        background: Some(Color::White),
-    };
-    const MENU_COLORS: Colors = Colors {
-        foreground: Some(Color::White),
-        background: Some(Color::Black),
-    };
-    const SELECTION_COLORS: Colors = Colors {
-        foreground: Some(Color::Red),
-        background: None,
-    };
 
-    const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])] = &[
-        (
-            KeyAction::Quit,
-            &[(KeyModifiers::empty(), KeyCode::Char('q'))],
-        ),
-        (
-            KeyAction::MoveUp(1),
-            &[(KeyModifiers::empty(), KeyCode::Char('k'))],
-        ),
-        (
-            KeyAction::MoveDown(1),
-            &[(KeyModifiers::empty(), KeyCode::Char('j'))],
-        ),
-        (
-            KeyAction::MoveLeft,
-            &[(KeyModifiers::empty(), KeyCode::Char('h'))],
-        ),
-        (
-            KeyAction::MoveRight,
-            &[(KeyModifiers::empty(), KeyCode::Char('l'))],
-        ),
-        (
-            KeyAction::MoveBottom,
-            &[(KeyModifiers::SHIFT, KeyCode::Char('G'))],
-        ),
-        (
-            KeyAction::MoveTop,
-            &[
-                (KeyModifiers::empty(), KeyCode::Char('g')),
-                (KeyModifiers::empty(), KeyCode::Char('g')),
-            ],
-        ),
-        (
-            KeyAction::MoveSelection,
-            &[(KeyModifiers::empty(), KeyCode::Char('r'))],
-        ),
-        (
-            KeyAction::Select,
-            &[(KeyModifiers::empty(), KeyCode::Enter)],
-        ),
-        (
-            KeyAction::SkipSong,
-            &[(KeyModifiers::empty(), KeyCode::Char('s'))],
-        ),
-    ];
+// pub trait Config {
+//     const CURSOR_COLORS: Colors;
+//     const MENU_COLORS: Colors;
+//     const SELECTION_COLORS: Colors;
 
-    fn get_playlists() -> Option<Playlists> {
-        fn os_string_to_string(os_string: OsString) -> String {
-            os_string
-                .into_string()
-                .unwrap_or_else(|os_string| os_string.to_string_lossy().to_string())
-        }
+//     const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])];
+//     const MAX_KEY_BINDING_LEN: NonZeroUsize =
+//         NonZeroUsize::new(get_max_key_binding_len(None, Self::KEY_BINDINGS).unwrap()).unwrap();
 
-        home_dir()?
-            .join("Music")
-            .read_dir()
-            .ok()?
-            .flatten()
-            .filter(|dir_ent| {
-                dir_ent
-                    .file_type()
-                    .map(|file_type| file_type.is_dir())
-                    .unwrap_or_default()
-            })
-            .flat_map(|dir_ent| {
-                // do this first because this may short circuit before the file name, which can save an allocation
-                let files = dir_ent
-                    .path()
-                    .read_dir()
-                    .ok()?
-                    .flatten()
-                    .map(|dir_ent| {
-                        (
-                            dir_ent
-                                .file_name()
-                                .into_string()
-                                .unwrap_or_else(os_string_to_string),
-                            Arc::from(dir_ent.path()),
-                        )
-                    })
-                    .try_into_nonempty_iter()?
-                    .collect::<NEVec<_>>();
+//     fn get_playlists() -> Option<Playlists>;
+// }
 
-                Some((
-                    dir_ent
-                        .file_name()
-                        .into_string()
-                        .unwrap_or_else(os_string_to_string),
-                    files,
-                ))
-            })
-            .try_into_nonempty_iter()
-            .map(NonEmptyIterator::collect::<NEVec<_>>)
-    }
-}
+// pub struct DefaultConfig;
+// impl Config for DefaultConfig {
+//     const CURSOR_COLORS: Colors = Colors {
+//         foreground: Some(Color::Black),
+//         background: Some(Color::White),
+//     };
+//     const MENU_COLORS: Colors = Colors {
+//         foreground: Some(Color::White),
+//         background: Some(Color::Black),
+//     };
+//     const SELECTION_COLORS: Colors = Colors {
+//         foreground: Some(Color::Red),
+//         background: None,
+//     };
 
-#[derive(Clone, Copy, Debug)]
+//     const KEY_BINDINGS: &'static [(KeyAction, &'static [(KeyModifiers, KeyCode)])] = &[
+//         (
+//             KeyAction::Quit,
+//             &[(KeyModifiers::empty(), KeyCode::Char('q'))],
+//         ),
+//         (
+//             KeyAction::MoveUp,
+//             &[(KeyModifiers::empty(), KeyCode::Char('k'))],
+//         ),
+//         (
+//             KeyAction::MoveDown,
+//             &[(KeyModifiers::empty(), KeyCode::Char('j'))],
+//         ),
+//         (
+//             KeyAction::MoveLeft,
+//             &[(KeyModifiers::empty(), KeyCode::Char('h'))],
+//         ),
+//         (
+//             KeyAction::MoveRight,
+//             &[(KeyModifiers::empty(), KeyCode::Char('l'))],
+//         ),
+//         (
+//             KeyAction::MoveBottom,
+//             &[(KeyModifiers::SHIFT, KeyCode::Char('G'))],
+//         ),
+//         (
+//             KeyAction::MoveTop,
+//             &[
+//                 (KeyModifiers::empty(), KeyCode::Char('g')),
+//                 (KeyModifiers::empty(), KeyCode::Char('g')),
+//             ],
+//         ),
+//         (
+//             KeyAction::MoveSelection,
+//             &[(KeyModifiers::empty(), KeyCode::Char('r'))],
+//         ),
+//         (
+//             KeyAction::Select,
+//             &[(KeyModifiers::empty(), KeyCode::Enter)],
+//         ),
+//         (
+//             KeyAction::SkipSong,
+//             &[(KeyModifiers::empty(), KeyCode::Char('s'))],
+//         ),
+//     ];
+
+//     fn get_playlists() -> Option<Playlists> {
+//         fn os_string_to_string(os_string: OsString) -> String {
+//             os_string
+//                 .into_string()
+//                 .unwrap_or_else(|os_string| os_string.to_string_lossy().to_string())
+//         }
+
+//         home_dir()?
+//             .join("Music")
+//             .read_dir()
+//             .ok()?
+//             .flatten()
+//             .filter(|dir_ent| {
+//                 dir_ent
+//                     .file_type()
+//                     .map(|file_type| file_type.is_dir())
+//                     .unwrap_or_default()
+//             })
+//             .flat_map(|dir_ent| {
+//                 // do this first because this may short circuit before the file name, which can save an allocation
+//                 let files = dir_ent
+//                     .path()
+//                     .read_dir()
+//                     .ok()?
+//                     .flatten()
+//                     .map(|dir_ent| {
+//                         (
+//                             dir_ent
+//                                 .file_name()
+//                                 .into_string()
+//                                 .unwrap_or_else(os_string_to_string),
+//                             Arc::from(dir_ent.path()),
+//                         )
+//                     })
+//                     .try_into_nonempty_iter()?
+//                     .collect::<NEVec<_>>();
+
+//                 Some((
+//                     dir_ent
+//                         .file_name()
+//                         .into_string()
+//                         .unwrap_or_else(os_string_to_string),
+//                     files,
+//                 ))
+//             })
+//             .try_into_nonempty_iter()
+//             .map(NonEmptyIterator::collect::<NEVec<_>>)
+//     }
+// }
+
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum KeyAction {
     Quit,
-    MoveUp(u16),
-    MoveDown(u16),
+    MoveUp,
+    MoveDown,
     MoveLeft,
     MoveRight,
     MoveBottom,
@@ -171,3 +180,30 @@ pub enum KeyAction {
     Select,
     SkipSong,
 }
+impl<'a> TryFrom<&'a str> for KeyAction {
+    type Error = UnknownKeyActionError<'a>;
+    
+    fn try_from(key_action: &'a str) -> Result<Self, UnknownKeyActionError<'a>> {
+        match key_action {
+            "quit" => Ok(Self::Quit),
+            "move_up" => Ok(Self::MoveUp),
+            "move_down" => Ok(Self::MoveDown),
+            "move_left" => Ok(Self::MoveLeft),
+            "move_right" => Ok(Self::MoveRight),
+            "move_bottom" => Ok(Self::MoveBottom),
+            "move_top" => Ok(Self::MoveTop),
+            "move_selection" => Ok(Self::MoveSelection),
+            "select" => Ok(Self::Select),
+            "skip_song" => Ok(Self::SkipSong),
+            key_action => Err(UnknownKeyActionError(key_action)),
+        }
+    }
+}
+#[derive(Clone, Copy, Debug)]
+pub struct UnknownKeyActionError<'a>(&'a str);
+impl Display for UnknownKeyActionError<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(f, "unknown key action `{}`", self.0)
+    }
+}
+impl Error for UnknownKeyActionError<'_> {}
