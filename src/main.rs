@@ -2,7 +2,7 @@
 
 use {
     empl::{
-        argv::{ArgError, Argv, ArgvError},
+        argv::{ArgError, ArgvError},
         config::{
             Config, EmptyConfigError, IntermediateConfig,
             clisp::{
@@ -12,7 +12,7 @@ use {
                 parser::{Parser, ParserOutput},
             },
         },
-        flag::{Arguments, ArgumentsError, Flag},
+        flag::{ArgumentsError, Flag},
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
     std::{
@@ -26,7 +26,7 @@ use {
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
-const VERSION_MESSAGE: &str = "empl 1.0.0";
+const _VERSION_MESSAGE: &str = "empl 1.0.0";
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
@@ -59,7 +59,7 @@ extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
 
         // TODO: error propagation
         let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
-        let mut expr = ExprParser
+        let expr = ExprParser
             .parse(&lexemes)
             .map(|ParserOutput { output, .. }| output)
             .unwrap_or(Expr::Value(Value::Unit));

@@ -8,7 +8,7 @@ use {
     },
     crossterm::style::Color,
     dyn_clone::DynClone,
-    nonempty_collections::{iter::FromNonEmptyIterator, vector::NEVec},
+    nonempty_collections::vector::NEVec,
     std::{
         any::type_name,
         borrow::Cow,

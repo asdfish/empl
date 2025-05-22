@@ -3,10 +3,8 @@ pub mod clisp;
 use {
     crate::{
         config::clisp::{
-            ast::{Expr, ExprParser},
+            ast::Expr,
             evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
-            lexer::LexemeParser,
-            parser::{Parser, ParserOutput},
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
     },
@@ -21,7 +19,6 @@ use {
     qcell::{TCell, TCellOwner},
     std::{
         borrow::Cow,
-        collections::HashMap,
         error::Error,
         fmt::{self, Display, Formatter},
         iter,

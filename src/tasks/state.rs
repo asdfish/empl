@@ -21,7 +21,6 @@ use {
 
 #[derive(Debug)]
 pub struct StateTask<'a> {
-    config: &'a Config,
     cursor_cache: Box<[u16]>,
     pub audio_action_tx: mpsc::Sender<AudioAction>,
     pub display_tx: mpsc::Sender<DamageList<'a>>,
@@ -38,7 +37,6 @@ impl<'a> StateTask<'a> {
         event_rx: mpsc::Receiver<Event>,
     ) -> Self {
         Self {
-            config,
             cursor_cache: (0..config.playlists.len().get()).map(|_| 0).collect(),
             audio_action_tx,
             display_tx,

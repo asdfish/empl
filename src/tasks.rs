@@ -6,7 +6,7 @@ pub mod terminal_event;
 
 use {
     crate::{
-        config::{Config, Playlists},
+        config::Config,
         ext::{
             command::{CommandChain, CommandExt},
             future::FutureExt,
