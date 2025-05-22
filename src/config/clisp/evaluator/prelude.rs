@@ -7,9 +7,9 @@ use {
             lexer::Literal,
         },
         either::EitherOrBoth,
-        ext::{array::ArrayExt, iterator::IteratorExt},
+        ext::{array::ArrayExt, iterator::IteratorExt, pair::PairExt},
     },
-    nonempty_collections::iter::IntoIteratorExt,
+    nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
         borrow::Cow,
         collections::{HashMap, HashSet, VecDeque, vec_deque},
@@ -92,6 +92,29 @@ where
     }
 }
 
+const fn concat<'src>() -> impl ClispFn<'src> {
+    value_fn(|vals| {
+        let (mut car, mut cdr) = vals
+            .map(|val| {
+                val.and_then(|val| {
+                    Cow::<'src, Cow<'src, str>>::try_from_value(val).map_err(EvalError::WrongType)
+                })
+            })
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
+            .next()
+            .transpose_fst()?
+            .map_fst(Cow::into_owned)
+            .map_fst(Cow::into_owned);
+        cdr
+            .try_for_each(|item| {
+                item
+                    .map(|item| car.push_str(item.as_ref().as_ref()))
+            })?;
+
+        Ok(Value::String(Cow::Owned(Cow::Owned(car))))
+    })
+}
 fn cons<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
@@ -371,6 +394,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("/", Value::Fn(Rc::new(const { math_fn(i32::checked_div) }))),
         ("*", Value::Fn(Rc::new(const { math_fn(i32::checked_mul) }))),
         ("%", Value::Fn(Rc::new(const { math_fn(i32::checked_rem) }))),
+        ("concat", Value::Fn(Rc::new(const { concat() }))),
         ("cons", Value::Fn(Rc::new(cons))),
         ("if", Value::Fn(Rc::new(r#if))),
         ("lambda", Value::Fn(Rc::new(lambda))),

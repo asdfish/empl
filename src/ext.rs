@@ -6,3 +6,4 @@ pub mod command;
 pub mod future;
 pub mod int;
 pub mod iterator;
+pub mod pair;
