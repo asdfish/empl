@@ -1,6 +1,10 @@
 pub mod clisp;
 
 use {
+    crate::{
+        config::clisp::evaluator::{Environment, EvalError, Value},
+        ext::iterator::IteratorExt,
+    },
     crossterm::{
         event::{KeyCode, KeyModifiers},
         style::{Color, Colors},
@@ -10,8 +14,101 @@ use {
         NEVec,
         iter::{IntoIteratorExt, NonEmptyIterator},
     },
-    std::{error::Error, ffi::OsString, fmt::{self, Display, Formatter}, num::NonZeroUsize, path::Path, sync::Arc},
+    qcell::TCell,
+    std::{
+        collections::HashMap,
+        error::Error,
+        ffi::OsString,
+        fmt::{self, Display, Formatter},
+        num::NonZeroUsize,
+        path::Path,
+        rc::Rc,
+        sync::Arc,
+    },
 };
+
+struct IntermediateConfig {
+    cursor_colors: Colors,
+    menu_colors: Colors,
+    selection_colors: Colors,
+    key_bindings: Vec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
+    playlists: Vec<(String, NEVec<(String, Arc<Path>)>)>,
+}
+impl IntermediateConfig {
+    fn eval<'a, S: AsRef<str> + ?Sized>(src: &S) -> Result<Self, EvalError> {
+        const DEFAULT_COLORS: Colors = Colors {
+            background: None,
+            foreground: None,
+        };
+
+        struct CursorColorId;
+        let cursor_color = Rc::new(TCell::<CursorColorId, Colors>::new(DEFAULT_COLORS));
+        struct MenuColorId;
+        let menu_color = Rc::new(TCell::<MenuColorId, Colors>::new(DEFAULT_COLORS));
+        struct SelectionColorId;
+        let selection_color = Rc::new(TCell::<SelectionColorId, Colors>::new(DEFAULT_COLORS));
+        struct KeyBindingsId;
+        let key_bindings = Rc::new(TCell::<
+            KeyBindingsId,
+            Vec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
+        >::new(Vec::new()));
+        struct PlaylistsId;
+        let playlists = Rc::new(TCell::<PlaylistsId, Vec<(String, NEVec<Arc<Path>>)>>::new(
+            Vec::new(),
+        ));
+
+        // let [cursor_colors, menu_colors, selection_colors] = [(); 3]
+        //     .map(|_| Colors {
+        //         foreground: None,
+        //         background: None,
+        //     })
+        //     .map(LCell::<'a, Colors>::new);
+
+        // LCellOwner::scope(|mut owner: LCellOwner<'a>| {
+        //     let (cursor_colors, menu_colors, selection_colors) = owner.rw3(&cursor_colors, &menu_colors, &selection_colors);
+
+        //     Environment::with_symbols(HashMap::from_iter([
+        //         ("set-cursor-colors!", Value::Fn(Rc::new(|_env, _args| {
+        //             todo!()
+        //         })))
+        //     ]));
+        // });
+
+        // {
+        //     let environment = Environment::with_symbols(HashMap::from_iter([
+        //         ("set-cursor-colors!", Value::Fn(Rc::new(|env, args| {
+        //             make_guard!(guard);
+        //             let mut owner = LCellOwner::new(guard);
+        //             owner.rw(&cursor_colors);
+
+        //             todo!()
+        //         }))),
+        //     ]));
+        // }
+
+        todo!()
+    }
+}
+impl Default for IntermediateConfig {
+    fn default() -> Self {
+        Self {
+            cursor_colors: Colors {
+                foreground: None,
+                background: None,
+            },
+            menu_colors: Colors {
+                foreground: None,
+                background: None,
+            },
+            selection_colors: Colors {
+                foreground: None,
+                background: None,
+            },
+            key_bindings: Vec::new(),
+            playlists: Vec::new(),
+        }
+    }
+}
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Config {
@@ -21,7 +118,54 @@ pub struct Config {
     pub key_bindings: NEVec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
     pub playlists: Playlists,
 }
+impl TryFrom<IntermediateConfig> for Config {
+    type Error = EmptyConfigError;
+
+    fn try_from(
+        IntermediateConfig {
+            cursor_colors,
+            menu_colors,
+            selection_colors,
+            key_bindings,
+            playlists,
+            ..
+        }: IntermediateConfig,
+    ) -> Result<Self, EmptyConfigError> {
+        NEVec::try_from_vec(key_bindings)
+            .ok_or(EmptyConfigError::KeyBindings)
+            .and_then(move |key_bindings| {
+                NEVec::try_from_vec(playlists)
+                    .ok_or(EmptyConfigError::Playlists)
+                    .map(move |playlists| (key_bindings, playlists))
+            })
+            .map(|(key_bindings, playlists)| Self {
+                cursor_colors,
+                menu_colors,
+                selection_colors,
+                key_bindings,
+                playlists,
+            })
+    }
+}
 pub type Playlists = NEVec<(String, NEVec<(String, Arc<Path>)>)>;
+
+#[derive(Clone, Copy, Debug)]
+pub enum EmptyConfigError {
+    KeyBindings,
+    Playlists,
+}
+impl Display for EmptyConfigError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "{} cannot be empty",
+            match self {
+                Self::KeyBindings => "key bindings",
+                Self::Playlists => "playlists",
+            }
+        )
+    }
+}
 
 // pub type SelectedConfig = DefaultConfig;
 
@@ -42,7 +186,6 @@ pub type Playlists = NEVec<(String, NEVec<(String, Arc<Path>)>)>;
 //         ([], current_max) => current_max,
 //     }
 // }
-
 
 // pub trait Config {
 //     const CURSOR_COLORS: Colors;
@@ -182,7 +325,7 @@ pub enum KeyAction {
 }
 impl<'a> TryFrom<&'a str> for KeyAction {
     type Error = UnknownKeyActionError<'a>;
-    
+
     fn try_from(key_action: &'a str) -> Result<Self, UnknownKeyActionError<'a>> {
         match key_action {
             "quit" => Ok(Self::Quit),

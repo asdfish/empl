@@ -4,7 +4,10 @@ mod prelude;
 use {
     crate::config::clisp::{ast::Expr, lexer::Literal},
     dyn_clone::DynClone,
-    nonempty_collections::vector::NEVec,
+    nonempty_collections::{
+        iter::FromNonEmptyIterator,
+        vector::NEVec,
+    },
     std::{
         any::type_name,
         borrow::Cow,
@@ -20,6 +23,9 @@ pub struct Environment<'src>(NEVec<HashMap<&'src str, Value<'src>>>);
 impl<'src> Environment<'src> {
     pub fn new() -> Self {
         Self(NEVec::new(prelude::new()))
+    }
+    pub fn with_symbols(syms: HashMap<&'src str, Value<'src>>) -> Self {
+        Self(NEVec::from_nonempty_iter([prelude::new(), syms]))
     }
     pub fn last_mut(&mut self) -> &mut HashMap<&'src str, Value<'src>> {
         self.0.last_mut()
