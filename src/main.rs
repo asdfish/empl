@@ -63,7 +63,10 @@ extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
             .parse(&lexemes)
             .map(|ParserOutput { output, .. }| output)
             .unwrap_or(Expr::Value(Value::Unit));
-        let config = IntermediateConfig::eval(expr).map_err(|err| err.to_string()).map_err(MainError::EvalConfig)
+        let config = IntermediateConfig::eval(expr)
+            .inspect(|config| println!("{config:?}"))
+            .map_err(|err| err.to_string())
+            .map_err(MainError::EvalConfig)
             .and_then(|config| Config::try_from(config).map_err(MainError::IncompleteConfig))?;
 
         let runtime = runtime::Builder::new_current_thread()

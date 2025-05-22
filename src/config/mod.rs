@@ -31,6 +31,7 @@ use {
     },
 };
 
+#[derive(Debug)]
 pub struct IntermediateConfig {
     cursor_colors: Colors,
     menu_colors: Colors,
