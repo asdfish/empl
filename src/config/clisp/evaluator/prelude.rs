@@ -80,7 +80,10 @@ where
 }
 const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
-    F: Clone + Fn(&mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>) -> Result<Value<'src>, EvalError<'src>>,
+    F: Clone
+        + Fn(
+            &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
+        ) -> Result<Value<'src>, EvalError<'src>>,
 {
     move |env, args| {
         f(&mut args

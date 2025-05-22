@@ -91,13 +91,7 @@ impl<'a> TaskManager<'a> {
                 event_tx.clone(),
             ),
             display: DisplayTask::new(alloc, stdout, display_rx),
-            state: StateTask::new(
-                config,
-                display_state,
-                audio_action_tx,
-                display_tx,
-                event_rx,
-            ),
+            state: StateTask::new(config, display_state, audio_action_tx, display_tx, event_rx),
             terminal_event: TerminalEventTask::new(config, event_tx),
         })
     }
