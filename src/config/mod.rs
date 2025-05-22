@@ -2,25 +2,29 @@ pub mod clisp;
 
 use {
     crate::{
-        config::clisp::evaluator::{Environment, EvalError, Value},
-        ext::iterator::IteratorExt,
+        config::clisp::{
+            ast::{Expr, ExprParser},
+            evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
+            lexer::LexemeParser,
+            parser::{Parser, ParserOutput},
+        },
+        ext::{
+            array::ArrayExt,
+            iterator::IteratorExt,
+        },
     },
     crossterm::{
         event::{KeyCode, KeyModifiers},
         style::{Color, Colors},
     },
-    dirs::home_dir,
-    nonempty_collections::{
-        NEVec,
-        iter::{IntoIteratorExt, NonEmptyIterator},
-    },
-    qcell::TCell,
+    nonempty_collections::NEVec,
+    qcell::{TCell, TCellOwner},
     std::{
+        borrow::Cow,
         collections::HashMap,
         error::Error,
-        ffi::OsString,
         fmt::{self, Display, Formatter},
-        num::NonZeroUsize,
+        iter,
         path::Path,
         rc::Rc,
         sync::Arc,
@@ -35,58 +39,54 @@ struct IntermediateConfig {
     playlists: Vec<(String, NEVec<(String, Arc<Path>)>)>,
 }
 impl IntermediateConfig {
-    fn eval<'a, S: AsRef<str> + ?Sized>(src: &S) -> Result<Self, EvalError> {
-        const DEFAULT_COLORS: Colors = Colors {
-            background: None,
-            foreground: None,
-        };
+    fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
+        struct Id;
 
-        struct CursorColorId;
-        let cursor_color = Rc::new(TCell::<CursorColorId, Colors>::new(DEFAULT_COLORS));
-        struct MenuColorId;
-        let menu_color = Rc::new(TCell::<MenuColorId, Colors>::new(DEFAULT_COLORS));
-        struct SelectionColorId;
-        let selection_color = Rc::new(TCell::<SelectionColorId, Colors>::new(DEFAULT_COLORS));
-        struct KeyBindingsId;
-        let key_bindings = Rc::new(TCell::<
-            KeyBindingsId,
-            Vec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
-        >::new(Vec::new()));
-        struct PlaylistsId;
-        let playlists = Rc::new(TCell::<PlaylistsId, Vec<(String, NEVec<Arc<Path>>)>>::new(
-            Vec::new(),
-        ));
+        let output = Rc::new(TCell::<Id, Self>::new(Self::default()));
 
-        // let [cursor_colors, menu_colors, selection_colors] = [(); 3]
-        //     .map(|_| Colors {
-        //         foreground: None,
-        //         background: None,
-        //     })
-        //     .map(LCell::<'a, Colors>::new);
+        {
+            let this = Rc::clone(&output);
+            let mut environment = Environment::with_symbols(iter::once(
+                ("set-cfg!", Value::Fn(Rc::new(move |env, args| {
+                    fn set_colors<'src>(colors: &mut Colors, value: Value<'src>) -> Result<(), EvalError<'src>> {
+                        let list = Rc::<List<'src>>::try_from_value(value)?;
+                        let [foreground, background] = list.iter().collect_array().ok_or(EvalError::WrongListArity(Arity::Static(2)))?
+                            .map(|color| Color::try_from(color).map_err(EvalError::InvalidColor))
+                            .transpose()?;
 
-        // LCellOwner::scope(|mut owner: LCellOwner<'a>| {
-        //     let (cursor_colors, menu_colors, selection_colors) = owner.rw3(&cursor_colors, &menu_colors, &selection_colors);
+                        *colors = Colors {
+                            foreground: Some(foreground),
+                            background: Some(background),
+                        };
 
-        //     Environment::with_symbols(HashMap::from_iter([
-        //         ("set-cursor-colors!", Value::Fn(Rc::new(|_env, _args| {
-        //             todo!()
-        //         })))
-        //     ]));
-        // });
+                        Ok(())
+                    }
 
-        // {
-        //     let environment = Environment::with_symbols(HashMap::from_iter([
-        //         ("set-cursor-colors!", Value::Fn(Rc::new(|env, args| {
-        //             make_guard!(guard);
-        //             let mut owner = LCellOwner::new(guard);
-        //             owner.rw(&cursor_colors);
+                    let mut owner = TCellOwner::<Id>::new();
+                    let [field, value] = args.into_iter().collect_array().ok_or(EvalError::WrongArity(Arity::Static(2)))?;
+                    let field = env.eval_into::<Cow<Cow<str>>>(field)?;
+                    let value = env.eval(value).map(Cow::into_owned)?;
 
-        //             todo!()
-        //         }))),
-        //     ]));
-        // }
+                    match field.as_ref().as_ref() {
+                        "cursor-colors" => {
+                            set_colors(&mut this.rw(&mut owner).cursor_colors, value);
+                        },
+                        "menu-colors" => {
+                            set_colors(&mut this.rw(&mut owner).menu_colors, value);
+                        },
+                        "selection-colors" => {
+                            set_colors(&mut this.rw(&mut owner).selection_colors, value);
+                        },
+                        _ => return Err(EvalError::UnknownCfgField(field)),
+                    }
 
-        todo!()
+                    Ok(Value::Unit)
+                })))
+            ));
+            environment.eval(expr)?;
+        }
+
+        Ok(Rc::into_inner(output).unwrap().into_inner())
     }
 }
 impl Default for IntermediateConfig {

@@ -2,19 +2,22 @@ pub mod list;
 mod prelude;
 
 use {
-    crate::config::clisp::{ast::Expr, lexer::Literal},
-    dyn_clone::DynClone,
-    nonempty_collections::{
-        iter::FromNonEmptyIterator,
-        vector::NEVec,
+    crate::{
+        config::clisp::{ast::Expr, lexer::Literal},
+        ext::{array::ArrayExt, iterator::IteratorExt},
     },
+    crossterm::style::Color,
+    dyn_clone::DynClone,
+    nonempty_collections::{iter::FromNonEmptyIterator, vector::NEVec},
     std::{
         any::type_name,
         borrow::Cow,
         collections::{HashMap, VecDeque},
         fmt::{self, Debug, Display, Formatter},
+        num::TryFromIntError,
         ops::{Range, RangeFrom},
         rc::Rc,
+        str::FromStr,
     },
 };
 
@@ -24,8 +27,14 @@ impl<'src> Environment<'src> {
     pub fn new() -> Self {
         Self(NEVec::new(prelude::new()))
     }
-    pub fn with_symbols(syms: HashMap<&'src str, Value<'src>>) -> Self {
-        Self(NEVec::from_nonempty_iter([prelude::new(), syms]))
+    pub fn with_symbols<I>(syms: I) -> Self
+    where
+        I: IntoIterator<Item = (&'src str, Value<'src>)>,
+    {
+        let mut output = Self::new();
+        output.0.first_mut().extend(syms);
+
+        output
     }
     pub fn last_mut(&mut self) -> &mut HashMap<&'src str, Value<'src>> {
         self.0.last_mut()
@@ -94,15 +103,24 @@ pub enum EvalError<'a> {
     MultipleBindings(&'a str),
     NonIdentBinding(Expr<'a>),
     EmptyListBindings,
+    InvalidColor(InvalidColorError<'a>),
     NonListBindings(Expr<'a>),
     NoBindings,
     NoBody,
     NotAFunction,
     NotFound(&'a str),
     Overflow,
+    UnknownCfgField(Cow<'a, Cow<'a, str>>),
     WrongType(TryFromValueError<'a>),
     WrongArity(Arity),
+    WrongListArity(Arity),
     WrongBindingArity(Arity),
+}
+impl<'a> Display for EvalError<'a> {
+    fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        // TODO: implement display
+        Ok(())
+    }
 }
 impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
     fn from(err: TryFromValueError<'a>) -> Self {
@@ -166,6 +184,44 @@ impl<'src> PartialEq for Value<'src> {
             _ => false,
         }
     }
+}
+impl<'src> TryFrom<Value<'src>> for Color {
+    type Error = InvalidColorError<'src>;
+
+    fn try_from(val: Value<'src>) -> Result<Color, InvalidColorError<'src>> {
+        match val {
+            Value::List(rgb) => {
+                let [r, g, b] = rgb
+                    .iter()
+                    .map(|val| {
+                        if let Value::Int(color) = val {
+                            Ok(color)
+                        } else {
+                            Err(InvalidColorError::WrongListType(val))
+                        }
+                        .and_then(|color| {
+                            u8::try_from(color).map_err(InvalidColorError::InvalidRgb)
+                        })
+                    })
+                    .collect_array::<3>()
+                    .ok_or(InvalidColorError::WrongListArity)?
+                    .transpose()?;
+
+                Ok(Color::Rgb { r, g, b })
+            }
+            Value::String(name) => Color::from_str(name.as_ref().as_ref())
+                .map_err(|_| InvalidColorError::UnknownColor(name)),
+            val => Err(InvalidColorError::WrongType(val)),
+        }
+    }
+}
+#[derive(Debug)]
+pub enum InvalidColorError<'src> {
+    InvalidRgb(TryFromIntError),
+    WrongListArity,
+    WrongType(Value<'src>),
+    WrongListType(Value<'src>),
+    UnknownColor(Cow<'src, Cow<'src, str>>),
 }
 
 pub trait ClispFn<'src>:

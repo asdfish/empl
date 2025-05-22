@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::{Config, KeyAction, Playlists},
+        config::{Config, KeyAction},
         tasks::{
             ChannelError,
             audio::AudioAction,

@@ -1,6 +1,9 @@
 use {
     crate::config::clisp::evaluator::{List, Value},
-    std::rc::Rc,
+    std::{
+        iter::FusedIterator,
+        rc::Rc,
+    },
 };
 
 #[derive(Clone, Debug)]
@@ -17,3 +20,4 @@ impl<'src> Iterator for Iter<'src> {
         }
     }
 }
+impl FusedIterator for Iter<'_> {}

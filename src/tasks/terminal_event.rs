@@ -4,7 +4,6 @@ use {
         ext::iterator::IteratorExt,
         tasks::{ChannelError, display::state::Area, state},
     },
-    arrayvec::ArrayVec,
     crossterm::event::{Event, EventStream, KeyCode, KeyEvent, KeyEventKind, KeyModifiers},
     futures_core::Stream,
     nonempty_collections::iter::NonEmptyIterator,
