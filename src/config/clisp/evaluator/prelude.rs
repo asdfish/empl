@@ -13,6 +13,7 @@ use {
     std::{
         borrow::Cow,
         collections::{HashMap, HashSet, VecDeque, vec_deque},
+        env,
         ops::Not,
         rc::Rc,
     },
@@ -129,6 +130,20 @@ fn cons<'src>(
     let cdr = Rc::<List>::try_from_value(cdr)?;
 
     Ok(Value::List(Rc::new(List::Cons(car, cdr))))
+}
+fn env<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    args
+        .into_iter()
+        .collect_array::<1>()
+        .ok_or(EvalError::WrongArity(Arity::Static(1)))
+        .and_then(|[var]| env.eval_into::<Cow<'src, Cow<'src, str>>>(var))
+        .and_then(|var| env::var(var.as_ref().as_ref()).map_err(EvalError::EnvVar))
+        .map(Cow::Owned)
+        .map(Cow::Owned)
+        .map(Value::String)
 }
 fn r#if<'src>(
     env: &mut Environment<'src>,
@@ -396,6 +411,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("%", Value::Fn(Rc::new(const { math_fn(i32::checked_rem) }))),
         ("concat", Value::Fn(Rc::new(const { concat() }))),
         ("cons", Value::Fn(Rc::new(cons))),
+        ("env", Value::Fn(Rc::new(env))),
         ("if", Value::Fn(Rc::new(r#if))),
         ("lambda", Value::Fn(Rc::new(lambda))),
         ("let", Value::Fn(Rc::new(r#let))),

@@ -13,6 +13,7 @@ use {
         any::type_name,
         borrow::Cow,
         collections::{HashMap, VecDeque},
+        env,
         fmt::{self, Debug, Display, Formatter},
         num::TryFromIntError,
         ops::{Range, RangeFrom},
@@ -103,6 +104,7 @@ pub enum EvalError<'a> {
     MultipleBindings(&'a str),
     NonIdentBinding(Expr<'a>),
     EmptyListBindings,
+    EnvVar(env::VarError),
     InvalidColor(InvalidColorError<'a>),
     NonListBindings(Expr<'a>),
     NoBindings,
@@ -120,6 +122,11 @@ impl<'a> Display for EvalError<'a> {
     fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         // TODO: implement display
         Ok(())
+    }
+}
+impl From<env::VarError> for EvalError<'_> {
+    fn from(err: env::VarError) -> Self {
+        Self::EnvVar(err)
     }
 }
 impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
