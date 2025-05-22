@@ -185,10 +185,10 @@ impl<'src> PartialEq for Value<'src> {
         }
     }
 }
-impl<'src> TryFrom<Value<'src>> for Color {
+impl<'src> TryFrom<Value<'src>> for Option<Color> {
     type Error = InvalidColorError<'src>;
 
-    fn try_from(val: Value<'src>) -> Result<Color, InvalidColorError<'src>> {
+    fn try_from(val: Value<'src>) -> Result<Option<Color>, InvalidColorError<'src>> {
         match val {
             Value::List(rgb) => {
                 let [r, g, b] = rgb
@@ -207,10 +207,12 @@ impl<'src> TryFrom<Value<'src>> for Color {
                     .ok_or(InvalidColorError::WrongListArity)?
                     .transpose()?;
 
-                Ok(Color::Rgb { r, g, b })
+                Ok(Some(Color::Rgb { r, g, b }))
             }
+            Value::String(name) if name.as_ref().as_ref() == "none" => Ok(None),
             Value::String(name) => Color::from_str(name.as_ref().as_ref())
-                .map_err(|_| InvalidColorError::UnknownColor(name)),
+                .map_err(|_| InvalidColorError::UnknownColor(name))
+                .map(Some),
             val => Err(InvalidColorError::WrongType(val)),
         }
     }

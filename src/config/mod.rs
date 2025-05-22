@@ -51,12 +51,12 @@ impl IntermediateConfig {
                     fn set_colors<'src>(colors: &mut Colors, value: Value<'src>) -> Result<(), EvalError<'src>> {
                         let list = Rc::<List<'src>>::try_from_value(value)?;
                         let [foreground, background] = list.iter().collect_array().ok_or(EvalError::WrongListArity(Arity::Static(2)))?
-                            .map(|color| Color::try_from(color).map_err(EvalError::InvalidColor))
+                            .map(|color| Option::<Color>::try_from(color).map_err(EvalError::InvalidColor))
                             .transpose()?;
 
                         *colors = Colors {
-                            foreground: Some(foreground),
-                            background: Some(background),
+                            foreground,
+                            background,
                         };
 
                         Ok(())
