@@ -31,7 +31,7 @@ use {
     },
 };
 
-struct IntermediateConfig {
+pub struct IntermediateConfig {
     cursor_colors: Colors,
     menu_colors: Colors,
     selection_colors: Colors,
@@ -39,7 +39,7 @@ struct IntermediateConfig {
     playlists: Vec<(String, NEVec<(String, Arc<Path>)>)>,
 }
 impl IntermediateConfig {
-    fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
+    pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
         struct Id;
 
         let output = Rc::new(TCell::<Id, Self>::new(Self::default()));
@@ -69,13 +69,13 @@ impl IntermediateConfig {
 
                     match field.as_ref().as_ref() {
                         "cursor-colors" => {
-                            set_colors(&mut this.rw(&mut owner).cursor_colors, value);
+                            set_colors(&mut this.rw(&mut owner).cursor_colors, value)?;
                         },
                         "menu-colors" => {
-                            set_colors(&mut this.rw(&mut owner).menu_colors, value);
+                            set_colors(&mut this.rw(&mut owner).menu_colors, value)?;
                         },
                         "selection-colors" => {
-                            set_colors(&mut this.rw(&mut owner).selection_colors, value);
+                            set_colors(&mut this.rw(&mut owner).selection_colors, value)?;
                         },
                         _ => return Err(EvalError::UnknownCfgField(field)),
                     }

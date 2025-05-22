@@ -3,7 +3,15 @@
 use {
     empl::{
         argv::{ArgError, Argv, ArgvError},
-        config::Config,
+        config::{
+            Config, EmptyConfigError, IntermediateConfig,
+            clisp::{
+                ast::{Expr, ExprParser},
+                evaluator::Value,
+                lexer::LexemeParser,
+                parser::{Parser, ParserOutput},
+            },
+        },
         flag::{Arguments, ArgumentsError, Flag},
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
@@ -11,7 +19,8 @@ use {
         error::Error,
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
-        io,
+        fs, io,
+        path::Path,
     },
     tokio::runtime,
 };
@@ -20,43 +29,54 @@ use {
 const VERSION_MESSAGE: &str = "empl 1.0.0";
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
-extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
+extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
     match (move || -> Result<(), MainError> {
-        let mut flags = Arguments::new(unsafe { Argv::new(argc, argv) }?.skip(1));
-        if let Some(flag) = flags.next().transpose()? {
-            match flag {
-                Flag::Short('h') | Flag::Long("help") => {
-                    eprintln!(
-                        "empl [OPTIONS..]
+        //         let mut flags = Arguments::new(unsafe { Argv::new(argc, argv) }?.skip(1));
+        //         if let Some(flag) = flags.next().transpose()? {
+        //             match flag {
+        //                 Flag::Short('h') | Flag::Long("help") => {
+        //                     eprintln!(
+        //                         "empl [OPTIONS..]
 
-Options:
-  -h --help    Print this message and exit.
-  -v --version Print version information and exit."
-                    );
-                    return Ok(());
-                }
-                Flag::Short('v') | Flag::Long("version") => {
-                    eprintln!("{VERSION_MESSAGE}");
-                    return Ok(());
-                }
-                flag => return Err(MainError::UnknownFlag(flag)),
-            }
-        }
+        // Options:
+        //   -h --help    Print this message and exit.
+        //   -v --version Print version information and exit."
+        //                     );
+        //                     return Ok(());
+        //                 }
+        //                 Flag::Short('v') | Flag::Long("version") => {
+        //                     eprintln!("{VERSION_MESSAGE}");
+        //                     return Ok(());
+        //                 }
+        //                 flag => return Err(MainError::UnknownFlag(flag)),
+        //             }
+        //         }
 
-        todo!()
-        // let playlists = SelectedConfig::get_playlists().ok_or(MainError::EmptyPlaylists)?;
+        let config =
+            // TODO: change file path
+            fs::read_to_string(Path::new("main.lisp"))
+                .map_err(MainError::ReadConfig)?;
 
-        // let runtime = runtime::Builder::new_current_thread()
-        //     .build()
-        //     .map_err(MainError::Runtime)?;
-        // runtime.block_on(async move {
-        //     TaskManager::new(&playlists)
-        //         .await
-        //         .map_err(MainError::NewTaskManager)?
-        //         .run()
-        //         .await
-        //         .map_err(MainError::Unrecoverable)
-        // })
+        // TODO: error propagation
+        let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
+        let mut expr = ExprParser
+            .parse(&lexemes)
+            .map(|ParserOutput { output, .. }| output)
+            .unwrap_or(Expr::Value(Value::Unit));
+        let config = IntermediateConfig::eval(expr).map_err(|err| err.to_string()).map_err(MainError::EvalConfig)
+            .and_then(|config| Config::try_from(config).map_err(MainError::IncompleteConfig))?;
+
+        let runtime = runtime::Builder::new_current_thread()
+            .build()
+            .map_err(MainError::Runtime)?;
+        runtime.block_on(async move {
+            TaskManager::new(&config)
+                .await
+                .map_err(MainError::NewTaskManager)?
+                .run()
+                .await
+                .map_err(MainError::Unrecoverable)
+        })
     })() {
         Ok(()) => 0,
         Err(err) => {
@@ -71,7 +91,10 @@ pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
     EmptyPlaylists,
+    EvalConfig(String),
+    IncompleteConfig(EmptyConfigError),
     NewTaskManager(NewTaskManagerError),
+    ReadConfig(io::Error),
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
     Unrecoverable(UnrecoverableError),
@@ -82,7 +105,10 @@ impl Display for MainError {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
             Self::EmptyPlaylists => f.write_str("no playlists were found"),
+            Self::EvalConfig(e) => write!(f, "failed to evaluate configuration file: {e}"),
+            Self::IncompleteConfig(e) => e.fmt(f),
             Self::NewTaskManager(e) => e.fmt(f),
+            Self::ReadConfig(e) => write!(f, "failed to read configuration file: {e}"),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
             Self::Unrecoverable(e) => e.fmt(f),

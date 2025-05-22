@@ -100,7 +100,7 @@ impl Damage {
             Self::FullRedraw => {
                 (old.terminal_area != new.terminal_area && new.terminal_area.is_some())
                     || old.selected_menu != new.selected_menu
-                    || ptr::from_ref(old.playlists) != ptr::from_ref(new.playlists)
+                    || ptr::from_ref(old.playlists()) != ptr::from_ref(new.playlists())
             }
             Self::MoveOffset(focus) => {
                 old.offsets[*focus] != new.offsets[*focus]

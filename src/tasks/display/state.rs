@@ -45,10 +45,9 @@ pub struct DisplayState<'a> {
     pub selected_menu: u16,
     pub selected_song: Song,
     pub terminal_area: Option<Area>,
-    pub(super) playlists: &'a Playlists,
 }
 impl<'a> DisplayState<'a> {
-    pub fn new(config: &'a Config, playlists: &'a Playlists) -> Self {
+    pub fn new(config: &'a Config) -> Self {
         Self {
             config,
             focus: Focus::Playlists,
@@ -62,22 +61,21 @@ impl<'a> DisplayState<'a> {
                     height: NonZeroU16::new(height)?,
                 })
             }),
-            playlists,
         }
     }
 
     pub fn playlists(&self) -> &'a Playlists {
-        self.playlists
+        &self.config.playlists
     }
 
     fn get(&self, focus: Focus, index: u16) -> Option<&str> {
         match focus {
             Focus::Playlists => self
-                .playlists
+                .playlists()
                 .get(usize::from(index))
                 .map(|(item, _)| item.as_str()),
             Focus::Songs => self
-                .playlists
+                .playlists()
                 .get(usize::from(self.selected_menu))
                 .map(|(_, playlist)| playlist)
                 .and_then(|playlist| playlist.get(usize::from(index)))
@@ -87,9 +85,9 @@ impl<'a> DisplayState<'a> {
     }
     pub fn len(&self, focus: Focus) -> Option<NonZeroUsize> {
         match focus {
-            Focus::Playlists => Some(self.playlists.len()),
+            Focus::Playlists => Some(self.playlists().len()),
             Focus::Songs => self
-                .playlists
+                .playlists()
                 .get(usize::from(self.selected_menu))
                 .map(|(_, playlist)| playlist.len()),
         }
