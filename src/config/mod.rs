@@ -115,7 +115,7 @@ impl IntermediateConfig {
                                                                         song
                                                                             .iter()
                                                                             .collect_array::<2>()
-                                                                            .ok_or(EvalError::WrongListArity(Arity::Static(2)))
+                                                                            .ok_or(EvalError::WrongListArity(Arity::Static(2))))
                                                                             .and_then(|[name, path]| LazyRc::<str>::try_from_value(name)
                                                                                 .map(|name| name.to_string())
                                                                                 .and_then(move |name| LazyRc::<Path>::try_from_value(path)
@@ -126,7 +126,7 @@ impl IntermediateConfig {
                                                                                         }
                                                                                     })
                                                                                     .map(move |path| (name, path)))
-                                                                    .map_err(EvalError::WrongType))))
+                                                                                .map_err(EvalError::WrongType)))
                                                                 .try_into_nonempty_iter().ok_or(EvalError::WrongListArity(Arity::RangeFrom(1..)))
                                                         })
                                                         .and_then(NonEmptyIterator::collect::<Result<NEVec<_>, _>>)
