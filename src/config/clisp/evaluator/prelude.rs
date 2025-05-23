@@ -12,6 +12,7 @@ use {
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
         collections::{HashMap, HashSet, VecDeque, vec_deque},
+        convert::identity,
         env,
         ops::{ControlFlow, Not},
         path::{Path, PathBuf},
@@ -160,9 +161,9 @@ const fn env<'src>() -> impl ClispFn<'src> {
     value_fn(|args| {
         args.into_iter()
             .fuse()
-            .collect_array::<1>()
+            .next()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
-            .and_then(|[var]| var)
+            .and_then(identity)
             .and_then(|var| {
                 Supercow::<'src, String, str, Rc<str>>::try_from_value(var)
                     .map_err(EvalError::WrongType)
@@ -314,9 +315,9 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
     value_fn(|paths| {
         paths
             .fuse()
-            .collect_array::<1>()
+            .next()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
-            .and_then(|[path]| path)
+            .and_then(identity)
             .and_then(|path| {
                 Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
                     .map_err(EvalError::WrongType)
@@ -466,10 +467,9 @@ fn seq_rev<'src>(
 const fn string_to_path<'src>() -> impl ClispFn<'src> {
     value_fn(|string| {
         string
-            .fuse()
-            .collect_array::<1>()
+            .next()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
-            .and_then(|[string]| string)
+            .and_then(identity)
             .and_then(|string| {
                 Supercow::<'src, String, str, Rc<str>>::try_from_value(string)
                     .map_err(EvalError::WrongType)
