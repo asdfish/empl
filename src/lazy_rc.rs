@@ -15,7 +15,7 @@ where
     fn as_ref(&self) -> &T {
         match self {
             Self::Borrowed(t) => t,
-            Self::Owned(t) => &t,
+            Self::Owned(t) => t,
         }
     }
 }
@@ -26,7 +26,7 @@ where
     fn clone(&self) -> Self {
         match self {
             Self::Borrowed(borrow) => Self::Borrowed(borrow),
-            Self::Owned(rc) => Self::Owned(Rc::clone(&rc)),
+            Self::Owned(rc) => Self::Owned(Rc::clone(rc)),
         }
     }
 }

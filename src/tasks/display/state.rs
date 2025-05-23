@@ -1,7 +1,7 @@
 use {
     crate::{
         command::PrintPadded,
-        config::{Config, Playlists},
+        config::{Config, Playlist},
         ext::{
             colors::ColorsExt,
             command::{CommandChain, CommandExt},
@@ -11,6 +11,7 @@ use {
     },
     crossterm::{cursor::MoveTo, style::SetColors, terminal},
     enum_map::{Enum, EnumMap},
+    nonempty_collections::vector::NEVec,
     std::num::{NonZeroU16, NonZeroUsize},
 };
 
@@ -64,7 +65,7 @@ impl<'a> DisplayState<'a> {
         }
     }
 
-    pub fn playlists(&self) -> &'a Playlists {
+    pub fn playlists(&self) -> &'a NEVec<Playlist> {
         &self.config.playlists
     }
 

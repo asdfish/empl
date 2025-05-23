@@ -28,13 +28,16 @@ use {
     },
 };
 
+pub type KeyBinding = (KeyAction, NEVec<(KeyModifiers, KeyCode)>);
+pub type Playlist = (String, NEVec<(String, Arc<Path>)>);
+
 #[derive(Debug)]
 pub struct IntermediateConfig {
     cursor_colors: Colors,
     menu_colors: Colors,
     selection_colors: Colors,
-    key_bindings: Vec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
-    playlists: Vec<(String, NEVec<(String, Arc<Path>)>)>,
+    key_bindings: Vec<KeyBinding>,
+    playlists: Vec<Playlist>,
 }
 impl IntermediateConfig {
     pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
@@ -121,7 +124,7 @@ impl IntermediateConfig {
                                                                                 .and_then(move |name| LazyRc::<Path>::try_from_value(path)
                                                                                     .map(|path| -> Arc<Path> {
                                                                                         match path {
-                                                                                            LazyRc::Borrowed(path) => Arc::from(path.as_ref()),
+                                                                                            LazyRc::Borrowed(path) => Arc::from(path),
                                                                                             LazyRc::Owned(path) => Arc::from(path.as_ref()),
                                                                                         }
                                                                                     })
@@ -175,8 +178,8 @@ pub struct Config {
     pub cursor_colors: Colors,
     pub menu_colors: Colors,
     pub selection_colors: Colors,
-    pub key_bindings: NEVec<(KeyAction, NEVec<(KeyModifiers, KeyCode)>)>,
-    pub playlists: Playlists,
+    pub key_bindings: NEVec<KeyBinding>,
+    pub playlists: NEVec<Playlist>,
 }
 impl TryFrom<IntermediateConfig> for Config {
     type Error = EmptyConfigError;
@@ -207,8 +210,6 @@ impl TryFrom<IntermediateConfig> for Config {
             })
     }
 }
-pub type Playlists = NEVec<(String, NEVec<(String, Arc<Path>)>)>;
-
 #[derive(Clone, Copy, Debug)]
 pub enum EmptyConfigError {
     KeyBindings,

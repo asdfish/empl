@@ -12,7 +12,10 @@ impl<const N: usize, T, E> ArrayExt<N, T, E> for [Result<T, E>; N] {
         output
             .iter_mut()
             .zip(self)
-            .try_for_each(|(into, from)| Ok(into.write(from?)).map(drop))
+            .try_for_each(|(into, from)| {
+                into.write(from?);
+                Ok(())
+            })
             .map(move |_| output.map(|slot| unsafe { slot.assume_init() }))
     }
 }
