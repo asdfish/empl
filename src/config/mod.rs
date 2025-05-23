@@ -18,7 +18,6 @@ use {
     },
     qcell::{TCell, TCellOwner},
     std::{
-        borrow::Cow,
         error::Error,
         fmt::{self, Display, Formatter},
         iter,
@@ -26,6 +25,7 @@ use {
         rc::Rc,
         sync::Arc,
     },
+    supercow::Supercow,
 };
 
 #[derive(Debug)]
@@ -74,7 +74,7 @@ impl IntermediateConfig {
                         .into_iter()
                         .collect_array()
                         .ok_or(EvalError::WrongArity(Arity::Static(2)))?;
-                    let field = env.eval_into::<Cow<'src, Cow<'src, str>>>(field)?;
+                    let field = env.eval_into::<Supercow<'src, String, str, Rc<str>>>(field)?;
                     let value = env.eval(value)?;
 
                     match field.as_ref().as_ref() {
@@ -101,21 +101,18 @@ impl IntermediateConfig {
                                                 .ok_or(EvalError::WrongListArity(Arity::Static(2)))
                                         })
                                         .and_then(|[name, songs]| {
-                                            Cow::<'src, Cow<'src, str>>::try_from_value(name)
-                                                .map(Cow::into_owned)
-                                                .map(Cow::into_owned)
+                                            Supercow::<'src, String, str, Rc<str>>::try_from_value(name)
+                                                .map(Supercow::into_inner)
                                                 .map_err(EvalError::WrongType)
                                                 .and_then(move |name| {
                                                     Rc::<List<'src>>::try_from_value(songs)
                                                         .map_err(EvalError::WrongType)
                                                         .and_then(|songs| {
                                                             songs.iter()
-                                                                .map(|song| Cow::<'src, Cow<'src, str>>::try_from_value(song)
-                                                                    .map(Cow::into_owned)
-                                                                    .map(Cow::into_owned)
+                                                                .map(|song| Supercow::<'src, String, str, Rc<str>>::try_from_value(song)
                                                                     .map(|path| (path.rsplit_once(path::MAIN_SEPARATOR)
                                                                         .map(|(_, tail)| tail)
-                                                                        .unwrap_or(&path).to_string(), Arc::<Path>::from(PathBuf::from(path))))
+                                                                        .unwrap_or(&path).to_string(), Arc::<Path>::from(PathBuf::from(Supercow::into_inner(path)))))
                                                                     .map_err(EvalError::WrongType)
                                                                 )
                                                                 .try_into_nonempty_iter().ok_or(EvalError::WrongListArity(Arity::RangeFrom(1..)))

@@ -11,7 +11,6 @@ use {
     nonempty_collections::vector::NEVec,
     std::{
         any::type_name,
-        borrow::Cow,
         collections::{HashMap, VecDeque},
         env,
         fmt::{self, Debug, Display, Formatter},
@@ -20,6 +19,7 @@ use {
         rc::Rc,
         str::FromStr,
     },
+    supercow::Supercow,
 };
 
 #[derive(Clone)]
@@ -52,7 +52,7 @@ impl<'src> Environment<'src> {
                 .cloned()
                 .ok_or(EvalError::NotFound(id)),
             Expr::Literal(Literal::Int(i)) => Ok(Value::Int(*i)),
-            Expr::Literal(Literal::String(s)) => Ok(Value::String(Cow::Borrowed(s))),
+            Expr::Literal(Literal::String(s)) => Ok(Value::String(Supercow::borrowed(s))),
             Expr::List(mut apply) => {
                 let Value::Fn(func) = apply
                     .pop_front()
@@ -98,26 +98,26 @@ pub enum Arity {
 }
 
 #[derive(Debug)]
-pub enum EvalError<'a> {
+pub enum EvalError<'src> {
     EmptyApply,
-    MultipleBindings(&'a str),
-    NonIdentBinding(Expr<'a>),
+    MultipleBindings(&'src str),
+    NonIdentBinding(Expr<'src>),
     EmptyListBindings,
     EnvVar(env::VarError),
-    InvalidColor(InvalidColorError<'a>),
-    NonListBindings(Expr<'a>),
+    InvalidColor(InvalidColorError<'src>),
+    NonListBindings(Expr<'src>),
     NoBindings,
     NoBody,
     NotAFunction,
-    NotFound(&'a str),
+    NotFound(&'src str),
     Overflow,
-    UnknownCfgField(Cow<'a, Cow<'a, str>>),
-    WrongType(TryFromValueError<'a>),
+    UnknownCfgField(Supercow<'src, String, str, Rc<str>>),
+    WrongType(TryFromValueError<'src>),
     WrongArity(Arity),
     WrongListArity(Arity),
     WrongBindingArity(Arity),
 }
-impl<'a> Display for EvalError<'a> {
+impl<'src> Display for EvalError<'src> {
     fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         // TODO: implement display
         Ok(())
@@ -128,22 +128,22 @@ impl From<env::VarError> for EvalError<'_> {
         Self::EnvVar(err)
     }
 }
-impl<'a> From<TryFromValueError<'a>> for EvalError<'a> {
-    fn from(err: TryFromValueError<'a>) -> Self {
+impl<'src> From<TryFromValueError<'src>> for EvalError<'src> {
+    fn from(err: TryFromValueError<'src>) -> Self {
         Self::WrongType(err)
     }
 }
 
 macro_rules! impl_value_variant {
     ($variant:ident($ty:ty)) => {
-        impl<'a> From<$ty> for Value<'a> {
+        impl<'src> From<$ty> for Value<'src> {
             fn from(val: $ty) -> Self {
                 Self::$variant(val)
             }
         }
 
-        impl<'a> TryFromValue<'a> for $ty {
-            fn try_from_value(val: Value<'a>) -> Result<$ty, TryFromValueError<'a>> {
+        impl<'src> TryFromValue<'src> for $ty {
+            fn try_from_value(val: Value<'src>) -> Result<$ty, TryFromValueError<'src>> {
                 match val {
                     Value::$variant(val) => Ok(val),
                     val => Err(TryFromValueError(val, type_name::<$ty>())),
@@ -158,15 +158,16 @@ pub enum Value<'src> {
     Unit,
     Bool(bool),
     Int(i32),
-    String(Cow<'src, Cow<'src, str>>),
+    // String(Cow<'src, Cow<'src, str>>),
+    String(Supercow<'src, String, str, Rc<str>>),
     List(Rc<List<'src>>),
     Fn(Rc<dyn ClispFn<'src> + 'src>),
 }
 impl_value_variant!(Bool(bool));
 impl_value_variant!(Int(i32));
-impl_value_variant!(String(Cow<'a, Cow<'a, str>>));
-impl_value_variant!(List(Rc<List<'a>>));
-impl_value_variant!(Fn(Rc<dyn ClispFn<'a> + 'a>));
+impl_value_variant!(String(Supercow<'src, String, str, Rc<str>>));
+impl_value_variant!(List(Rc<List<'src>>));
+impl_value_variant!(Fn(Rc<dyn ClispFn<'src> + 'src>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
@@ -215,8 +216,8 @@ impl<'src> TryFrom<Value<'src>> for Option<Color> {
 
                 Ok(Some(Color::Rgb { r, g, b }))
             }
-            Value::String(name) if name.as_ref().as_ref() == "none" => Ok(None),
-            Value::String(name) => Color::from_str(name.as_ref().as_ref())
+            Value::String(name) if name.as_ref() == "none" => Ok(None),
+            Value::String(name) => Color::from_str(name.as_ref())
                 .map_err(|_| InvalidColorError::UnknownColor(name))
                 .map(Some),
             val => Err(InvalidColorError::WrongType(val)),
@@ -229,7 +230,7 @@ pub enum InvalidColorError<'src> {
     WrongListArity,
     WrongType(Value<'src>),
     WrongListType(Value<'src>),
-    UnknownColor(Cow<'src, Cow<'src, str>>),
+    UnknownColor(Supercow<'src, String, str, Rc<str>>),
 }
 
 pub trait ClispFn<'src>:
@@ -250,16 +251,16 @@ impl ToOwned for dyn ClispFn<'_> {
     }
 }
 
-pub trait TryFromValue<'a> {
-    fn try_from_value(_: Value<'a>) -> Result<Self, TryFromValueError<'a>>
+pub trait TryFromValue<'src> {
+    fn try_from_value(_: Value<'src>) -> Result<Self, TryFromValueError<'src>>
     where
         Self: Sized;
 }
-impl<'a, T> TryFromValue<'a> for T
+impl<'src, T> TryFromValue<'src> for T
 where
-    T: From<Value<'a>>,
+    T: From<Value<'src>>,
 {
-    fn try_from_value(val: Value<'a>) -> Result<Self, TryFromValueError<'a>>
+    fn try_from_value(val: Value<'src>) -> Result<Self, TryFromValueError<'src>>
     where
         Self: Sized,
     {
@@ -268,29 +269,29 @@ where
 }
 
 #[derive(Clone, Debug, PartialEq)]
-pub enum List<'a> {
+pub enum List<'src> {
     Nil,
-    Cons(Value<'a>, Rc<Self>),
+    Cons(Value<'src>, Rc<Self>),
 }
-impl<'a> List<'a> {
-    pub fn new<C, I>(iter: C) -> Rc<List<'a>>
+impl<'src> List<'src> {
+    pub fn new<C, I>(iter: C) -> Rc<List<'src>>
     where
-        C: IntoIterator<IntoIter = I, Item = Value<'a>>,
-        I: DoubleEndedIterator + Iterator<Item = Value<'a>>,
+        C: IntoIterator<IntoIter = I, Item = Value<'src>>,
+        I: DoubleEndedIterator + Iterator<Item = Value<'src>>,
     {
         iter.into_iter()
             .rev()
             .fold(Rc::new(List::Nil), |cdr, val| Rc::new(List::Cons(val, cdr)))
     }
 
-    pub fn iter(self: Rc<Self>) -> list::Iter<'a> {
+    pub fn iter(self: Rc<Self>) -> list::Iter<'src> {
         list::Iter(self)
     }
 }
 
 #[derive(Debug)]
-pub struct TryFromValueError<'a>(Value<'a>, &'static str);
-impl<'a> Display for TryFromValueError<'a> {
+pub struct TryFromValueError<'src>(Value<'src>, &'static str);
+impl<'src> Display for TryFromValueError<'src> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "`{:?}` is not of type `{}`", self.0, self.1)
     }

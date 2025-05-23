@@ -11,14 +11,13 @@ use {
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
-        borrow::Cow,
         collections::{HashMap, HashSet, VecDeque, vec_deque},
-        convert::identity,
         env,
         ops::{ControlFlow, Not},
         path::Path,
         rc::Rc,
     },
+    supercow::Supercow,
 };
 
 const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
@@ -100,18 +99,16 @@ const fn concat<'src>() -> impl ClispFn<'src> {
         let (mut car, mut cdr) = vals
             .map(|val| {
                 val.and_then(|val| {
-                    Cow::<'src, Cow<'src, str>>::try_from_value(val).map_err(EvalError::WrongType)
+                    Supercow::<'src, String, str, Rc<str>>::try_from_value(val).map_err(EvalError::WrongType)
                 })
             })
             .try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
             .next()
-            .transpose_fst()?
-            .map_fst(Cow::into_owned)
-            .map_fst(Cow::into_owned);
-        cdr.try_for_each(|item| item.map(|item| car.push_str(item.as_ref().as_ref())))?;
+            .transpose_fst()?;
+        cdr.try_for_each(|item| item.map(|item| car.to_mut().push_str(item.as_ref())))?;
 
-        Ok(Value::String(Cow::Owned(Cow::Owned(car))))
+        Ok(Value::String(car))
     })
 }
 const fn cons<'src>() -> impl ClispFn<'src> {
@@ -137,11 +134,10 @@ const fn env<'src>() -> impl ClispFn<'src> {
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[var]| var)
             .and_then(|var| {
-                Cow::<'src, Cow<'src, str>>::try_from_value(var).map_err(EvalError::WrongType)
+                Supercow::<'src, String, str, Rc<str>>::try_from_value(var).map_err(EvalError::WrongType)
             })
-            .and_then(|var| env::var(var.as_ref().as_ref()).map_err(EvalError::EnvVar))
-            .map(Cow::Owned)
-            .map(Cow::Owned)
+            .and_then(|var| env::var(var.as_ref()).map_err(EvalError::EnvVar))
+            .map(Supercow::owned)
             .map(Value::String)
     })
 }
@@ -296,14 +292,14 @@ const fn path_exists<'src>() -> impl ClispFn<'src> {
                     .into_iter()
                     .map(|path| {
                         path.and_then(|path| {
-                            Cow::<'src, Cow<'src, str>>::try_from_value(path)
-                                .map(|path| Path::new(path.as_ref().as_ref()).exists())
+                            Supercow::<'src, String, str, Rc<str>>::try_from_value(path)
+                                .map(|path| Path::new(path.as_ref()).exists())
                                 .map_err(EvalError::WrongType)
                         })
                     })
                     .try_fold(
                         true,
-                        |accum, exists| -> ControlFlow<Result<bool, EvalError<'src>>, bool> {
+                        |_, exists| -> ControlFlow<Result<bool, EvalError<'src>>, bool> {
                             match exists {
                                 Ok(true) => ControlFlow::Continue(true),
                                 Ok(false) => ControlFlow::Break(Ok(false)),
