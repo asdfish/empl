@@ -75,7 +75,7 @@ impl IntermediateConfig {
                         .collect_array()
                         .ok_or(EvalError::WrongArity(Arity::Static(2)))?;
                     let field = env.eval_into::<Cow<'src, Cow<'src, str>>>(field)?;
-                    let value = env.eval(value).map(Cow::into_owned)?;
+                    let value = env.eval(value)?;
 
                     match field.as_ref().as_ref() {
                         "cursor-colors" => {

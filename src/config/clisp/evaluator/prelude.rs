@@ -91,7 +91,7 @@ where
     move |env, args| {
         f(&mut args
             .into_iter()
-            .map(|expr| env.eval(expr).map(Cow::into_owned)))
+            .map(|expr| env.eval(expr)))
     }
 }
 
@@ -163,9 +163,9 @@ fn r#if<'src>(
     }
 
     if env.eval_into::<bool>(predicate)? {
-        env.eval(then).map(Cow::into_owned)
+        env.eval(then)
     } else if let Some(otherwise) = otherwise {
-        env.eval(otherwise).map(Cow::into_owned)
+        env.eval(otherwise)
     } else {
         Ok(Value::Unit)
     }
@@ -210,7 +210,7 @@ fn lambda<'src>(
             .zip_all(&bindings)
             .try_for_each(|arg| match arg {
                 EitherOrBoth::Both(arg, binding) => {
-                    let arg = env.eval(arg).map(Cow::into_owned)?;
+                    let arg = env.eval(arg)?;
                     env.last_mut().insert(binding, arg);
                     Ok(())
                 }
@@ -242,7 +242,7 @@ fn r#let<'src>(
                     let Expr::Literal(Literal::Ident(binding)) = binding else {
                         return Err(EvalError::NonIdentBinding(binding));
                     };
-                    let value = env.eval(value).map(Cow::into_owned)?;
+                    let value = env.eval(value)?;
                     env.last_mut().insert(binding, value);
                     Ok(())
                 }
@@ -261,7 +261,7 @@ fn list<'src>(
         .rev()
         .try_fold(Rc::new(List::Nil), |accum, item| {
             Ok(Rc::new(List::Cons(
-                env.eval(item).map(Cow::into_owned)?,
+                env.eval(item)?,
                 accum,
             )))
         })
@@ -326,7 +326,7 @@ where
     iter.try_into_nonempty_iter()
         .ok_or(EvalError::NoBody)?
         .into_iter()
-        .map(|expr| env.eval(expr).map(Cow::into_owned))
+        .map(|expr| env.eval(expr))
         .try_fold(None, |_, expr| Ok(Some(expr?)))
         .transpose()
         .expect("should always have a value since the iterator is not empty")
@@ -398,7 +398,7 @@ const fn seq_fold<'src>() -> impl ClispFn<'src> {
         |env, args| {
             args.next()
                 .ok_or(EvalError::WrongArity(Arity::Static(3)))
-                .and_then(|expr| env.eval(expr).map(Cow::into_owned))
+                .and_then(|expr| env.eval(expr))
         },
         |env, accum, fold, mut items| {
             items.try_fold(accum, |accum, item| {

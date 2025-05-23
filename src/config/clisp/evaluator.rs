@@ -44,32 +44,31 @@ impl<'src> Environment<'src> {
     pub fn eval<'env>(
         &'env mut self,
         expr: Expr<'src>,
-    ) -> Result<Cow<'env, Value<'src>>, EvalError<'src>> {
+    ) -> Result<Value<'src>, EvalError<'src>> {
         match expr {
-            Expr::Literal(Literal::Bool(b)) => Ok(Cow::Owned(Value::Bool(*b))),
+            Expr::Literal(Literal::Bool(b)) => Ok(Value::Bool(*b)),
             Expr::Literal(Literal::Ident(id)) => self
                 .get(id)
-                .map(Cow::Borrowed)
+                .cloned()
                 .ok_or(EvalError::NotFound(id)),
-            Expr::Literal(Literal::Int(i)) => Ok(Cow::Owned(Value::Int(*i))),
-            Expr::Literal(Literal::String(s)) => Ok(Cow::Owned(Value::String(Cow::Borrowed(s)))),
+            Expr::Literal(Literal::Int(i)) => Ok(Value::Int(*i)),
+            Expr::Literal(Literal::String(s)) => Ok(Value::String(Cow::Borrowed(s))),
             Expr::List(mut apply) => {
                 let Value::Fn(func) = apply
                     .pop_front()
                     .ok_or(EvalError::EmptyApply)
-                    .and_then(|expr| self.eval(expr))
-                    .map(Cow::into_owned)?
+                    .and_then(|expr| self.eval(expr))?
                 else {
                     return Err(EvalError::NotAFunction);
                 };
 
                 self.0.push(HashMap::new());
-                let output = func(self, apply).map(Cow::Owned);
+                let output = func(self, apply);
                 self.0.pop();
 
                 output
             }
-            Expr::Value(value) => Ok(Cow::Owned(value)),
+            Expr::Value(value) => Ok(value),
         }
     }
     pub fn eval_into<'env, T>(&'env mut self, expr: Expr<'src>) -> Result<T, EvalError<'src>>
@@ -77,7 +76,7 @@ impl<'src> Environment<'src> {
         T: TryFromValue<'src>,
     {
         self.eval(expr)
-            .map(Cow::into_owned)
+            
             .and_then(|expr| T::try_from_value(expr).map_err(EvalError::WrongType))
     }
 
