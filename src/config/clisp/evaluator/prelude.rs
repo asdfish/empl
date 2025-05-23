@@ -286,8 +286,8 @@ const fn path_exists<'src>() -> impl ClispFn<'src> {
                     .into_iter()
                     .map(|path| {
                         path.and_then(|path| {
-                            Supercow::<'src, String, str, Rc<str>>::try_from_value(path)
-                                .map(|path| Path::new(path.as_ref()).exists())
+                            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
+                                .map(|path| path.exists())
                                 .map_err(EvalError::WrongType)
                         })
                     })
