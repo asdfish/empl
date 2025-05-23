@@ -33,7 +33,6 @@ futures-core = { version = "0.3.31", default-features = false }
 nonempty-collections = { version = "0.3.0", default-features = false }
 pin-project-lite = { version = "0.2.16", default-features = false }
 qcell = { version = "0.5.4", default-features = false, features = ["exclusion-set"] }
-supercow = { version = "0.1.0", default-features = false }
 tokio = { version = "1.45.0", default-features = false, features = ["io-std", "io-util", "rt", "sync"] }
 unicode-ident = { version = "1.0.18", default-features = false }
 unicode-width = { version = "0.2.0", default-features = false }

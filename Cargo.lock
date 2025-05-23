@@ -414,7 +414,6 @@ dependencies = [
  "nonempty-collections",
  "pin-project-lite",
  "qcell",
- "supercow",
  "tokio",
  "unicode-ident",
  "unicode-width",
@@ -1151,12 +1150,6 @@ name = "smallvec"
 version = "1.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8917285742e9f3e1683f0a9c4e6b57960b7314d0b08d30d1ecd426713ee2eee9"
-
-[[package]]
-name = "supercow"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "171758edb47aa306a78dfa4ab9aeb5167405bd4e3dc2b64e88f6a84bbe98bd63"
 
 [[package]]
 name = "symphonia"
