@@ -276,6 +276,35 @@ fn not<'src>(
         .map(bool::not)
         .map(Value::Bool)
 }
+const fn path_children<'src>() -> impl ClispFn<'src> {
+    value_fn(|paths| {
+        paths
+            .fuse()
+            .collect_array::<1>()
+            .ok_or(EvalError::WrongArity(Arity::Static(1)))
+            .and_then(|[path]| path)
+            .and_then(|path| {
+                Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
+                    .map_err(EvalError::WrongType)
+                    .and_then(|path| {
+                        path.read_dir()
+                            .map(|dir| {
+                                dir.map(|dir_ent| {
+                                    dir_ent
+                                        .map(|dir_ent| dir_ent.path())
+                                        .map(Supercow::owned)
+                                        .map(Value::Path)
+                                        .map_err(EvalError::Io)
+                                })
+                            })
+                            .map_err(EvalError::Io)
+                            .and_then(Iterator::collect::<Result<Vec<_>, _>>)
+                    })
+            })
+            .map(List::new)
+            .map(Value::List)
+    })
+}
 const fn path_exists<'src>() -> impl ClispFn<'src> {
     value_fn(|paths| {
         paths
@@ -476,6 +505,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
         ("not", Value::Fn(Rc::new(not))),
+        ("path-children", Value::Fn(Rc::new(const { path_children() }))),
         ("path-exists", Value::Fn(Rc::new(const { path_exists() }))),
         ("progn", Value::Fn(Rc::new(progn))),
         ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
@@ -484,7 +514,10 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
         ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
         ("seq-rev", Value::Fn(Rc::new(seq_rev))),
-        ("string->path", Value::Fn(Rc::new(const { string_to_path() }))),
+        (
+            "string->path",
+            Value::Fn(Rc::new(const { string_to_path() })),
+        ),
         ("try-catch", Value::Fn(Rc::new(try_catch))),
     ])
 }
