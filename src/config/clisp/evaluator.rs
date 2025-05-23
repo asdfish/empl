@@ -43,7 +43,16 @@ impl<'src> Environment<'src> {
         self.0.last_mut()
     }
 
-    pub fn eval<'env>(&'env mut self, expr: Expr<'src>) -> Result<Value<'src>, EvalError<'src>> {
+    fn eval_inner<'env, Pre, Post>(
+        &'env mut self,
+        expr: Expr<'src>,
+        pre: Pre,
+        post: Post,
+    ) -> Result<Value<'src>, EvalError<'src>>
+    where
+        Pre: FnOnce(&mut NEVec<HashMap<&'src str, Value<'src>>>),
+        Post: FnOnce(&mut NEVec<HashMap<&'src str, Value<'src>>>),
+    {
         match expr {
             Expr::Literal(Literal::Bool(b)) => Ok(Value::Bool(*b)),
             Expr::Literal(Literal::Ident(id)) => {
@@ -60,14 +69,29 @@ impl<'src> Environment<'src> {
                     return Err(EvalError::NotAFunction);
                 };
 
-                self.0.push(HashMap::new());
+                pre(&mut self.0);
                 let output = func(self, apply);
-                self.0.pop();
+                post(&mut self.0);
 
                 output
             }
             Expr::Value(value) => Ok(value),
         }
+    }
+    pub fn eval<'env>(&'env mut self, expr: Expr<'src>) -> Result<Value<'src>, EvalError<'src>> {
+        self.eval_inner(
+            expr,
+            |frames| frames.push(HashMap::new()),
+            |frames| {
+                frames.pop();
+            },
+        )
+    }
+    pub fn eval_tail_call<'env>(
+        &'env mut self,
+        expr: Expr<'src>,
+    ) -> Result<Value<'src>, EvalError<'src>> {
+        self.eval_inner(expr, |_| {}, |_| {})
     }
     pub fn eval_into<'env, T>(&'env mut self, expr: Expr<'src>) -> Result<T, EvalError<'src>>
     where
@@ -116,9 +140,9 @@ pub enum EvalError<'src> {
     WrongBindingArity(Arity),
 }
 impl<'src> Display for EvalError<'src> {
-    fn fmt(&self, _f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        // TODO: implement display
-        Ok(())
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        // TODO: implement display properly
+        write!(f, "{:?}", self)
     }
 }
 impl From<env::VarError> for EvalError<'_> {

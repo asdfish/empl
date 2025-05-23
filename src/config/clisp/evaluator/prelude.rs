@@ -14,7 +14,7 @@ use {
         collections::{HashMap, HashSet, VecDeque, vec_deque},
         env,
         ops::{ControlFlow, Not},
-        path::{Path, PathBuf},
+        path::{self, Path, PathBuf},
         rc::Rc,
     },
     supercow::Supercow,
@@ -406,17 +406,23 @@ const fn path_name<'src>() -> impl ClispFn<'src> {
             .map(Value::String)
     })
 }
-fn progn<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
+fn path_separator<'src>(
+    _: &mut Environment<'src>,
+    _: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    Ok(Value::String(Supercow::borrowed(path::MAIN_SEPARATOR_STR)))
+}
+fn progn<'src, C, I>(env: &mut Environment<'src>, iter: C) -> Result<Value<'src>, EvalError<'src>>
 where
-    I: IntoIterator<Item = Expr<'src>>,
+    C: IntoIterator<IntoIter = I, Item = Expr<'src>>,
+    I: DoubleEndedIterator + Iterator<Item = Expr<'src>>,
 {
-    iter.try_into_nonempty_iter()
-        .ok_or(EvalError::NoBody)?
-        .into_iter()
-        .map(|expr| env.eval(expr))
-        .try_fold(None, |_, expr| Ok(Some(expr?)))
-        .transpose()
-        .expect("should always have a value since the iterator is not empty")
+    let mut iter = iter.into_iter();
+    iter
+        .next_back()
+        .ok_or(EvalError::NoBody)
+        .and_then(|tail| iter.try_for_each(|expr| env.eval(expr).map(drop)).map(move |_| tail))
+        .and_then(|tail| env.eval_tail_call(tail))
 }
 const fn seq_filter<'src>() -> impl ClispFn<'src> {
     seq_fn(
@@ -562,6 +568,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("path-is-dir", Value::Fn(Rc::new(const { path_is_dir() }))),
         ("path-is-file", Value::Fn(Rc::new(const { path_is_file() }))),
         ("path-name", Value::Fn(Rc::new(const { path_name() }))),
+        ("path-separator", Value::Fn(Rc::new(path_separator))),
         ("progn", Value::Fn(Rc::new(progn))),
         ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
         ("seq-find", Value::Fn(Rc::new(const { seq_find() }))),

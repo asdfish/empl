@@ -35,21 +35,21 @@ pub trait IteratorExt: Iterator {
         Self: FusedIterator + Sized,
     {
         let mut output = [(); N].map(|_| MaybeUninit::uninit());
-        let mut written = 0;
-        self.enumerate()
-            .try_for_each(|(i, val)| {
-                if let Some(slot) = output.get_mut(i) {
-                    slot.write(val);
-                    written = i + 1;
+
+        output
+            .iter_mut()
+            .zip_all(self)
+            .try_for_each(|slot| match slot {
+                EitherOrBoth::Both(into, from) => {
+                    into.write(from);
                     Ok(())
-                } else {
-                    Err(())
-                }
+                },
+                _ => Err(())
             })
             .ok()
-            .filter(|_| written == N)?;
-
-        Some(output.map(|item| unsafe { item.assume_init() }))
+            .map(move |_| {
+                output.map(|item| unsafe { item.assume_init() })
+            })
     }
 
     /// `Order` the items in an iterator by how many items are the same.
