@@ -107,43 +107,41 @@ const fn concat<'src>() -> impl ClispFn<'src> {
             .transpose_fst()?
             .map_fst(Cow::into_owned)
             .map_fst(Cow::into_owned);
-        cdr
-            .try_for_each(|item| {
-                item
-                    .map(|item| car.push_str(item.as_ref().as_ref()))
-            })?;
+        cdr.try_for_each(|item| item.map(|item| car.push_str(item.as_ref().as_ref())))?;
 
         Ok(Value::String(Cow::Owned(Cow::Owned(car))))
     })
 }
-fn cons<'src>(
-    env: &mut Environment<'src>,
-    args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
-    let [car, cdr] = args
-        .into_iter()
-        .collect_array::<2>()
-        .ok_or(EvalError::WrongArity(Arity::Static(2)))?
-        .map(|expr| env.eval(expr).map(Cow::into_owned))
-        .transpose()?;
-
-    let cdr = Rc::<List>::try_from_value(cdr)?;
-
-    Ok(Value::List(Rc::new(List::Cons(car, cdr))))
+const fn cons<'src>() -> impl ClispFn<'src> {
+    value_fn(|args| {
+        args.fuse()
+            .into_iter()
+            .collect_array::<2>()
+            .ok_or(EvalError::WrongArity(Arity::Static(2)))
+            .and_then(<[Result<Value<'src>, EvalError<'src>>; 2]>::transpose)
+            .and_then(|[car, cdr]| {
+                Rc::<List>::try_from_value(cdr)
+                    .map(move |cdr| Rc::new(List::Cons(car, cdr)))
+                    .map_err(EvalError::WrongType)
+            })
+            .map(Value::List)
+    })
 }
-fn env<'src>(
-    env: &mut Environment<'src>,
-    args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
-    args
-        .into_iter()
-        .collect_array::<1>()
-        .ok_or(EvalError::WrongArity(Arity::Static(1)))
-        .and_then(|[var]| env.eval_into::<Cow<'src, Cow<'src, str>>>(var))
-        .and_then(|var| env::var(var.as_ref().as_ref()).map_err(EvalError::EnvVar))
-        .map(Cow::Owned)
-        .map(Cow::Owned)
-        .map(Value::String)
+const fn env<'src>() -> impl ClispFn<'src> {
+    value_fn(|args| {
+        args.into_iter()
+            .fuse()
+            .collect_array::<1>()
+            .ok_or(EvalError::WrongArity(Arity::Static(1)))
+            .and_then(|[var]| var)
+            .and_then(|var| {
+                Cow::<'src, Cow<'src, str>>::try_from_value(var).map_err(EvalError::WrongType)
+            })
+            .and_then(|var| env::var(var.as_ref().as_ref()).map_err(EvalError::EnvVar))
+            .map(Cow::Owned)
+            .map(Cow::Owned)
+            .map(Value::String)
+    })
 }
 fn r#if<'src>(
     env: &mut Environment<'src>,
@@ -401,6 +399,21 @@ fn seq_rev<'src>(
         })
         .map(Value::List)
 }
+fn try_catch<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    let [success, failure] = args
+        .into_iter()
+        .collect_array::<2>()
+        .ok_or(EvalError::WrongArity(Arity::Static(2)))
+        .and_then(|args| {
+            args.map(|arg| env.eval_into::<Rc<dyn ClispFn<'src>>>(arg))
+                .transpose()
+        })?;
+
+    success(env, VecDeque::new()).or_else(move |_| failure(env, VecDeque::new()))
+}
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
@@ -410,8 +423,8 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("*", Value::Fn(Rc::new(const { math_fn(i32::checked_mul) }))),
         ("%", Value::Fn(Rc::new(const { math_fn(i32::checked_rem) }))),
         ("concat", Value::Fn(Rc::new(const { concat() }))),
-        ("cons", Value::Fn(Rc::new(cons))),
-        ("env", Value::Fn(Rc::new(env))),
+        ("cons", Value::Fn(Rc::new(const { cons() }))),
+        ("env", Value::Fn(Rc::new(const { env() }))),
         ("if", Value::Fn(Rc::new(r#if))),
         ("lambda", Value::Fn(Rc::new(lambda))),
         ("let", Value::Fn(Rc::new(r#let))),
@@ -425,5 +438,6 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
         ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
         ("seq-rev", Value::Fn(Rc::new(seq_rev))),
+        ("try-catch", Value::Fn(Rc::new(try_catch))),
     ])
 }
