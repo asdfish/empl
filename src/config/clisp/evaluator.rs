@@ -16,6 +16,7 @@ use {
         fmt::{self, Debug, Display, Formatter},
         num::TryFromIntError,
         ops::{Range, RangeFrom},
+        path::{Path, PathBuf},
         rc::Rc,
         str::FromStr,
     },
@@ -129,6 +130,17 @@ impl<'src> From<TryFromValueError<'src>> for EvalError<'src> {
     }
 }
 
+#[derive(Clone, Default)]
+pub enum Value<'src> {
+    #[default]
+    Unit,
+    Bool(bool),
+    Int(i32),
+    Path(Supercow<'src, PathBuf, Path, Rc<Path>>),
+    String(Supercow<'src, String, str, Rc<str>>),
+    List(Rc<List<'src>>),
+    Fn(Rc<dyn ClispFn<'src> + 'src>),
+}
 macro_rules! impl_value_variant {
     ($variant:ident($ty:ty)) => {
         impl<'src> From<$ty> for Value<'src> {
@@ -147,19 +159,9 @@ macro_rules! impl_value_variant {
         }
     };
 }
-#[derive(Clone, Default)]
-pub enum Value<'src> {
-    #[default]
-    Unit,
-    Bool(bool),
-    Int(i32),
-    // String(Cow<'src, Cow<'src, str>>),
-    String(Supercow<'src, String, str, Rc<str>>),
-    List(Rc<List<'src>>),
-    Fn(Rc<dyn ClispFn<'src> + 'src>),
-}
 impl_value_variant!(Bool(bool));
 impl_value_variant!(Int(i32));
+impl_value_variant!(Path(Supercow<'src, PathBuf, Path, Rc<Path>>));
 impl_value_variant!(String(Supercow<'src, String, str, Rc<str>>));
 impl_value_variant!(List(Rc<List<'src>>));
 impl_value_variant!(Fn(Rc<dyn ClispFn<'src> + 'src>));
@@ -169,6 +171,7 @@ impl Debug for Value<'_> {
             Self::Unit => f.debug_tuple("Unit").finish(),
             Self::Bool(b) => f.debug_tuple("Bool").field(b).finish(),
             Self::Int(i) => f.debug_tuple("Int").field(i).finish(),
+            Self::Path(p) => f.debug_tuple("Path").field(p).finish(),
             Self::String(s) => f.debug_tuple("String").field(s).finish(),
             Self::List(l) => f.debug_tuple("List").field(l).finish(),
             Self::Fn(_) => f.debug_tuple("Fn").finish_non_exhaustive(),
@@ -181,6 +184,7 @@ impl<'src> PartialEq for Value<'src> {
             (Self::Unit, Self::Unit) => true,
             (Self::Bool(l), Self::Bool(r)) => l == r,
             (Self::Int(l), Self::Int(r)) => l == r,
+            (Self::Path(l), Self::Path(r)) => l == r,
             (Self::String(l), Self::String(r)) => l == r,
             (Self::List(l), Self::List(r)) => l == r,
             _ => false,

@@ -14,7 +14,7 @@ use {
         collections::{HashMap, HashSet, VecDeque, vec_deque},
         env,
         ops::{ControlFlow, Not},
-        path::Path,
+        path::{Path, PathBuf},
         rc::Rc,
     },
     supercow::Supercow,
@@ -424,6 +424,26 @@ fn seq_rev<'src>(
         })
         .map(Value::List)
 }
+const fn string_to_path<'src>() -> impl ClispFn<'src> {
+    value_fn(|string| {
+        string
+            .fuse()
+            .collect_array::<1>()
+            .ok_or(EvalError::WrongArity(Arity::Static(1)))
+            .and_then(|[string]| string)
+            .and_then(|string| {
+                Supercow::<'src, String, str, Rc<str>>::try_from_value(string)
+                    .map_err(EvalError::WrongType)
+            })
+            .map(|string| {
+                Supercow::extract_ref(&string)
+                    .map(Path::new)
+                    .map(Supercow::borrowed)
+                    .unwrap_or(Supercow::owned(PathBuf::from(Supercow::into_inner(string))))
+            })
+            .map(Value::Path)
+    })
+}
 fn try_catch<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
@@ -464,6 +484,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
         ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
         ("seq-rev", Value::Fn(Rc::new(seq_rev))),
+        ("string->path", Value::Fn(Rc::new(const { string_to_path() }))),
         ("try-catch", Value::Fn(Rc::new(try_catch))),
     ])
 }

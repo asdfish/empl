@@ -81,7 +81,7 @@ impl<'a> Parser<'a, &'a str> for IdentParser {
 
     fn parse(&self, input: &'a str) -> Option<ParserOutput<'a, &'a str, &'a str>> {
         fn special_char(ch: char) -> bool {
-            matches!(ch, '-' | '+' | '*' | '/' | '%' | '!')
+            matches!(ch, '-' | '+' | '*' | '/' | '%' | '!' | '<' | '>')
         }
 
         Any::new()
