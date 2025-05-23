@@ -13,8 +13,10 @@ use {
     std::{
         borrow::Cow,
         collections::{HashMap, HashSet, VecDeque, vec_deque},
+        convert::identity,
         env,
-        ops::Not,
+        ops::{ControlFlow, Not},
+        path::Path,
         rc::Rc,
     },
 };
@@ -284,6 +286,39 @@ fn not<'src>(
         .map(bool::not)
         .map(Value::Bool)
 }
+const fn path_exists<'src>() -> impl ClispFn<'src> {
+    value_fn(|paths| {
+        paths
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(1..)))
+            .and_then(|paths| {
+                match paths
+                    .into_iter()
+                    .map(|path| {
+                        path.and_then(|path| {
+                            Cow::<'src, Cow<'src, str>>::try_from_value(path)
+                                .map(|path| Path::new(path.as_ref().as_ref()).exists())
+                                .map_err(EvalError::WrongType)
+                        })
+                    })
+                    .try_fold(
+                        true,
+                        |accum, exists| -> ControlFlow<Result<bool, EvalError<'src>>, bool> {
+                            match exists {
+                                Ok(true) => ControlFlow::Continue(true),
+                                Ok(false) => ControlFlow::Break(Ok(false)),
+                                Err(err) => ControlFlow::Break(Err(err)),
+                            }
+                        },
+                    )
+                    .map_continue(Ok)
+                {
+                    ControlFlow::Break(output) | ControlFlow::Continue(output) => output,
+                }
+            })
+            .map(Value::Bool)
+    })
+}
 fn progn<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
 where
     I: IntoIterator<Item = Expr<'src>>,
@@ -431,6 +466,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
         ("not", Value::Fn(Rc::new(not))),
+        ("path-exists", Value::Fn(Rc::new(const { path_exists() }))),
         ("progn", Value::Fn(Rc::new(progn))),
         ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
         ("seq-find", Value::Fn(Rc::new(const { seq_find() }))),
