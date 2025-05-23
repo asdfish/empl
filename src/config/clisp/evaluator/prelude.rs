@@ -340,13 +340,46 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
     })
 }
 const fn path_exists<'src>() -> impl ClispFn<'src> {
-    predicate_fn(|val| Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val).map_err(EvalError::WrongType), |path| path.exists())
+    predicate_fn(
+        |val| {
+            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
+                .map_err(EvalError::WrongType)
+        },
+        |path| path.exists(),
+    )
 }
 const fn path_is_dir<'src>() -> impl ClispFn<'src> {
-    predicate_fn(|val| Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val).map_err(EvalError::WrongType), |path| path.is_dir())
+    predicate_fn(
+        |val| {
+            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
+                .map_err(EvalError::WrongType)
+        },
+        |path| path.is_dir(),
+    )
 }
 const fn path_is_file<'src>() -> impl ClispFn<'src> {
-    predicate_fn(|val| Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val).map_err(EvalError::WrongType), |path| path.is_file())
+    predicate_fn(
+        |val| {
+            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
+                .map_err(EvalError::WrongType)
+        },
+        |path| path.is_file(),
+    )
+}
+const fn path_name<'src>() -> impl ClispFn<'src> {
+    value_fn(|path| {
+        path.fuse()
+            .collect_array::<1>()
+            .ok_or(EvalError::WrongArity(Arity::Static(1)))
+            .and_then(|[path]| path)
+            .and_then(|path| {
+                Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
+                    .map_err(EvalError::WrongType)
+            })
+            .map(|path| path.file_name().unwrap_or_default().to_string_lossy().into_owned())
+            .map(Supercow::owned)
+            .map(Value::String)
+    })
 }
 fn progn<'src, I>(env: &mut Environment<'src>, iter: I) -> Result<Value<'src>, EvalError<'src>>
 where
@@ -522,6 +555,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("path-exists", Value::Fn(Rc::new(const { path_exists() }))),
         ("path-is-dir", Value::Fn(Rc::new(const { path_is_dir() }))),
         ("path-is-file", Value::Fn(Rc::new(const { path_is_file() }))),
+        ("path-name", Value::Fn(Rc::new(const { path_name() }))),
         ("progn", Value::Fn(Rc::new(progn))),
         ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
         ("seq-find", Value::Fn(Rc::new(const { seq_find() }))),
