@@ -26,7 +26,7 @@ use {
 };
 
 /// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
-const _VERSION_MESSAGE: &str = "empl 1.0.0";
+const VERSION_MESSAGE: &str = "empl 1.0.0";
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {

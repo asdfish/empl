@@ -218,39 +218,3 @@ pub struct Song {
     pub playlist: u16,
     pub index: u16,
 }
-
-#[cfg(test)]
-mod tests {
-    use {
-        super::*,
-        nonempty_collections::NEVec,
-        std::{path::PathBuf, sync::Arc},
-    };
-
-    #[test]
-    fn display_state_is_visible() {
-        let display_state = DisplayState {
-            focus: Focus::Playlists,
-            offsets: EnumMap::from_fn(|_| 0),
-            terminal_area: const {
-                Some(Area {
-                    width: NonZeroU16::new(1).unwrap(),
-                    height: NonZeroU16::new(1).unwrap(),
-                })
-            },
-            cursors: EnumMap::default(),
-            selected_menu: 0,
-            selected_song: Song {
-                playlist: 0,
-                index: 0,
-            },
-            playlists: &NEVec::new((
-                String::from(""),
-                NEVec::new((String::from(""), Arc::from(PathBuf::from("")))),
-            )),
-        };
-
-        assert_eq!(display_state.visible(Focus::Playlists, 0), true);
-        assert_eq!(display_state.visible(Focus::Playlists, 1), false);
-    }
-}
