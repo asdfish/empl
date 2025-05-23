@@ -43,13 +43,11 @@ pub trait IteratorExt: Iterator {
                 EitherOrBoth::Both(into, from) => {
                     into.write(from);
                     Ok(())
-                },
-                _ => Err(())
+                }
+                _ => Err(()),
             })
             .ok()
-            .map(move |_| {
-                output.map(|item| unsafe { item.assume_init() })
-            })
+            .map(move |_| output.map(|item| unsafe { item.assume_init() }))
     }
 
     /// `Order` the items in an iterator by how many items are the same.

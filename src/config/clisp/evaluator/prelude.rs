@@ -8,6 +8,7 @@ use {
         },
         either::EitherOrBoth,
         ext::{array::ArrayExt, iterator::IteratorExt, pair::PairExt},
+        lazy_rc::LazyRc,
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
@@ -17,7 +18,6 @@ use {
         path::{self, Path, PathBuf},
         rc::Rc,
     },
-    supercow::Supercow,
 };
 
 const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
@@ -126,20 +126,20 @@ where
 
 const fn concat<'src>() -> impl ClispFn<'src> {
     value_fn(|vals| {
-        let (mut car, mut cdr) = vals
-            .map(|val| {
-                val.and_then(|val| {
-                    Supercow::<'src, String, str, Rc<str>>::try_from_value(val)
-                        .map_err(EvalError::WrongType)
-                })
-            })
-            .try_into_nonempty_iter()
-            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
-            .next()
-            .transpose_fst()?;
-        cdr.try_for_each(|item| item.map(|item| car.to_mut().push_str(item.as_ref())))?;
-
-        Ok(Value::String(car))
+        vals.map(|val| {
+            val.and_then(|val| LazyRc::<str>::try_from_value(val).map_err(EvalError::WrongType))
+        })
+        .try_into_nonempty_iter()
+        .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
+        .and_then(|vals| vals.next().transpose_fst())
+        .map(|cons| cons.map_fst(|car| String::from(car.as_ref())))
+        .and_then(|(mut car, mut cdr)| {
+            cdr.try_for_each(|tail| tail.map(|tail| car.push_str(tail.as_ref())))
+                .map(move |_| car)
+        })
+        .map(Rc::from)
+        .map(LazyRc::Owned)
+        .map(Value::String)
     })
 }
 const fn cons<'src>() -> impl ClispFn<'src> {
@@ -163,12 +163,10 @@ const fn env<'src>() -> impl ClispFn<'src> {
             .collect_array::<1>()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[var]| var)
-            .and_then(|var| {
-                Supercow::<'src, String, str, Rc<str>>::try_from_value(var)
-                    .map_err(EvalError::WrongType)
-            })
+            .and_then(|var| LazyRc::<str>::try_from_value(var).map_err(EvalError::WrongType))
             .and_then(|var| env::var(var.as_ref()).map_err(EvalError::EnvVar))
-            .map(Supercow::owned)
+            .map(Rc::from)
+            .map(LazyRc::Owned)
             .map(Value::String)
     })
 }
@@ -317,15 +315,10 @@ const fn path<'src>() -> impl ClispFn<'src> {
             .collect_array::<1>()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[string]| string)
-            .and_then(|string| {
-                Supercow::<'src, String, str, Rc<str>>::try_from_value(string)
-                    .map_err(EvalError::WrongType)
-            })
-            .map(|string| {
-                Supercow::extract_ref(&string)
-                    .map(Path::new)
-                    .map(Supercow::borrowed)
-                    .unwrap_or(Supercow::owned(PathBuf::from(Supercow::into_inner(string))))
+            .and_then(|string| LazyRc::<str>::try_from_value(string).map_err(EvalError::WrongType))
+            .map(|string| match string {
+                LazyRc::Borrowed(path) => LazyRc::Borrowed(Path::new(path)),
+                LazyRc::Owned(path) => LazyRc::Owned(Rc::from(PathBuf::from(path.as_ref()))),
             })
             .map(Value::Path)
     })
@@ -338,7 +331,7 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[path]| path)
             .and_then(|path| {
-                Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
+                LazyRc::<Path>::try_from_value(path)
                     .map_err(EvalError::WrongType)
                     .and_then(|path| {
                         path.read_dir()
@@ -346,7 +339,8 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
                                 dir.map(|dir_ent| {
                                     dir_ent
                                         .map(|dir_ent| dir_ent.path())
-                                        .map(Supercow::owned)
+                                        .map(Rc::from)
+                                        .map(LazyRc::Owned)
                                         .map(Value::Path)
                                         .map_err(EvalError::Io)
                                 })
@@ -361,28 +355,19 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
 }
 const fn path_exists<'src>() -> impl ClispFn<'src> {
     predicate_fn(
-        |val| {
-            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
-                .map_err(EvalError::WrongType)
-        },
+        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
         |path| path.exists(),
     )
 }
 const fn path_is_dir<'src>() -> impl ClispFn<'src> {
     predicate_fn(
-        |val| {
-            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
-                .map_err(EvalError::WrongType)
-        },
+        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
         |path| path.is_dir(),
     )
 }
 const fn path_is_file<'src>() -> impl ClispFn<'src> {
     predicate_fn(
-        |val| {
-            Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(val)
-                .map_err(EvalError::WrongType)
-        },
+        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
         |path| path.is_file(),
     )
 }
@@ -392,17 +377,18 @@ const fn path_name<'src>() -> impl ClispFn<'src> {
             .collect_array::<1>()
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[path]| path)
-            .and_then(|path| {
-                Supercow::<'src, PathBuf, Path, Rc<Path>>::try_from_value(path)
-                    .map_err(EvalError::WrongType)
+            .and_then(|path| LazyRc::<Path>::try_from_value(path).map_err(EvalError::WrongType))
+            .map(|path| match path {
+                LazyRc::Borrowed(path) => {
+                    LazyRc::from(path.file_name().unwrap_or_default().to_string_lossy())
+                }
+                LazyRc::Owned(path) => LazyRc::Owned(Rc::from(
+                    path.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .into_owned(),
+                )),
             })
-            .map(|path| {
-                path.file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .map(Supercow::owned)
             .map(Value::String)
     })
 }
@@ -410,7 +396,7 @@ fn path_separator<'src>(
     _: &mut Environment<'src>,
     _: VecDeque<Expr<'src>>,
 ) -> Result<Value<'src>, EvalError<'src>> {
-    Ok(Value::String(Supercow::borrowed(path::MAIN_SEPARATOR_STR)))
+    Ok(Value::String(LazyRc::Borrowed(path::MAIN_SEPARATOR_STR)))
 }
 fn progn<'src, C, I>(env: &mut Environment<'src>, iter: C) -> Result<Value<'src>, EvalError<'src>>
 where
@@ -418,10 +404,12 @@ where
     I: DoubleEndedIterator + Iterator<Item = Expr<'src>>,
 {
     let mut iter = iter.into_iter();
-    iter
-        .next_back()
+    iter.next_back()
         .ok_or(EvalError::NoBody)
-        .and_then(|tail| iter.try_for_each(|expr| env.eval(expr).map(drop)).map(move |_| tail))
+        .and_then(|tail| {
+            iter.try_for_each(|expr| env.eval(expr).map(drop))
+                .map(move |_| tail)
+        })
         .and_then(|tail| env.eval_tail_call(tail))
 }
 const fn seq_filter<'src>() -> impl ClispFn<'src> {

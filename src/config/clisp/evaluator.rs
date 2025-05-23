@@ -5,6 +5,7 @@ use {
     crate::{
         config::clisp::{ast::Expr, lexer::Literal},
         ext::{array::ArrayExt, iterator::IteratorExt},
+        lazy_rc::LazyRc,
     },
     crossterm::style::Color,
     dyn_clone::DynClone,
@@ -17,11 +18,10 @@ use {
         io,
         num::TryFromIntError,
         ops::{Range, RangeFrom},
-        path::{Path, PathBuf},
+        path::Path,
         rc::Rc,
         str::FromStr,
     },
-    supercow::Supercow,
 };
 
 #[derive(Clone)]
@@ -59,7 +59,7 @@ impl<'src> Environment<'src> {
                 self.get(id).cloned().ok_or(EvalError::NotFound(id))
             }
             Expr::Literal(Literal::Int(i)) => Ok(Value::Int(*i)),
-            Expr::Literal(Literal::String(s)) => Ok(Value::String(Supercow::borrowed(s))),
+            Expr::Literal(Literal::String(s)) => Ok(Value::String(LazyRc::Borrowed(s))),
             Expr::List(mut apply) => {
                 let Value::Fn(func) = apply
                     .pop_front()
@@ -133,7 +133,7 @@ pub enum EvalError<'src> {
     NotAFunction,
     NotFound(&'src str),
     Overflow,
-    UnknownCfgField(Supercow<'src, String, str, Rc<str>>),
+    UnknownCfgField(LazyRc<'src, str>),
     WrongType(TryFromValueError<'src>),
     WrongArity(Arity),
     WrongListArity(Arity),
@@ -162,8 +162,8 @@ pub enum Value<'src> {
     Unit,
     Bool(bool),
     Int(i32),
-    Path(Supercow<'src, PathBuf, Path, Rc<Path>>),
-    String(Supercow<'src, String, str, Rc<str>>),
+    Path(LazyRc<'src, Path>),
+    String(LazyRc<'src, str>),
     List(Rc<List<'src>>),
     Fn(Rc<dyn ClispFn<'src> + 'src>),
 }
@@ -187,8 +187,8 @@ macro_rules! impl_value_variant {
 }
 impl_value_variant!(Bool(bool));
 impl_value_variant!(Int(i32));
-impl_value_variant!(Path(Supercow<'src, PathBuf, Path, Rc<Path>>));
-impl_value_variant!(String(Supercow<'src, String, str, Rc<str>>));
+impl_value_variant!(Path(LazyRc<'src, Path>));
+impl_value_variant!(String(LazyRc<'src, str>));
 impl_value_variant!(List(Rc<List<'src>>));
 impl_value_variant!(Fn(Rc<dyn ClispFn<'src> + 'src>));
 impl Debug for Value<'_> {
@@ -255,7 +255,7 @@ pub enum InvalidColorError<'src> {
     WrongListArity,
     WrongType(Value<'src>),
     WrongListType(Value<'src>),
-    UnknownColor(Supercow<'src, String, str, Rc<str>>),
+    UnknownColor(LazyRc<'src, str>),
 }
 
 pub trait ClispFn<'src>:

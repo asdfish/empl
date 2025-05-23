@@ -7,6 +7,7 @@ use {
             evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
+        lazy_rc::LazyRc,
     },
     crossterm::{
         event::{KeyCode, KeyModifiers},
@@ -25,7 +26,6 @@ use {
         rc::Rc,
         sync::Arc,
     },
-    supercow::Supercow,
 };
 
 #[derive(Debug)]
@@ -46,7 +46,7 @@ impl IntermediateConfig {
             let this = Rc::clone(&output);
             let mut environment = Environment::with_symbols(iter::once((
                 "set-cfg!",
-                Value::Fn(Rc::new(move |env, args| {
+                Value::Fn(Rc::new(move |env, mut args| {
                     fn set_colors<'src>(
                         colors: &mut Colors,
                         value: Value<'src>,
@@ -74,7 +74,7 @@ impl IntermediateConfig {
                         .into_iter()
                         .collect_array()
                         .ok_or(EvalError::WrongArity(Arity::Static(2)))?;
-                    let field = env.eval_into::<Supercow<'src, String, str, Rc<str>>>(field)?;
+                    let field = env.eval_into::<LazyRc<'src, str>>(field)?;
                     let value = env.eval(value)?;
 
                     match field.as_ref() {
@@ -101,20 +101,32 @@ impl IntermediateConfig {
                                                 .ok_or(EvalError::WrongListArity(Arity::Static(2)))
                                         })
                                         .and_then(|[name, songs]| {
-                                            Supercow::<'src, String, str, Rc<str>>::try_from_value(name)
-                                                .map(Supercow::into_inner)
+                                            LazyRc::<str>::try_from_value(name)
+                                                .map(|name| name.to_string())
                                                 .map_err(EvalError::WrongType)
                                                 .and_then(move |name| {
                                                     Rc::<List<'src>>::try_from_value(songs)
                                                         .map_err(EvalError::WrongType)
                                                         .and_then(|songs| {
                                                             songs.iter()
-                                                                .map(|song| Supercow::<'src, String, str, Rc<str>>::try_from_value(song)
-                                                                    .map(|path| (path.rsplit_once(path::MAIN_SEPARATOR)
-                                                                        .map(|(_, tail)| tail)
-                                                                        .unwrap_or(&path).to_string(), Arc::<Path>::from(PathBuf::from(Supercow::into_inner(path)))))
+                                                                .map(|song| Rc::<List<'src>>::try_from_value(song)
                                                                     .map_err(EvalError::WrongType)
-                                                                )
+                                                                    .and_then(|song|
+                                                                        song
+                                                                            .iter()
+                                                                            .collect_array::<2>()
+                                                                            .ok_or(EvalError::WrongListArity(Arity::Static(2)))
+                                                                            .and_then(|[name, path]| LazyRc::<str>::try_from_value(name)
+                                                                                .map(|name| name.to_string())
+                                                                                .and_then(move |name| LazyRc::<Path>::try_from_value(path)
+                                                                                    .map(|path| -> Arc<Path> {
+                                                                                        match path {
+                                                                                            LazyRc::Borrowed(path) => Arc::from(path.as_ref()),
+                                                                                            LazyRc::Owned(path) => Arc::from(path.as_ref()),
+                                                                                        }
+                                                                                    })
+                                                                                    .map(move |path| (name, path)))
+                                                                    .map_err(EvalError::WrongType))))
                                                                 .try_into_nonempty_iter().ok_or(EvalError::WrongListArity(Arity::RangeFrom(1..)))
                                                         })
                                                         .and_then(NonEmptyIterator::collect::<Result<NEVec<_>, _>>)
@@ -122,7 +134,8 @@ impl IntermediateConfig {
                                                 })
                                         })
                                 })
-                                .collect::<Result<Vec<_>, _>>()?;
+                                .collect::<Result<Vec<_>, _>>()?
+;
                         }
                         _ => return Err(EvalError::UnknownCfgField(field)),
                     }

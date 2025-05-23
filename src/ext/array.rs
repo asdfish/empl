@@ -7,8 +7,7 @@ pub trait ArrayExt<const N: usize, T, E> {
 }
 
 impl<const N: usize, T, E> ArrayExt<N, T, E> for [Result<T, E>; N] {
-    fn transpose(self) -> Result<[T; N], E>
-    {
+    fn transpose(self) -> Result<[T; N], E> {
         let mut output = [(); N].map(|_| MaybeUninit::uninit());
         output
             .iter_mut()
