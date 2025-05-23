@@ -87,11 +87,7 @@ where
             &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
         ) -> Result<Value<'src>, EvalError<'src>>,
 {
-    move |env, args| {
-        f(&mut args
-            .into_iter()
-            .map(|expr| env.eval(expr)))
-    }
+    move |env, args| f(&mut args.into_iter().map(|expr| env.eval(expr)))
 }
 
 const fn concat<'src>() -> impl ClispFn<'src> {
@@ -99,7 +95,8 @@ const fn concat<'src>() -> impl ClispFn<'src> {
         let (mut car, mut cdr) = vals
             .map(|val| {
                 val.and_then(|val| {
-                    Supercow::<'src, String, str, Rc<str>>::try_from_value(val).map_err(EvalError::WrongType)
+                    Supercow::<'src, String, str, Rc<str>>::try_from_value(val)
+                        .map_err(EvalError::WrongType)
                 })
             })
             .try_into_nonempty_iter()
@@ -114,7 +111,6 @@ const fn concat<'src>() -> impl ClispFn<'src> {
 const fn cons<'src>() -> impl ClispFn<'src> {
     value_fn(|args| {
         args.fuse()
-            .into_iter()
             .collect_array::<2>()
             .ok_or(EvalError::WrongArity(Arity::Static(2)))
             .and_then(<[Result<Value<'src>, EvalError<'src>>; 2]>::transpose)
@@ -134,7 +130,8 @@ const fn env<'src>() -> impl ClispFn<'src> {
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[var]| var)
             .and_then(|var| {
-                Supercow::<'src, String, str, Rc<str>>::try_from_value(var).map_err(EvalError::WrongType)
+                Supercow::<'src, String, str, Rc<str>>::try_from_value(var)
+                    .map_err(EvalError::WrongType)
             })
             .and_then(|var| env::var(var.as_ref()).map_err(EvalError::EnvVar))
             .map(Supercow::owned)
@@ -256,10 +253,7 @@ fn list<'src>(
     args.into_iter()
         .rev()
         .try_fold(Rc::new(List::Nil), |accum, item| {
-            Ok(Rc::new(List::Cons(
-                env.eval(item)?,
-                accum,
-            )))
+            Ok(Rc::new(List::Cons(env.eval(item)?, accum)))
         })
         .map(Value::List)
 }

@@ -77,7 +77,7 @@ impl IntermediateConfig {
                     let field = env.eval_into::<Supercow<'src, String, str, Rc<str>>>(field)?;
                     let value = env.eval(value)?;
 
-                    match field.as_ref().as_ref() {
+                    match field.as_ref() {
                         "cursor-colors" => {
                             set_colors(&mut this.rw(&mut owner).cursor_colors, value)?;
                         }

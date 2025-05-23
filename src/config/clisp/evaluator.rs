@@ -41,16 +41,12 @@ impl<'src> Environment<'src> {
         self.0.last_mut()
     }
 
-    pub fn eval<'env>(
-        &'env mut self,
-        expr: Expr<'src>,
-    ) -> Result<Value<'src>, EvalError<'src>> {
+    pub fn eval<'env>(&'env mut self, expr: Expr<'src>) -> Result<Value<'src>, EvalError<'src>> {
         match expr {
             Expr::Literal(Literal::Bool(b)) => Ok(Value::Bool(*b)),
-            Expr::Literal(Literal::Ident(id)) => self
-                .get(id)
-                .cloned()
-                .ok_or(EvalError::NotFound(id)),
+            Expr::Literal(Literal::Ident(id)) => {
+                self.get(id).cloned().ok_or(EvalError::NotFound(id))
+            }
             Expr::Literal(Literal::Int(i)) => Ok(Value::Int(*i)),
             Expr::Literal(Literal::String(s)) => Ok(Value::String(Supercow::borrowed(s))),
             Expr::List(mut apply) => {
@@ -76,7 +72,6 @@ impl<'src> Environment<'src> {
         T: TryFromValue<'src>,
     {
         self.eval(expr)
-            
             .and_then(|expr| T::try_from_value(expr).map_err(EvalError::WrongType))
     }
 
