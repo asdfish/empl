@@ -48,7 +48,7 @@ impl<'a> TerminalEventTask<'a> {
                 }))) => {
                     self.key_presses.push((modifiers, code));
                     if self.key_presses.len()
-                        >= self
+                        > self
                             .max_key_binding_len
                             .get_or_insert_with(|| {
                                 self.config

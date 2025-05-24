@@ -138,6 +138,8 @@ pub enum EvalError<'src> {
     Overflow,
     UnknownCfgField(LazyRc<'src, str>),
     UnknownKeyAction(UnknownKeyActionError<'src>),
+    UnknownKeyModifier(char),
+    UnknownKeyCode(LazyRc<'src, str>),
     WrongType(TryFromValueError<'src>),
     WrongArity(Arity),
     WrongListArity(Arity),

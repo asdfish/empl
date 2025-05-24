@@ -495,6 +495,10 @@ where
         }
     }
 
+    pub fn into_inner(self) -> O {
+        self.output
+    }
+
     pub fn map_output<F, T>(self, f: F) -> ParserOutput<'a, I, T>
     where
         F: FnOnce(O) -> T,
