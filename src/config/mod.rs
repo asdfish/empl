@@ -90,6 +90,63 @@ impl IntermediateConfig {
                         "selection-colors" => {
                             set_colors(&mut this.rw(&mut owner).selection_colors, value)?;
                         }
+                        "key-bindings" => {
+                            // '(string '(modifier key))
+                            Rc::<List<'src>>::try_from_value(value).and_then(|key_bindings| {
+                                key_bindings
+                                    .iter()
+                                    .try_into_nonempty_iter()
+                                    .ok_or(EvalError::WrongArity(Arity::RangeFrom(1..)))
+                                    .map(|key_bindings| {
+                                        key_bindings.map(|key_binding| {
+                                            Rc::<List<'src>>::try_from_value(key_binding)
+                                                .map_err(EvalError::WrongType)
+                                                .and_then(|key_binding| {
+                                                    key_binding.iter().collect_array::<2>().ok_or(
+                                                        EvalError::WrongListArity(Arity::Static(2)),
+                                                    )
+                                                })
+                                                .and_then(|[action, keys]| {
+                                                    LazyRc::<'src, str>::try_from_value(action)
+                                                        .map_err(EvalError::WrongType)
+                                                        .and_then(|action| KeyAction::try_from(action).map_err(EvalError::UnknownKeyAction))
+                                                        .and_then(move |action| {
+                                                            Rc::<List<'src>>::try_from_value(keys)
+                                                                .map_err(EvalError::WrongType)
+                                                                .and_then(|keys| {
+                                                                    keys
+                                                                        .iter()
+                                                                        .try_into_nonempty_iter()
+                                                                        .ok_or(EvalError::WrongListArity(Arity::RangeFrom(1..)))
+                                                                })
+                                                                .map(|keys| {
+                                                                    keys
+                                                                     .map(|key| {
+                                                                         Rc::<List<'src>>::try_from_value(key)
+                                                                          .map_err(EvalError::WrongType)
+                                                                          .and_then(|key| {
+                                                                               key
+                                                                                   .iter()
+                                                                                   .collect_array::<2>()
+                                                                                   .ok_or(EvalError::WrongListArity(Arity::Static(2)))
+                                                                          })
+                                                                         .and_then(|key| {
+                                                                             key
+                                                                                 .map(LazyRc::<'src, str>::try_from_value)
+                                                                                 .transpose()
+                                                                                 .map_err(EvalError::WrongType)
+                                                                         })
+                                                                     })
+                                                                })
+                                                                .map(move |keys| (action, keys))
+                                                        })
+                                                })
+                                        })
+                                    });
+
+                                Ok(())
+                            })?;
+                        }
                         "playlists" => {
                             let value = Rc::<List<'src>>::try_from_value(value)?;
                             this.rw(&mut owner).playlists = value
@@ -241,11 +298,11 @@ pub enum KeyAction {
     Select,
     SkipSong,
 }
-impl<'a> TryFrom<&'a str> for KeyAction {
+impl<'a> TryFrom<LazyRc<'a, str>> for KeyAction {
     type Error = UnknownKeyActionError<'a>;
 
-    fn try_from(key_action: &'a str) -> Result<Self, UnknownKeyActionError<'a>> {
-        match key_action {
+    fn try_from(key_action: LazyRc<'a, str>) -> Result<Self, UnknownKeyActionError<'a>> {
+        match key_action.as_ref() {
             "quit" => Ok(Self::Quit),
             "move_up" => Ok(Self::MoveUp),
             "move_down" => Ok(Self::MoveDown),
@@ -256,15 +313,15 @@ impl<'a> TryFrom<&'a str> for KeyAction {
             "move_selection" => Ok(Self::MoveSelection),
             "select" => Ok(Self::Select),
             "skip_song" => Ok(Self::SkipSong),
-            key_action => Err(UnknownKeyActionError(key_action)),
+            _ => Err(UnknownKeyActionError(key_action)),
         }
     }
 }
-#[derive(Clone, Copy, Debug)]
-pub struct UnknownKeyActionError<'a>(&'a str);
+#[derive(Clone, Debug)]
+pub struct UnknownKeyActionError<'a>(LazyRc<'a, str>);
 impl Display for UnknownKeyActionError<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        write!(f, "unknown key action `{}`", self.0)
+        write!(f, "unknown key action `{}`", self.0.as_ref())
     }
 }
 impl Error for UnknownKeyActionError<'_> {}

@@ -3,7 +3,10 @@ mod prelude;
 
 use {
     crate::{
-        config::clisp::{ast::Expr, lexer::Literal},
+        config::{
+            UnknownKeyActionError,
+            clisp::{ast::Expr, lexer::Literal},
+        },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
     },
@@ -134,6 +137,7 @@ pub enum EvalError<'src> {
     NotFound(&'src str),
     Overflow,
     UnknownCfgField(LazyRc<'src, str>),
+    UnknownKeyAction(UnknownKeyActionError<'src>),
     WrongType(TryFromValueError<'src>),
     WrongArity(Arity),
     WrongListArity(Arity),
