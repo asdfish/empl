@@ -114,6 +114,13 @@ where
         morphism(env, extra_args, map, seq.iter()).map(FO::into)
     }
 }
+const fn typed_predicate_fn<'src, P, T>(predicate: P) -> impl ClispFn<'src>
+where
+    P: Clone + Fn(&T) -> bool,
+    T: TryFromValue<'src>,
+{
+    predicate_fn(|value| T::try_from_value(value).map_err(EvalError::WrongType), predicate)
+}
 const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
     F: Clone
@@ -124,23 +131,28 @@ where
     move |env, args| f(&mut args.into_iter().map(|expr| env.eval(expr)))
 }
 
-const fn concat<'src>() -> impl ClispFn<'src> {
-    value_fn(|vals| {
-        vals.map(|val| {
-            val.and_then(|val| LazyRc::<str>::try_from_value(val).map_err(EvalError::WrongType))
+fn concat<'src>(
+    env: &mut Environment<'src>,
+    args: VecDeque<Expr<'src>>,
+) -> Result<Value<'src>, EvalError<'src>> {
+    (const {
+        value_fn(|vals| {
+            vals.map(|val| {
+                val.and_then(|val| LazyRc::<str>::try_from_value(val).map_err(EvalError::WrongType))
+            })
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
+            .and_then(|vals| vals.next().transpose_fst())
+            .map(|cons| cons.map_fst(|car| String::from(car.as_ref())))
+            .and_then(|(mut car, mut cdr)| {
+                cdr.try_for_each(|tail| tail.map(|tail| car.push_str(tail.as_ref())))
+                    .map(move |_| car)
+            })
+            .map(Rc::from)
+            .map(LazyRc::Owned)
+            .map(Value::String)
         })
-        .try_into_nonempty_iter()
-        .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-        .and_then(|vals| vals.next().transpose_fst())
-        .map(|cons| cons.map_fst(|car| String::from(car.as_ref())))
-        .and_then(|(mut car, mut cdr)| {
-            cdr.try_for_each(|tail| tail.map(|tail| car.push_str(tail.as_ref())))
-                .map(move |_| car)
-        })
-        .map(Rc::from)
-        .map(LazyRc::Owned)
-        .map(Value::String)
-    })
+    })(env, args)
 }
 const fn cons<'src>() -> impl ClispFn<'src> {
     value_fn(|args| {
@@ -353,24 +365,6 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
             .map(Value::List)
     })
 }
-const fn path_exists<'src>() -> impl ClispFn<'src> {
-    predicate_fn(
-        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
-        |path| path.exists(),
-    )
-}
-const fn path_is_dir<'src>() -> impl ClispFn<'src> {
-    predicate_fn(
-        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
-        |path| path.is_dir(),
-    )
-}
-const fn path_is_file<'src>() -> impl ClispFn<'src> {
-    predicate_fn(
-        |val| LazyRc::<Path>::try_from_value(val).map_err(EvalError::WrongType),
-        |path| path.is_file(),
-    )
-}
 const fn path_name<'src>() -> impl ClispFn<'src> {
     value_fn(|path| {
         path.fuse()
@@ -532,37 +526,91 @@ fn try_catch<'src>(
 }
 
 pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
+    macro_rules! adapt_const {
+        ($fn:expr) => {{
+            fn temp<'src>(
+                env: &mut Environment<'src>,
+                args: VecDeque<Expr<'src>>,
+            ) -> Result<Value<'src>, EvalError<'src>> {
+                ($fn)(env, args)
+            }
+            temp
+        }};
+    }
+
     HashMap::from_iter([
-        ("+", Value::Fn(Rc::new(const { math_fn(i32::checked_add) }))),
-        ("-", Value::Fn(Rc::new(const { math_fn(i32::checked_sub) }))),
-        ("/", Value::Fn(Rc::new(const { math_fn(i32::checked_div) }))),
-        ("*", Value::Fn(Rc::new(const { math_fn(i32::checked_mul) }))),
-        ("%", Value::Fn(Rc::new(const { math_fn(i32::checked_rem) }))),
-        ("concat", Value::Fn(Rc::new(const { concat() }))),
-        ("cons", Value::Fn(Rc::new(const { cons() }))),
-        ("env", Value::Fn(Rc::new(const { env() }))),
+        (
+            "+",
+            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_add) }))),
+        ),
+        (
+            "-",
+            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_sub) }))),
+        ),
+        (
+            "/",
+            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_div) }))),
+        ),
+        (
+            "*",
+            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_mul) }))),
+        ),
+        (
+            "%",
+            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_rem) }))),
+        ),
+        ("concat", Value::Fn(Rc::new(concat))),
+        ("cons", Value::Fn(Rc::new(adapt_const!(const { cons() })))),
+        ("env", Value::Fn(Rc::new(adapt_const!(const { env() })))),
         ("if", Value::Fn(Rc::new(r#if))),
         ("lambda", Value::Fn(Rc::new(lambda))),
         ("let", Value::Fn(Rc::new(r#let))),
         ("list", Value::Fn(Rc::new(list))),
         ("nil", Value::Fn(Rc::new(nil))),
         ("not", Value::Fn(Rc::new(not))),
-        ("path", Value::Fn(Rc::new(const { path() }))),
+        ("path", Value::Fn(Rc::new(adapt_const!(const { path() })))),
         (
             "path-children",
-            Value::Fn(Rc::new(const { path_children() })),
+            Value::Fn(Rc::new(adapt_const!(const { path_children() }))),
         ),
-        ("path-exists", Value::Fn(Rc::new(const { path_exists() }))),
-        ("path-is-dir", Value::Fn(Rc::new(const { path_is_dir() }))),
-        ("path-is-file", Value::Fn(Rc::new(const { path_is_file() }))),
-        ("path-name", Value::Fn(Rc::new(const { path_name() }))),
+        (
+            "path-exists",
+            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.exists()) }))),
+        ),
+        (
+            "path-is-dir",
+            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_dir()) }))),
+        ),
+        (
+            "path-is-file",
+            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_file()) }))),
+        ),
+        (
+            "path-name",
+            Value::Fn(Rc::new(adapt_const!(const { path_name() }))),
+        ),
         ("path-separator", Value::Fn(Rc::new(path_separator))),
         ("progn", Value::Fn(Rc::new(progn))),
-        ("seq-filter", Value::Fn(Rc::new(const { seq_filter() }))),
-        ("seq-find", Value::Fn(Rc::new(const { seq_find() }))),
-        ("seq-flat-map", Value::Fn(Rc::new(const { seq_flat_map() }))),
-        ("seq-fold", Value::Fn(Rc::new(const { seq_fold() }))),
-        ("seq-map", Value::Fn(Rc::new(const { seq_map() }))),
+        (
+            "seq-filter",
+            Value::Fn(Rc::new(adapt_const!(const { seq_filter() }))),
+        ),
+        (
+            "seq-find",
+            Value::Fn(Rc::new(adapt_const!(const { seq_find() }))),
+        ),
+        (
+            "seq-flat-map",
+            Value::Fn(Rc::new(adapt_const!(const { seq_flat_map() }))),
+        ),
+        (
+            "seq-fold",
+            Value::Fn(Rc::new(adapt_const!(const { seq_fold() }))),
+        ),
+        (
+            "seq-map",
+            Value::Fn(Rc::new(adapt_const!(const { seq_map() }))),
+        ),
         ("seq-rev", Value::Fn(Rc::new(seq_rev))),
         ("try-catch", Value::Fn(Rc::new(try_catch))),
     ])
