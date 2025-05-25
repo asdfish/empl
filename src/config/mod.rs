@@ -51,7 +51,7 @@ impl IntermediateConfig {
             let this = Rc::clone(&output);
             let mut environment = Environment::with_symbols(iter::once((
                 "set-cfg!",
-                Value::Fn(Rc::new(move |env, args| {
+                Value::Fn(LazyRc::Owned(Rc::new(move |env, args| {
                     fn set_colors<'src>(
                         colors: &mut Colors,
                         value: Value<'src>,
@@ -332,7 +332,7 @@ impl IntermediateConfig {
                     }
 
                     Ok(Value::Unit)
-                })),
+                }))),
             )));
             environment.eval(expr)?;
         }

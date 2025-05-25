@@ -91,7 +91,7 @@ where
         + Fn(
             &mut Environment<'src>,
             EO,
-            Rc<dyn ClispFn<'src> + 'src>,
+            LazyRc<'src, dyn ClispFn<'src> + 'src>,
             list::Iter<'src>,
         ) -> Result<FO, EvalError<'src>>,
     FO: Into<Value<'src>>,
@@ -101,7 +101,7 @@ where
         let map = args
             .next()
             .ok_or(EvalError::WrongArity(arity()))
-            .and_then(|map| env.eval_into::<Rc<dyn ClispFn<'src>>>(map))?;
+            .and_then(|map| env.eval_into::<LazyRc<'src, dyn ClispFn<'src>>>(map))?;
         let seq = args
             .next()
             .ok_or(EvalError::WrongArity(arity()))
@@ -242,7 +242,7 @@ fn lambda<'src>(
         return Err(EvalError::NoBody);
     }
 
-    Ok(Value::Fn(Rc::new(move |env, args| {
+    Ok(Value::Fn(LazyRc::Owned(Rc::new(move |env, args| {
         args.into_iter()
             .zip_all(&bindings)
             .try_for_each(|arg| match arg {
@@ -255,7 +255,7 @@ fn lambda<'src>(
             })?;
 
         progn(env, body.iter().cloned())
-    })))
+    }))))
 }
 fn r#let<'src>(
     env: &mut Environment<'src>,
@@ -518,7 +518,7 @@ fn try_catch<'src>(
         .collect_array::<2>()
         .ok_or(EvalError::WrongArity(Arity::Static(2)))
         .and_then(|args| {
-            args.map(|arg| env.eval_into::<Rc<dyn ClispFn<'src>>>(arg))
+            args.map(|arg| env.eval_into::<LazyRc<'src, dyn ClispFn<'src>>>(arg))
                 .transpose()
         })?;
 
@@ -541,77 +541,77 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
         (
             "+",
-            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_add) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_add) }))),
         ),
         (
             "-",
-            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_sub) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_sub) }))),
         ),
         (
             "/",
-            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_div) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_div) }))),
         ),
         (
             "*",
-            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_mul) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_mul) }))),
         ),
         (
             "%",
-            Value::Fn(Rc::new(adapt_const!(const { math_fn(i32::checked_rem) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_rem) }))),
         ),
-        ("concat", Value::Fn(Rc::new(concat))),
-        ("cons", Value::Fn(Rc::new(adapt_const!(const { cons() })))),
-        ("env", Value::Fn(Rc::new(adapt_const!(const { env() })))),
-        ("if", Value::Fn(Rc::new(r#if))),
-        ("lambda", Value::Fn(Rc::new(lambda))),
-        ("let", Value::Fn(Rc::new(r#let))),
-        ("list", Value::Fn(Rc::new(list))),
-        ("nil", Value::Fn(Rc::new(nil))),
-        ("not", Value::Fn(Rc::new(not))),
-        ("path", Value::Fn(Rc::new(adapt_const!(const { path() })))),
+        ("concat", Value::Fn(LazyRc::Borrowed(&concat))),
+        ("cons", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { cons() })))),
+        ("env", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { env() })))),
+        ("if", Value::Fn(LazyRc::Borrowed(&r#if))),
+        ("lambda", Value::Fn(LazyRc::Borrowed(&lambda))),
+        ("let", Value::Fn(LazyRc::Borrowed(&r#let))),
+        ("list", Value::Fn(LazyRc::Borrowed(&list))),
+        ("nil", Value::Fn(LazyRc::Borrowed(&nil))),
+        ("not", Value::Fn(LazyRc::Borrowed(&not))),
+        ("path", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path() })))),
         (
             "path-children",
-            Value::Fn(Rc::new(adapt_const!(const { path_children() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path_children() }))),
         ),
         (
             "path-exists",
-            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.exists()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.exists()) }))),
         ),
         (
             "path-is-dir",
-            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_dir()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_dir()) }))),
         ),
         (
             "path-is-file",
-            Value::Fn(Rc::new(adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_file()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_file()) }))),
         ),
         (
             "path-name",
-            Value::Fn(Rc::new(adapt_const!(const { path_name() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path_name() }))),
         ),
-        ("path-separator", Value::Fn(Rc::new(path_separator))),
-        ("progn", Value::Fn(Rc::new(progn))),
+        ("path-separator", Value::Fn(LazyRc::Borrowed(&path_separator))),
+        ("progn", Value::Fn(LazyRc::Borrowed(&progn))),
         (
             "seq-filter",
-            Value::Fn(Rc::new(adapt_const!(const { seq_filter() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { seq_filter() }))),
         ),
         (
             "seq-find",
-            Value::Fn(Rc::new(adapt_const!(const { seq_find() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { seq_find() }))),
         ),
         (
             "seq-flat-map",
-            Value::Fn(Rc::new(adapt_const!(const { seq_flat_map() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { seq_flat_map() }))),
         ),
         (
             "seq-fold",
-            Value::Fn(Rc::new(adapt_const!(const { seq_fold() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { seq_fold() }))),
         ),
         (
             "seq-map",
-            Value::Fn(Rc::new(adapt_const!(const { seq_map() }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { seq_map() }))),
         ),
-        ("seq-rev", Value::Fn(Rc::new(seq_rev))),
-        ("try-catch", Value::Fn(Rc::new(try_catch))),
+        ("seq-rev", Value::Fn(LazyRc::Borrowed(&seq_rev))),
+        ("try-catch", Value::Fn(LazyRc::Borrowed(&try_catch))),
     ])
 }

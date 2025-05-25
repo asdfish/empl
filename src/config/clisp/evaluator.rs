@@ -171,7 +171,7 @@ pub enum Value<'src> {
     Path(LazyRc<'src, Path>),
     String(LazyRc<'src, str>),
     List(Rc<List<'src>>),
-    Fn(Rc<dyn ClispFn<'src> + 'src>),
+    Fn(LazyRc<'src, dyn ClispFn<'src> + 'src>),
 }
 macro_rules! impl_value_variant {
     ($variant:ident($ty:ty)) => {
@@ -196,7 +196,7 @@ impl_value_variant!(Int(i32));
 impl_value_variant!(Path(LazyRc<'src, Path>));
 impl_value_variant!(String(LazyRc<'src, str>));
 impl_value_variant!(List(Rc<List<'src>>));
-impl_value_variant!(Fn(Rc<dyn ClispFn<'src> + 'src>));
+impl_value_variant!(Fn(LazyRc<'src, dyn ClispFn<'src> + 'src>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
