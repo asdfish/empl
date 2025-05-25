@@ -34,7 +34,7 @@ use {
 const VERSION_MESSAGE: &str = "empl 1.0.0";
 
 const CONFIG_PATHS: [(&str, Option<&str>); 2] =
-    [("XDG_CONFIG_HOME", None), ("HJME", Some(".config"))];
+    [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
@@ -144,11 +144,17 @@ impl Display for MainError {
             Self::ConfigPath => {
                 let message =
                     const {
-                        const _: () =
-                            assert!(CONFIG_PATHS.len() >= 2, "the error message is plural");
-                        const HEAD: &str = "the environment variables [\"";
+                        const HEAD: &str = if CONFIG_PATHS.len() == 1 {
+                            "the environment variable [\""
+                        } else {
+                            "the environment variables [\""
+                        };
                         const SEPARATOR: &str = "\", \"";
-                        const TAIL: &str = "\"] are not set";
+                        const TAIL: &str = if CONFIG_PATHS.len() == 1 {
+                            "\"] is not set"
+                        } else {
+                            "\"] are not set"
+                        };
 
                         const fn config_paths_len(
                             len: usize,
@@ -164,7 +170,7 @@ impl Display for MainError {
                             u8,
                             {
                                 HEAD.len()
-                                    + SEPARATOR.len() * CONFIG_PATHS.len()
+                                    + SEPARATOR.len() * (CONFIG_PATHS.len() - 1)
                                     + config_paths_len(0, &CONFIG_PATHS)
                                     + TAIL.len()
                             },
