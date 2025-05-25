@@ -13,11 +13,9 @@ use {
             },
         },
         const_vec::CVec,
-        ext::pair::PairExt,
         flag::{ArgumentsError, Flag},
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
-    nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
         env,
         error::Error,

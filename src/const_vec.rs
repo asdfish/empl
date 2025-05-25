@@ -1,5 +1,5 @@
 use std::{
-    mem::{self, MaybeUninit},
+    mem::MaybeUninit,
     ops::{Deref, DerefMut},
     slice,
 };
