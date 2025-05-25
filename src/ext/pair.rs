@@ -1,4 +1,17 @@
 pub trait PairExt {
+    fn fst<L, R>(self) -> L
+    where
+        Self: Into<(L, R)>,
+    {
+        self.into().0
+    }
+    fn snd<L, R>(self) -> R
+    where
+        Self: Into<(L, R)>,
+    {
+        self.into().1
+    }
+
     fn map_fst<F, L, L2, R>(self, map: F) -> (L2, R)
     where
         Self: Into<(L, R)>,

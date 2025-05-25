@@ -213,7 +213,8 @@ impl IntermediateConfig {
                                         'm' => Ok(KeyModifiers::META),
                                         's' => Ok(KeyModifiers::SHIFT),
                                         ch => Err(ch),
-                                    },
+                                    }
+                                        .map(move |modifier| modifiers.union(modifier)),
                                 )
                             }
 
