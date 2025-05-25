@@ -16,11 +16,12 @@ use {
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
     std::{
+        env,
         error::Error,
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
         fs, io,
-        path::Path,
+        path::{Path, PathBuf},
     },
     tokio::runtime,
 };
@@ -52,10 +53,37 @@ extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
         //             }
         //         }
 
+        let path = [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))]
+            .into_iter()
+            .find_map(|(var, dir)| {
+                env::var_os(var).map(PathBuf::from).map(move |mut path| {
+                    const CONFIG_PATH_TAIL: &[&str] = &["empl", "main.lisp"];
+                    const CONFIG_PATH_TAIL_LENGTH: usize = const {
+                        const fn string_len_sum(sum: usize, cons: &[&str]) -> usize {
+                            match cons {
+                                [car, cdr @ ..] => string_len_sum(car.len() + sum, cdr),
+                                [] => sum,
+                            }
+                        }
+
+                        string_len_sum(0, CONFIG_PATH_TAIL) +
+                            // add path separators
+                            CONFIG_PATH_TAIL.len()
+                    };
+
+                    path.reserve(dir.unwrap_or_default().len() + 1 + CONFIG_PATH_TAIL_LENGTH);
+                    dir.into_iter()
+                        .chain(CONFIG_PATH_TAIL.iter().copied())
+                        .for_each(|tail| path.push(tail));
+
+                    path
+                })
+            })
+            .ok_or(MainError::ConfigPath)?;
+
         let config =
-            // TODO: change file path
-            fs::read_to_string(Path::new("main.lisp"))
-                .map_err(MainError::ReadConfig)?;
+            fs::read_to_string(&path)
+                .map_err(move |err| MainError::ReadConfig(err, path))?;
 
         // TODO: error propagation
         let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
@@ -93,11 +121,12 @@ extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
+    ConfigPath,
     EmptyPlaylists,
     EvalConfig(String),
     IncompleteConfig(EmptyConfigError),
     NewTaskManager(NewTaskManagerError),
-    ReadConfig(io::Error),
+    ReadConfig(io::Error, PathBuf),
     Runtime(io::Error),
     UnknownFlag(Flag<'static>),
     Unrecoverable(UnrecoverableError),
@@ -107,11 +136,12 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
+            Self::ConfigPath => f.write_str("the environment variables `HOME` or `XDG_CONFIG_HOME` are not set"),
             Self::EmptyPlaylists => f.write_str("no playlists were found"),
             Self::EvalConfig(e) => write!(f, "failed to evaluate configuration file: {e}"),
             Self::IncompleteConfig(e) => e.fmt(f),
             Self::NewTaskManager(e) => e.fmt(f),
-            Self::ReadConfig(e) => write!(f, "failed to read configuration file: {e}"),
+            Self::ReadConfig(e, path) => write!(f, "failed to read configuration file `{}`: {e}", path.display()),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
             Self::Unrecoverable(e) => e.fmt(f),
