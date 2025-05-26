@@ -137,7 +137,7 @@ pub enum EvalError<'src> {
     NotFound(&'src str),
     Overflow,
     UnknownCfgField(LazyRc<'src, str>),
-    UnknownKeyAction(UnknownKeyActionError<'src>),
+    UnknownKeyAction(UnknownKeyActionError<LazyRc<'src, str>>),
     UnknownKeyModifier(char),
     UnknownKeyCode(LazyRc<'src, str>),
     WrongType(TryFromValueError<'src>),

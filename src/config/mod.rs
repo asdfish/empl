@@ -3,11 +3,14 @@ pub mod clisp;
 
 use {
     crate::{
-        config::clisp::{
-            ast::Expr,
-            evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
-            lexer::IntParser,
-            parser::{Parser, ParserOutput, token::Just},
+        config::{
+            cli::CliError,
+            clisp::{
+                ast::Expr,
+                evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
+                lexer::IntParser,
+                parser::{Parser, ParserOutput, token::Just},
+            },
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
@@ -22,6 +25,7 @@ use {
     },
     qcell::{TCell, TCellOwner},
     std::{
+        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         iter,
@@ -31,12 +35,56 @@ use {
     },
 };
 
+#[derive(Clone, Copy, Debug)]
+pub enum ConfigError {
+    Cli(CliError),
+}
+impl From<CliError> for ConfigError {
+    fn from(err: CliError) -> Self {
+        Self::Cli(err)
+    }
+}
+impl From<Infallible> for ConfigError {
+    fn from(_: Infallible) -> Self {
+        unreachable!()
+    }
+}
+
 pub trait ConfigStage {
-    type Error;
+    type Error: Into<ConfigError>;
     type Next: ConfigStage;
     type Resources;
 
-    fn execute(&self, _: Self::Resources) -> Option<Result<(IntermediateConfig, Self::Next), Self::Error>>;
+    fn execute(
+        _: Self::Resources,
+    ) -> Option<
+        Result<
+            (
+                IntermediateConfig,
+                Option<<Self::Next as ConfigStage>::Resources>,
+            ),
+            Self::Error,
+        >,
+    >;
+}
+impl ConfigStage for Infallible {
+    type Error = Infallible;
+    type Next = Infallible;
+    type Resources = Infallible;
+
+    fn execute(
+        _: Self::Resources,
+    ) -> Option<
+        Result<
+            (
+                IntermediateConfig,
+                Option<<Self::Next as ConfigStage>::Resources>,
+            ),
+            Self::Error,
+        >,
+    > {
+        unreachable!()
+    }
 }
 
 pub type KeyBinding = (KeyAction, NEVec<(KeyModifiers, KeyCode)>);
@@ -51,6 +99,28 @@ pub struct IntermediateConfig {
     playlists: Vec<Playlist>,
 }
 impl IntermediateConfig {
+    pub fn join(&mut self, new: Self) {
+        macro_rules! join_color {
+            ($colors:ident, $color:ident) => {
+                if let Some($color) = new.$colors.$color {
+                    self.$colors.$color = Some($color);
+                }
+            };
+        }
+        macro_rules! join_colors {
+            ($colors:ident) => {
+                join_color!($colors, foreground);
+                join_color!($colors, background);
+            };
+            ($($colors:ident),* $(,)?) => {
+                $(join_colors!($colors);)*
+            };
+        }
+        join_colors![cursor_colors, menu_colors, selection_colors];
+        self.key_bindings.extend(new.key_bindings);
+        self.playlists.extend(new.playlists);
+    }
+
     pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
         struct Id;
 
@@ -214,16 +284,18 @@ impl IntermediateConfig {
                             ) -> Result<KeyModifiers, char> {
                                 key_modifier.chars().try_fold(
                                     KeyModifiers::NONE,
-                                    |modifiers, ch| match ch.to_ascii_lowercase() {
-                                        'a' => Ok(KeyModifiers::ALT),
-                                        'c' => Ok(KeyModifiers::CONTROL),
-                                        'l' => Ok(KeyModifiers::SUPER),
-                                        'h' => Ok(KeyModifiers::HYPER),
-                                        'm' => Ok(KeyModifiers::META),
-                                        's' => Ok(KeyModifiers::SHIFT),
-                                        ch => Err(ch),
-                                    }
-                                        .map(move |modifier| modifiers.union(modifier)),
+                                    |modifiers, ch| {
+                                        match ch.to_ascii_lowercase() {
+                                            'a' => Ok(KeyModifiers::ALT),
+                                            'c' => Ok(KeyModifiers::CONTROL),
+                                            'l' => Ok(KeyModifiers::SUPER),
+                                            'h' => Ok(KeyModifiers::HYPER),
+                                            'm' => Ok(KeyModifiers::META),
+                                            's' => Ok(KeyModifiers::SHIFT),
+                                            ch => Err(ch),
+                                        }
+                                        .map(move |modifier| modifiers.union(modifier))
+                                    },
                                 )
                             }
 
@@ -245,7 +317,7 @@ impl IntermediateConfig {
                                                 .and_then(|[action, keys]| {
                                                     LazyRc::<'src, str>::try_from_value(action)
                                                         .map_err(EvalError::WrongType)
-                                                        .and_then(|action| KeyAction::try_from(action).map_err(EvalError::UnknownKeyAction))
+                                                        .and_then(|action| KeyAction::parse(action).map_err(EvalError::UnknownKeyAction))
                                                         .and_then(move |action| {
                                                             Rc::<List<'src>>::try_from_value(keys)
                                                                 .map_err(EvalError::WrongType)
@@ -438,10 +510,11 @@ pub enum KeyAction {
     Select,
     SkipSong,
 }
-impl<'a> TryFrom<LazyRc<'a, str>> for KeyAction {
-    type Error = UnknownKeyActionError<'a>;
-
-    fn try_from(key_action: LazyRc<'a, str>) -> Result<Self, UnknownKeyActionError<'a>> {
+impl KeyAction {
+    fn parse<S>(key_action: S) -> Result<Self, UnknownKeyActionError<S>>
+    where
+        S: AsRef<str>,
+    {
         match key_action.as_ref() {
             "quit" => Ok(Self::Quit),
             "move-up" => Ok(Self::MoveUp),
@@ -457,11 +530,17 @@ impl<'a> TryFrom<LazyRc<'a, str>> for KeyAction {
         }
     }
 }
-#[derive(Clone, Debug)]
-pub struct UnknownKeyActionError<'a>(LazyRc<'a, str>);
-impl Display for UnknownKeyActionError<'_> {
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct UnknownKeyActionError<S>(S)
+where
+    S: AsRef<str>;
+impl<S> Display for UnknownKeyActionError<S>
+where
+    S: AsRef<str>,
+{
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         write!(f, "unknown key action `{}`", self.0.as_ref())
     }
 }
-impl Error for UnknownKeyActionError<'_> {}
+impl<S> Error for UnknownKeyActionError<S> where S: AsRef<str> + fmt::Debug {}
