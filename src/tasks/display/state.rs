@@ -1,10 +1,9 @@
 use {
     crate::{
-        command::PrintPadded,
         config::{Config, Playlist},
         ext::{
             colors::ColorsExt,
-            command::{CommandChain, CommandExt},
+            command::{CommandChain, CommandExt, PrintPadded},
             iterator::IteratorExt,
         },
         tasks::display::damage::{Damage, DamageList},

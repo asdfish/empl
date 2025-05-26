@@ -1,5 +1,5 @@
 use {
-    empl::flag::{Arguments, ArgumentsError, Flag},
+    empl::config::cli::flag::{Arguments, ArgumentsError, Flag},
     std::{
         error::Error,
         fmt::{self, Display, Formatter},

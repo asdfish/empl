@@ -2,9 +2,12 @@
 
 use {
     empl::{
-        argv::{ArgError, ArgvError},
         config::{
             Config, EmptyConfigError, IntermediateConfig,
+            cli::{
+                argv::{ArgError, ArgvError},
+                flag::{ArgumentsError, Flag},
+            },
             clisp::{
                 ast::{Expr, ExprParser},
                 evaluator::Value,
@@ -13,7 +16,6 @@ use {
             },
         },
         const_vec::CVec,
-        flag::{ArgumentsError, Flag},
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
     std::{

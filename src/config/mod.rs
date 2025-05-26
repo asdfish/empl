@@ -1,3 +1,4 @@
+pub mod cli;
 pub mod clisp;
 
 use {
@@ -29,6 +30,14 @@ use {
         sync::Arc,
     },
 };
+
+pub trait ConfigStage {
+    type Error;
+    type Next: ConfigStage;
+    type Resources;
+
+    fn execute(&self, _: Self::Resources) -> Option<Result<(IntermediateConfig, Self::Next), Self::Error>>;
+}
 
 pub type KeyBinding = (KeyAction, NEVec<(KeyModifiers, KeyCode)>);
 pub type Playlist = (String, NEVec<(String, Arc<Path>)>);

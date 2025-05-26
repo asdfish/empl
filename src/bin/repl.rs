@@ -5,15 +5,17 @@ pub mod config;
 
 use {
     crate::config::{Config, Stage},
-    empl::{
-        argv::Argv,
-        config::clisp::{
+    empl::config::{
+        cli::{
+            argv::Argv,
+            flag::Arguments,
+        },
+        clisp::{
             ast::ExprParser,
             evaluator::Environment,
             lexer::LexemeParser,
             parser::{Parser, ParserOutput},
         },
-        flag::Arguments,
     },
     std::{
         ffi::{c_char, c_int},
