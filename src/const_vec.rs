@@ -85,7 +85,7 @@ where
     /// nums.push(2);
     /// ```
     pub const fn push(&mut self, item: T) {
-        assert!(self.len + 1 <= N);
+        assert!(self.len < N);
         self.buffer[self.len].write(item);
         self.len += 1;
     }

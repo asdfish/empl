@@ -55,6 +55,7 @@ pub trait ConfigStage {
     type Next: ConfigStage;
     type Resources;
 
+    #[expect(clippy::type_complexity)]
     fn execute(
         _: Self::Resources,
     ) -> Option<
@@ -121,7 +122,7 @@ impl IntermediateConfig {
         self.playlists.extend(new.playlists);
     }
 
-    pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError> {
+    pub fn eval(expr: Expr<'_>) -> Result<Self, EvalError> {
         struct Id;
 
         let output = Rc::new(TCell::<Id, Self>::new(Self::default()));
@@ -131,11 +132,11 @@ impl IntermediateConfig {
             let mut environment = Environment::with_symbols(iter::once((
                 "set-cfg!",
                 Value::Fn(LazyRc::Owned(Rc::new(move |env, args| {
-                    fn set_colors<'src>(
+                    fn set_colors(
                         colors: &mut Colors,
-                        value: Value<'src>,
+                        value: Value,
                     ) -> Result<(), EvalError> {
-                        let list = Rc::<List<'src>>::try_from_value(value)?;
+                        let list = Rc::<List>::try_from_value(value)?;
                         let [foreground, background] = list
                             .iter()
                             .collect_array()
@@ -158,7 +159,7 @@ impl IntermediateConfig {
                         .into_iter()
                         .collect_array()
                         .ok_or(EvalError::WrongArity(Arity::Static(2)))?;
-                    let field = env.eval_into::<LazyRc<'src, str>>(field)?;
+                    let field = env.eval_into::<LazyRc<str>>(field)?;
                     let value = env.eval(value)?;
 
                     match field.as_ref() {
@@ -172,9 +173,9 @@ impl IntermediateConfig {
                             set_colors(&mut this.rw(&mut owner).selection_colors, value)?;
                         }
                         "key-bindings" => {
-                            fn parse_key_code<'src>(
-                                key_code: LazyRc<'src, str>,
-                            ) -> Result<KeyCode, LazyRc<'src, str>> {
+                            fn parse_key_code(
+                                key_code: LazyRc<str>,
+                            ) -> Result<KeyCode, LazyRc<str>> {
                                 // todo:
                                 // F(u8),
                                 // Char(char),
@@ -300,14 +301,14 @@ impl IntermediateConfig {
                             }
 
                             // '(string '(modifier key))
-                            this.rw(&mut owner).key_bindings = Rc::<List<'src>>::try_from_value(value).map_err(EvalError::WrongType).and_then(|key_bindings| {
+                            this.rw(&mut owner).key_bindings = Rc::<List>::try_from_value(value).map_err(EvalError::WrongType).and_then(|key_bindings| {
                                 key_bindings
                                     .iter()
                                     .try_into_nonempty_iter()
                                     .ok_or(EvalError::WrongArity(Arity::RangeFrom(1..)))
                                     .and_then(|key_bindings| {
                                         key_bindings.map(|key_binding| {
-                                            Rc::<List<'src>>::try_from_value(key_binding)
+                                            Rc::<List>::try_from_value(key_binding)
                                                 .map_err(EvalError::WrongType)
                                                 .and_then(|key_binding| {
                                                     key_binding.iter().collect_array::<2>().ok_or(
@@ -315,13 +316,13 @@ impl IntermediateConfig {
                                                     )
                                                 })
                                                 .and_then(|[action, keys]| {
-                                                    LazyRc::<'src, str>::try_from_value(action)
+                                                    LazyRc::<str>::try_from_value(action)
                                                         .map_err(EvalError::WrongType)
                                                         .and_then(|action| KeyAction::parse(action)
                                                             .map_err(|err| err.map(LazyRc::into_owned))
                                                             .map_err(EvalError::UnknownKeyAction))
                                                         .and_then(move |action| {
-                                                            Rc::<List<'src>>::try_from_value(keys)
+                                                            Rc::<List>::try_from_value(keys)
                                                                 .map_err(EvalError::WrongType)
                                                                 .and_then(|keys| {
                                                                     keys
@@ -332,7 +333,7 @@ impl IntermediateConfig {
                                                                 .map(|keys| {
                                                                     keys
                                                                         .map(|key| {
-                                                                            Rc::<List<'src>>::try_from_value(key)
+                                                                            Rc::<List>::try_from_value(key)
                                                                                 .map_err(EvalError::WrongType)
                                                                                 .and_then(|key| {
                                                                                     key
@@ -342,7 +343,7 @@ impl IntermediateConfig {
                                                                                 })
                                                                                 .and_then(|key| {
                                                                                     key
-                                                                                        .map(LazyRc::<'src, str>::try_from_value)
+                                                                                        .map(LazyRc::<str>::try_from_value)
                                                                                         .transpose()
                                                                                         .map_err(EvalError::WrongType)
                                                                                 })
@@ -364,11 +365,11 @@ impl IntermediateConfig {
                             })?;
                         }
                         "playlists" => {
-                            let value = Rc::<List<'src>>::try_from_value(value)?;
+                            let value = Rc::<List>::try_from_value(value)?;
                             this.rw(&mut owner).playlists = value
                                 .iter()
                                 .map(|playlist| {
-                                    Rc::<List<'src>>::try_from_value(playlist)
+                                    Rc::<List>::try_from_value(playlist)
                                         .map_err(EvalError::WrongType)
                                         .and_then(|playlist| {
                                             playlist
@@ -381,11 +382,11 @@ impl IntermediateConfig {
                                                 .map(|name| name.to_string())
                                                 .map_err(EvalError::WrongType)
                                                 .and_then(move |name| {
-                                                    Rc::<List<'src>>::try_from_value(songs)
+                                                    Rc::<List>::try_from_value(songs)
                                                         .map_err(EvalError::WrongType)
                                                         .and_then(|songs| {
                                                             songs.iter()
-                                                                .map(|song| Rc::<List<'src>>::try_from_value(song)
+                                                                .map(|song| Rc::<List>::try_from_value(song)
                                                                     .map_err(EvalError::WrongType)
                                                                     .and_then(|song|
                                                                         song

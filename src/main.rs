@@ -30,36 +30,12 @@ use {
     tokio::runtime,
 };
 
-/// Not implemented as `concat!("empl ", env!("CARGO_PKG_VERSION"))` to allow compiling without cargo.
-const VERSION_MESSAGE: &str = "empl 1.0.0";
-
 const CONFIG_PATHS: [(&str, Option<&str>); 2] =
     [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
     match (move || -> Result<(), MainError> {
-        //         let mut flags = Arguments::new(unsafe { Argv::new(argc, argv) }?.skip(1));
-        //         if let Some(flag) = flags.next().transpose()? {
-        //             match flag {
-        //                 Flag::Short('h') | Flag::Long("help") => {
-        //                     eprintln!(
-        //                         "empl [OPTIONS..]
-
-        // Options:
-        //   -h --help    Print this message and exit.
-        //   -v --version Print version information and exit."
-        //                     );
-        //                     return Ok(());
-        //                 }
-        //                 Flag::Short('v') | Flag::Long("version") => {
-        //                     eprintln!("{VERSION_MESSAGE}");
-        //                     return Ok(());
-        //                 }
-        //                 flag => return Err(MainError::UnknownFlag(flag)),
-        //             }
-        //         }
-
         let path = CONFIG_PATHS
             .into_iter()
             .find_map(|(var, dir)| {
@@ -218,17 +194,5 @@ impl From<ArgumentsError<'static, ArgError>> for MainError {
 impl From<ArgvError> for MainError {
     fn from(err: ArgvError) -> Self {
         Self::Argv(err)
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn version_sync() {
-        if let Some(version) = option_env!("CARGO_PKG_VERSION") {
-            assert_eq!(version, VERSION_MESSAGE.split_once(' ').unwrap().1);
-        }
     }
 }

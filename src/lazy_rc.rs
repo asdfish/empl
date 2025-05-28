@@ -31,7 +31,7 @@ where
         }
     }
 }
-impl<'a, T> Clone for LazyRc<'a, T>
+impl<T> Clone for LazyRc<'_, T>
 where
     T: ?Sized,
 {

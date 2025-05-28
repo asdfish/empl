@@ -108,7 +108,7 @@ impl<'src> Environment<'src> {
         self.0.iter().rev().find_map(|vars| vars.get(ident))
     }
 }
-impl<'src> Default for Environment<'src> {
+impl Default for Environment<'_> {
     fn default() -> Self {
         Self::new()
     }
@@ -155,7 +155,7 @@ impl From<env::VarError> for EvalError {
         Self::EnvVar(err)
     }
 }
-impl<'src> From<TryFromValueError> for EvalError {
+impl From<TryFromValueError> for EvalError {
     fn from(err: TryFromValueError) -> Self {
         Self::WrongType(err)
     }
@@ -245,7 +245,7 @@ impl Debug for Value<'_> {
         }
     }
 }
-impl<'src> PartialEq for Value<'src> {
+impl PartialEq for Value<'_> {
     fn eq(&self, r: &Self) -> bool {
         match (self, r) {
             (Self::Unit, Self::Unit) => true,

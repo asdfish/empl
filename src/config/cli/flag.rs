@@ -38,7 +38,7 @@ impl From<Flag<'_>> for FlagType {
 /// # Examples
 ///
 /// ```
-/// # use empl::flag::{Argument, NonFlagError};
+/// # use empl::config::cli::flag::{Argument, NonFlagError};
 /// fn test_argument_try_from(
 ///      input: &'static str,
 ///      output: Result<Argument<'static>, NonFlagError<'static>>,
@@ -66,7 +66,7 @@ impl From<Flag<'_>> for FlagType {
 /// ```
 ///
 /// ```
-/// # use empl::flag::{Flag, Argument};
+/// # use empl::config::cli::flag::{Flag, Argument};
 /// fn test_argument_collect(input: &'static str, output: &'static [Flag<'static>]) {
 ///     assert_eq!(
 ///         Argument::try_from(input)
@@ -101,7 +101,7 @@ impl<'a> Argument<'a> {
     /// # Examples
     ///
     /// ```
-    /// # use empl::flag::Argument;
+    /// # use empl::config::cli::flag::Argument;
     /// fn test_argument_value(input: &'static str, steps: usize, output: Option<&'static str>) {
     ///     let mut iter = Argument::try_from(input).unwrap();
     ///     (0..steps).for_each(|_| {
@@ -169,7 +169,7 @@ impl<'a> TryFrom<&'a str> for Argument<'a> {
 /// # Examples
 ///
 /// ```
-/// # use empl::flag::{Arguments, Flag};
+/// # use empl::config::cli::flag::{Arguments, Flag};
 /// # use std::convert::Infallible;
 /// fn test_arguments_collect(input: &'static [&'static str], output: &'static [Flag<'static>]) {
 ///     assert_eq!(
@@ -232,7 +232,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::flag::Arguments;
+    /// # use empl::config::cli::flag::Arguments;
     /// # use std::convert::Infallible;
     /// [
     ///     (&["--foo", "bar"] as &[_], 1, Ok("bar")),
