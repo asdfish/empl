@@ -4,7 +4,7 @@ pub mod clisp;
 use {
     crate::{
         config::{
-            cli::{argv::Argv, CliError},
+            cli::{CliError, argv::Argv},
             clisp::{
                 CLispError,
                 ast::Expr,
@@ -59,15 +59,17 @@ pub enum ConfigStage {
     CLisp,
 }
 impl ConfigStage {
-    pub const VARIANTS: [Self; 2] = [
-        Self::Cli,
-        Self::CLisp,
-    ];
+    pub const VARIANTS: [Self; 2] = [Self::Cli, Self::CLisp];
 
-    pub fn execute(&self, resources: &mut Resources) -> Option<Result<IntermediateConfig, ConfigError>> {
+    pub fn execute(
+        &self,
+        resources: &mut Resources,
+    ) -> Option<Result<IntermediateConfig, ConfigError>> {
         match self {
             Self::Cli => cli::execute(resources).map(|output| output.map_err(ConfigError::Cli)),
-            Self::CLisp => clisp::execute(resources).map(|output| output.map_err(ConfigError::CLisp)),
+            Self::CLisp => {
+                clisp::execute(resources).map(|output| output.map_err(ConfigError::CLisp))
+            }
         }
     }
 }

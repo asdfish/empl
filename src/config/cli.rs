@@ -6,7 +6,7 @@ use {
         config::{
             IntermediateConfig, KeyAction, Resources, UnknownKeyActionError,
             cli::{
-                argv::{Argv, ArgError},
+                argv::{ArgError, Argv},
                 flag::{Arguments, ArgumentsError, Flag},
             },
         },
@@ -14,13 +14,10 @@ use {
     },
     crossterm::style::{Color, Colors},
     nonempty_collections::{
-        iter::{IntoIteratorExt, FromNonEmptyIterator, NonEmptyIterator},
+        iter::{FromNonEmptyIterator, IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
     },
-    std::{
-        path::Path,
-        sync::Arc,
-    },
+    std::{path::Path, sync::Arc},
 };
 
 pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, CliError>> {
