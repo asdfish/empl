@@ -2,35 +2,22 @@ pub mod cli;
 pub mod clisp;
 
 use {
-    crate::{
-        config::{
-            cli::{CliError, argv::Argv},
-            clisp::{
-                CLispError,
-                ast::Expr,
-                evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
-                lexer::IntParser,
-                parser::{Parser, ParserOutput, token::Just},
-            },
+    crate::config::{
+        cli::{CliError, argv::Argv},
+        clisp::{
+            CLispError,
+            evaluator::{Arity, TryFromValue, Value},
         },
-        ext::{array::ArrayExt, iterator::IteratorExt},
-        lazy_rc::LazyRc,
     },
     crossterm::{
-        event::{KeyCode, KeyModifiers, MediaKeyCode, ModifierKeyCode},
-        style::{Color, Colors},
+        event::{KeyCode, KeyModifiers},
+        style::Colors,
     },
-    nonempty_collections::{
-        iter::{IntoIteratorExt, NonEmptyIterator},
-        vector::NEVec,
-    },
-    qcell::{TCell, TCellOwner},
+    nonempty_collections::vector::NEVec,
     std::{
         error::Error,
         fmt::{self, Display, Formatter},
-        iter,
         path::Path,
-        rc::Rc,
         sync::Arc,
     },
 };

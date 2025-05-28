@@ -8,13 +8,13 @@ pub mod parser;
 use {
     crate::{
         config::{
+            Arity, IntermediateConfig, KeyAction, NAME, Resources, TryFromValue, Value,
             clisp::{
                 ast::ExprParser,
                 evaluator::{Environment, EvalError, List},
                 lexer::{IntParser, LexemeParser},
-                parser::{token::Just, Parser, ParserOutput},
+                parser::{Parser, ParserOutput, token::Just},
             },
-            Arity, IntermediateConfig, KeyAction, Resources, TryFromValue, Value, NAME,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,

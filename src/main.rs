@@ -12,14 +12,15 @@ use {
         error::Error,
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
-        io,
-        process,
+        io, process,
     },
     tokio::runtime,
 };
 
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
+    // TODO: replace with try block once it becomes stable
+    #[expect(clippy::redundant_closure_call)]
     match (move || -> Result<(), MainError> {
         unsafe { Argv::new(argc, argv) }
             .map_err(MainError::Argv)

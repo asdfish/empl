@@ -2,8 +2,8 @@ use {
     crate::{
         config::clisp::{
             evaluator::{
-                list, Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue,
-                Value,
+                Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value,
+                list,
             },
             lexer::Literal,
         },
@@ -13,7 +13,7 @@ use {
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
-        collections::{vec_deque, HashMap, HashSet, VecDeque},
+        collections::{HashMap, HashSet, VecDeque, vec_deque},
         env,
         ops::{ControlFlow, Not},
         path::{self, Path, PathBuf},

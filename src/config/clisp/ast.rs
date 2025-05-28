@@ -3,9 +3,9 @@ use {
         evaluator::Value,
         lexer::{Lexeme, Literal},
         parser::{
+            Parser, ParserOutput,
             recursive::RecursiveParser,
             token::{Any, Just},
-            Parser, ParserOutput,
         },
     },
     std::collections::VecDeque,
