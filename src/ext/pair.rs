@@ -47,7 +47,8 @@ pub trait PairExt {
     }
 
     fn transpose_option<L, R>(self) -> Option<(L, R)>
-    where Self: Into<(Option<L>, Option<R>)>
+    where
+        Self: Into<(Option<L>, Option<R>)>,
     {
         let (l, r) = self.into();
         l.and_then(move |l| r.map(move |r| (l, r)))

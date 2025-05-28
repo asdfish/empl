@@ -6,10 +6,7 @@ pub mod config;
 use {
     crate::config::{Config, Stage},
     empl::config::{
-        cli::{
-            argv::Argv,
-            flag::Arguments,
-        },
+        cli::{argv::Argv, flag::Arguments},
         clisp::{
             ast::ExprParser,
             evaluator::Environment,

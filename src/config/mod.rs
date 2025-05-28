@@ -132,10 +132,7 @@ impl IntermediateConfig {
             let mut environment = Environment::with_symbols(iter::once((
                 "set-cfg!",
                 Value::Fn(LazyRc::Owned(Rc::new(move |env, args| {
-                    fn set_colors(
-                        colors: &mut Colors,
-                        value: Value,
-                    ) -> Result<(), EvalError> {
+                    fn set_colors(colors: &mut Colors, value: Value) -> Result<(), EvalError> {
                         let list = Rc::<List>::try_from_value(value)?;
                         let [foreground, background] = list
                             .iter()
@@ -541,7 +538,7 @@ where
     S: AsRef<str>;
 impl<T> UnknownKeyActionError<T>
 where
-    T: AsRef<str>
+    T: AsRef<str>,
 {
     pub fn map<F, U>(self, f: F) -> UnknownKeyActionError<U>
     where

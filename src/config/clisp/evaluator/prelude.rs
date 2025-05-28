@@ -2,7 +2,8 @@ use {
     crate::{
         config::clisp::{
             evaluator::{
-                Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value, list,
+                Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value,
+                list,
             },
             lexer::Literal,
         },
@@ -83,10 +84,7 @@ const fn seq_fn<'src, A, E, EO, F, FO>(
 where
     A: Clone + Fn() -> Arity,
     E: Clone
-        + Fn(
-            &mut Environment<'src>,
-            &mut vec_deque::IntoIter<Expr<'src>>,
-        ) -> Result<EO, EvalError>,
+        + Fn(&mut Environment<'src>, &mut vec_deque::IntoIter<Expr<'src>>) -> Result<EO, EvalError>,
     F: Clone
         + Fn(
             &mut Environment<'src>,
@@ -119,7 +117,10 @@ where
     P: Clone + Fn(&T) -> bool,
     T: TryFromValue<'src>,
 {
-    predicate_fn(|value| T::try_from_value(value).map_err(EvalError::WrongType), predicate)
+    predicate_fn(
+        |value| T::try_from_value(value).map_err(EvalError::WrongType),
+        predicate,
+    )
 }
 const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
@@ -301,10 +302,7 @@ fn list<'src>(
         })
         .map(Value::List)
 }
-fn nil<'src>(
-    _: &mut Environment<'src>,
-    _: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError> {
+fn nil<'src>(_: &mut Environment<'src>, _: VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
 fn not<'src>(
@@ -541,55 +539,83 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
     HashMap::from_iter([
         (
             "+",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_add) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { math_fn(i32::checked_add) }
+            ))),
         ),
         (
             "-",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_sub) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { math_fn(i32::checked_sub) }
+            ))),
         ),
         (
             "/",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_div) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { math_fn(i32::checked_div) }
+            ))),
         ),
         (
             "*",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_mul) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { math_fn(i32::checked_mul) }
+            ))),
         ),
         (
             "%",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { math_fn(i32::checked_rem) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { math_fn(i32::checked_rem) }
+            ))),
         ),
         ("concat", Value::Fn(LazyRc::Borrowed(&concat))),
-        ("cons", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { cons() })))),
-        ("env", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { env() })))),
+        (
+            "cons",
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { cons() }))),
+        ),
+        (
+            "env",
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { env() }))),
+        ),
         ("if", Value::Fn(LazyRc::Borrowed(&r#if))),
         ("lambda", Value::Fn(LazyRc::Borrowed(&lambda))),
         ("let", Value::Fn(LazyRc::Borrowed(&r#let))),
         ("list", Value::Fn(LazyRc::Borrowed(&list))),
         ("nil", Value::Fn(LazyRc::Borrowed(&nil))),
         ("not", Value::Fn(LazyRc::Borrowed(&not))),
-        ("path", Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path() })))),
+        (
+            "path",
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path() }))),
+        ),
         (
             "path-children",
             Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path_children() }))),
         ),
         (
             "path-exists",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.exists()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.exists()) }
+            ))),
         ),
         (
             "path-is-dir",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_dir()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_dir()) }
+            ))),
         ),
         (
             "path-is-file",
-            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_file()) }))),
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(
+                const { typed_predicate_fn::<_, LazyRc<'src, Path>>(|path| path.is_file()) }
+            ))),
         ),
         (
             "path-name",
             Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path_name() }))),
         ),
-        ("path-separator", Value::Fn(LazyRc::Borrowed(&path_separator))),
+        (
+            "path-separator",
+            Value::Fn(LazyRc::Borrowed(&path_separator)),
+        ),
         ("progn", Value::Fn(LazyRc::Borrowed(&progn))),
         (
             "seq-filter",

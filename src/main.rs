@@ -118,54 +118,50 @@ impl Display for MainError {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
             Self::ConfigPath => {
-                let message =
-                    const {
-                        const HEAD: &str = if CONFIG_PATHS.len() == 1 {
-                            "the environment variable [\""
-                        } else {
-                            "the environment variables [\""
-                        };
-                        const SEPARATOR: &str = "\", \"";
-                        const TAIL: &str = if CONFIG_PATHS.len() == 1 {
-                            "\"] is not set"
-                        } else {
-                            "\"] are not set"
-                        };
-
-                        const fn config_paths_len(
-                            len: usize,
-                            cons: &[(&str, Option<&str>)],
-                        ) -> usize {
-                            match cons {
-                                [(car, _), cdr @ ..] => config_paths_len(len + car.len(), cdr),
-                                [] => len,
-                            }
-                        }
-
-                        let mut message = CVec::<
-                            u8,
-                            {
-                                HEAD.len()
-                                    + SEPARATOR.len() * (CONFIG_PATHS.len() - 1)
-                                    + config_paths_len(0, &CONFIG_PATHS)
-                                    + TAIL.len()
-                            },
-                        >::new();
-
-                        message.concat(HEAD.as_bytes());
-                        message.concat(CONFIG_PATHS[0].0.as_bytes());
-
-                        let mut i = 1;
-                        while i < CONFIG_PATHS.len() {
-                            message.concat(SEPARATOR.as_bytes());
-                            message.concat(CONFIG_PATHS[i].0.as_bytes());
-                            i += 1;
-                        }
-                        message.concat(TAIL.as_bytes());
-
-                        assert!(str::from_utf8(message.as_slice()).is_ok());
-                        message
+                let message = const {
+                    const HEAD: &str = if CONFIG_PATHS.len() == 1 {
+                        "the environment variable [\""
+                    } else {
+                        "the environment variables [\""
                     };
+                    const SEPARATOR: &str = "\", \"";
+                    const TAIL: &str = if CONFIG_PATHS.len() == 1 {
+                        "\"] is not set"
+                    } else {
+                        "\"] are not set"
+                    };
+
+                    const fn config_paths_len(len: usize, cons: &[(&str, Option<&str>)]) -> usize {
+                        match cons {
+                            [(car, _), cdr @ ..] => config_paths_len(len + car.len(), cdr),
+                            [] => len,
+                        }
+                    }
+
+                    let mut message = CVec::<
+                        u8,
+                        {
+                            HEAD.len()
+                                + SEPARATOR.len() * (CONFIG_PATHS.len() - 1)
+                                + config_paths_len(0, &CONFIG_PATHS)
+                                + TAIL.len()
+                        },
+                    >::new();
+
+                    message.concat(HEAD.as_bytes());
+                    message.concat(CONFIG_PATHS[0].0.as_bytes());
+
+                    let mut i = 1;
+                    while i < CONFIG_PATHS.len() {
+                        message.concat(SEPARATOR.as_bytes());
+                        message.concat(CONFIG_PATHS[i].0.as_bytes());
+                        i += 1;
+                    }
+                    message.concat(TAIL.as_bytes());
+
+                    assert!(str::from_utf8(message.as_slice()).is_ok());
+                    message
+                };
 
                 // SAFETY: assertion above ensures safety
                 f.write_str(unsafe { str::from_utf8_unchecked(message.as_slice()) })

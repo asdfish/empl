@@ -5,7 +5,10 @@ use {
     crate::{
         config::{
             UnknownKeyActionError,
-            clisp::{ast::{Expr, ExprTy}, lexer::Literal},
+            clisp::{
+                ast::{Expr, ExprTy},
+                lexer::Literal,
+            },
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
@@ -58,9 +61,10 @@ impl<'src> Environment<'src> {
     {
         match expr {
             Expr::Literal(Literal::Bool(b)) => Ok(Value::Bool(*b)),
-            Expr::Literal(Literal::Ident(id)) => {
-                self.get(id).cloned().ok_or_else(|| EvalError::NotFound(id.to_string()))
-            }
+            Expr::Literal(Literal::Ident(id)) => self
+                .get(id)
+                .cloned()
+                .ok_or_else(|| EvalError::NotFound(id.to_string())),
             Expr::Literal(Literal::Int(i)) => Ok(Value::Int(*i)),
             Expr::Literal(Literal::String(s)) => Ok(Value::String(LazyRc::Borrowed(s))),
             Expr::List(mut apply) => {
