@@ -18,6 +18,21 @@ pub enum Expr<'a> {
     /// Should not be used when parsing tokens. This is just for calling [ClispFn][crate::config::clisp::evaluator::ClispFn] with pre-existing values.
     Value(Value<'a>),
 }
+#[derive(Clone, Copy, Debug)]
+pub enum ExprTy {
+    List,
+    Literal,
+    Value,
+}
+impl From<Expr<'_>> for ExprTy {
+    fn from(expr: Expr<'_>) -> Self {
+        match expr {
+            Expr::List(_) => Self::List,
+            Expr::Literal(_) => Self::Literal,
+            Expr::Value(_) => Self::Value,
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub struct ExprParser;

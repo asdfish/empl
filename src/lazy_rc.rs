@@ -8,6 +8,18 @@ where
     Borrowed(&'a T),
     Owned(Rc<T>),
 }
+impl<'a, T> LazyRc<'a, T>
+where
+    T: ?Sized,
+    Rc<T>: From<&'a T>,
+{
+    pub fn into_owned(self) -> Rc<T> {
+        match self {
+            Self::Borrowed(t) => Rc::from(t),
+            Self::Owned(t) => t,
+        }
+    }
+}
 impl<T> AsRef<T> for LazyRc<'_, T>
 where
     T: ?Sized,

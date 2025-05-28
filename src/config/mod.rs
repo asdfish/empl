@@ -121,7 +121,7 @@ impl IntermediateConfig {
         self.playlists.extend(new.playlists);
     }
 
-    pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError<'src>> {
+    pub fn eval<'src>(expr: Expr<'src>) -> Result<Self, EvalError> {
         struct Id;
 
         let output = Rc::new(TCell::<Id, Self>::new(Self::default()));
@@ -134,7 +134,7 @@ impl IntermediateConfig {
                     fn set_colors<'src>(
                         colors: &mut Colors,
                         value: Value<'src>,
-                    ) -> Result<(), EvalError<'src>> {
+                    ) -> Result<(), EvalError> {
                         let list = Rc::<List<'src>>::try_from_value(value)?;
                         let [foreground, background] = list
                             .iter()
@@ -317,7 +317,9 @@ impl IntermediateConfig {
                                                 .and_then(|[action, keys]| {
                                                     LazyRc::<'src, str>::try_from_value(action)
                                                         .map_err(EvalError::WrongType)
-                                                        .and_then(|action| KeyAction::parse(action).map_err(EvalError::UnknownKeyAction))
+                                                        .and_then(|action| KeyAction::parse(action)
+                                                            .map_err(|err| err.map(LazyRc::into_owned))
+                                                            .map_err(EvalError::UnknownKeyAction))
                                                         .and_then(move |action| {
                                                             Rc::<List<'src>>::try_from_value(keys)
                                                                 .map_err(EvalError::WrongType)
@@ -347,6 +349,7 @@ impl IntermediateConfig {
                                                                                 .and_then(|[modifier, key_code]| parse_key_modifier(modifier.as_ref())
                                                                                     .map_err(EvalError::UnknownKeyModifier)
                                                                                     .and_then(move |modifier| parse_key_code(key_code)
+                                                                                        .map_err(LazyRc::into_owned)
                                                                                         .map_err(EvalError::UnknownKeyCode)
                                                                                         .map(move |key_code| (modifier, key_code))))
                                                                         })
@@ -409,7 +412,7 @@ impl IntermediateConfig {
                                 })
                                 .collect::<Result<Vec<_>, _>>()?;
                         }
-                        _ => return Err(EvalError::UnknownCfgField(field)),
+                        _ => return Err(EvalError::UnknownCfgField(field.into_owned())),
                     }
 
                     Ok(Value::Unit)
@@ -535,6 +538,18 @@ impl KeyAction {
 pub struct UnknownKeyActionError<S>(S)
 where
     S: AsRef<str>;
+impl<T> UnknownKeyActionError<T>
+where
+    T: AsRef<str>
+{
+    pub fn map<F, U>(self, f: F) -> UnknownKeyActionError<U>
+    where
+        F: FnOnce(T) -> U,
+        U: AsRef<str>,
+    {
+        UnknownKeyActionError(f(self.0))
+    }
+}
 impl<S> Display for UnknownKeyActionError<S>
 where
     S: AsRef<str>,

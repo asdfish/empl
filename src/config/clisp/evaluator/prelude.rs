@@ -2,7 +2,7 @@ use {
     crate::{
         config::clisp::{
             evaluator::{
-                Arity, ClispFn, Environment, EvalError, Expr, List, TryFromValue, Value, list,
+                Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value, list,
             },
             lexer::Literal,
         },
@@ -46,7 +46,7 @@ const fn predicate_fn<'src, Extractor, ExtractorOutput, Predicate>(
     predicate: Predicate,
 ) -> impl ClispFn<'src>
 where
-    Extractor: Clone + Fn(Value<'src>) -> Result<ExtractorOutput, EvalError<'src>>,
+    Extractor: Clone + Fn(Value<'src>) -> Result<ExtractorOutput, EvalError>,
     Predicate: Clone + Fn(&ExtractorOutput) -> bool,
 {
     value_fn(move |args| {
@@ -86,14 +86,14 @@ where
         + Fn(
             &mut Environment<'src>,
             &mut vec_deque::IntoIter<Expr<'src>>,
-        ) -> Result<EO, EvalError<'src>>,
+        ) -> Result<EO, EvalError>,
     F: Clone
         + Fn(
             &mut Environment<'src>,
             EO,
             LazyRc<'src, dyn ClispFn<'src> + 'src>,
             list::Iter<'src>,
-        ) -> Result<FO, EvalError<'src>>,
+        ) -> Result<FO, EvalError>,
     FO: Into<Value<'src>>,
 {
     move |env, args| {
@@ -125,8 +125,8 @@ const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
 where
     F: Clone
         + Fn(
-            &mut dyn Iterator<Item = Result<Value<'src>, EvalError<'src>>>,
-        ) -> Result<Value<'src>, EvalError<'src>>,
+            &mut dyn Iterator<Item = Result<Value<'src>, EvalError>>,
+        ) -> Result<Value<'src>, EvalError>,
 {
     move |env, args| f(&mut args.into_iter().map(|expr| env.eval(expr)))
 }
@@ -134,7 +134,7 @@ where
 fn concat<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     (const {
         value_fn(|vals| {
             vals.map(|val| {
@@ -159,7 +159,7 @@ const fn cons<'src>() -> impl ClispFn<'src> {
         args.fuse()
             .collect_array::<2>()
             .ok_or(EvalError::WrongArity(Arity::Static(2)))
-            .and_then(<[Result<Value<'src>, EvalError<'src>>; 2]>::transpose)
+            .and_then(<[Result<Value<'src>, EvalError>; 2]>::transpose)
             .and_then(|[car, cdr]| {
                 Rc::<List>::try_from_value(cdr)
                     .map(move |cdr| Rc::new(List::Cons(car, cdr)))
@@ -185,7 +185,7 @@ const fn env<'src>() -> impl ClispFn<'src> {
 fn r#if<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     let mut args = args.into_iter();
     let predicate = args
         .next()
@@ -210,7 +210,7 @@ fn r#if<'src>(
 fn lambda<'src>(
     _: &mut Environment<'src>,
     mut args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     let Expr::List(bindings) = args
         .pop_front()
         .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))?
@@ -223,7 +223,7 @@ fn lambda<'src>(
             if let Expr::Literal(Literal::Ident(ident)) = expr {
                 Ok(*ident)
             } else {
-                Err(EvalError::NonIdentBinding(expr))
+                Err(EvalError::NonIdentListBinding(ExprTy::from(expr)))
             }
         })
         .collect::<Result<Vec<&'src str>, _>>()?;
@@ -233,7 +233,7 @@ fn lambda<'src>(
             if bindings.insert(binding) {
                 Ok(bindings)
             } else {
-                Err(EvalError::MultipleBindings(binding))
+                Err(EvalError::MultipleBindings(binding.to_string()))
             }
         },
     )?;
@@ -260,16 +260,16 @@ fn lambda<'src>(
 fn r#let<'src>(
     env: &mut Environment<'src>,
     mut args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     args.pop_front()
         .ok_or(EvalError::NoBindings)
         .and_then(|bindings| match bindings {
             Expr::List(bindings) if bindings.is_empty() => Err(EvalError::EmptyListBindings),
             Expr::List(bindings) => Ok(bindings),
-            expr => Err(EvalError::NonListBindings(expr)),
+            expr => Err(EvalError::NonIdentListBinding(ExprTy::from(expr))),
         })?
         .into_iter()
-        .try_for_each(|binding| -> Result<(), EvalError<'src>> {
+        .try_for_each(|binding| -> Result<(), EvalError> {
             match binding {
                 Expr::List(binding) => {
                     let [binding, value] = binding
@@ -277,13 +277,13 @@ fn r#let<'src>(
                         .collect_array::<2>()
                         .ok_or(EvalError::WrongBindingArity(Arity::Static(2)))?;
                     let Expr::Literal(Literal::Ident(binding)) = binding else {
-                        return Err(EvalError::NonIdentBinding(binding));
+                        return Err(EvalError::NonIdentListBinding(ExprTy::from(binding)));
                     };
                     let value = env.eval(value)?;
                     env.last_mut().insert(binding, value);
                     Ok(())
                 }
-                expr => Err(EvalError::NonListBindings(expr)),
+                expr => Err(EvalError::NonIdentListBinding(ExprTy::from(expr))),
             }
         })?;
 
@@ -293,7 +293,7 @@ fn r#let<'src>(
 fn list<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     args.into_iter()
         .rev()
         .try_fold(Rc::new(List::Nil), |accum, item| {
@@ -304,13 +304,13 @@ fn list<'src>(
 fn nil<'src>(
     _: &mut Environment<'src>,
     _: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     Ok(Value::List(Rc::new(List::Nil)))
 }
 fn not<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     let [predicate] = args
         .into_iter()
         .collect_array()
@@ -389,10 +389,10 @@ const fn path_name<'src>() -> impl ClispFn<'src> {
 fn path_separator<'src>(
     _: &mut Environment<'src>,
     _: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     Ok(Value::String(LazyRc::Borrowed(path::MAIN_SEPARATOR_STR)))
 }
-fn progn<'src, C, I>(env: &mut Environment<'src>, iter: C) -> Result<Value<'src>, EvalError<'src>>
+fn progn<'src, C, I>(env: &mut Environment<'src>, iter: C) -> Result<Value<'src>, EvalError>
 where
     C: IntoIterator<IntoIter = I, Item = Expr<'src>>,
     I: DoubleEndedIterator + Iterator<Item = Expr<'src>>,
@@ -498,7 +498,7 @@ const fn seq_map<'src>() -> impl ClispFn<'src> {
 fn seq_rev<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     args.into_iter()
         .collect_array()
         .ok_or(EvalError::WrongArity(Arity::Static(1)))
@@ -512,7 +512,7 @@ fn seq_rev<'src>(
 fn try_catch<'src>(
     env: &mut Environment<'src>,
     args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError<'src>> {
+) -> Result<Value<'src>, EvalError> {
     let [success, failure] = args
         .into_iter()
         .collect_array::<2>()
@@ -531,7 +531,7 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
             fn temp<'src>(
                 env: &mut Environment<'src>,
                 args: VecDeque<Expr<'src>>,
-            ) -> Result<Value<'src>, EvalError<'src>> {
+            ) -> Result<Value<'src>, EvalError> {
                 ($fn)(env, args)
             }
             temp
