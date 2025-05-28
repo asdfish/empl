@@ -144,7 +144,7 @@ pub enum EvalError {
     WrongListArity(Arity),
     WrongBindingArity(Arity),
 }
-impl<'src> Display for EvalError {
+impl Display for EvalError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         // TODO: implement display properly
         write!(f, "{:?}", self)

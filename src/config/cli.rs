@@ -12,7 +12,7 @@ use {
         },
         ext::pair::PairExt,
     },
-    crossterm::style::{Color, Colors},
+    crossterm::style::Color,
     nonempty_collections::{
         iter::{FromNonEmptyIterator, IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
@@ -50,14 +50,6 @@ impl ConfigStage for CliConfig {
                 move |item| {
                     *config = Some(item);
                 }
-            }
-            fn set_colors(items: &mut State, config: &mut Colors) {
-                [
-                    (items.foreground.take(), &mut config.foreground),
-                    (items.background.take(), &mut config.background),
-                ]
-                    .into_iter()
-                    .for_each(|(mut color, into)| color.take().map(set(into)).unwrap_or_default());
             }
             fn value(
                 args: &mut Arguments<'static, Argv, ArgError>,
