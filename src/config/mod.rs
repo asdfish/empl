@@ -4,8 +4,9 @@ pub mod clisp;
 use {
     crate::{
         config::{
-            cli::CliError,
+            cli::{argv::Argv, CliError},
             clisp::{
+                CLispError,
                 ast::Expr,
                 evaluator::{Arity, Environment, EvalError, List, TryFromValue, Value},
                 lexer::IntParser,
@@ -25,7 +26,6 @@ use {
     },
     qcell::{TCell, TCellOwner},
     std::{
-        convert::Infallible,
         error::Error,
         fmt::{self, Display, Formatter},
         iter,
@@ -36,55 +36,50 @@ use {
 };
 
 #[derive(Clone, Copy, Debug)]
+pub struct Resources {
+    argv: Argv,
+    config_path: Option<&'static Path>,
+}
+impl Resources {
+    pub const fn new(argv: Argv) -> Self {
+        Self {
+            argv,
+            config_path: None,
+        }
+    }
+}
+impl From<Argv> for Resources {
+    fn from(argv: Argv) -> Self {
+        Self::new(argv)
+    }
+}
+#[derive(Clone, Copy, Debug)]
+pub enum ConfigStage {
+    Cli,
+    CLisp,
+}
+impl ConfigStage {
+    pub const VARIANTS: [Self; 2] = [
+        Self::Cli,
+        Self::CLisp,
+    ];
+
+    pub fn execute(&self, resources: &mut Resources) -> Option<Result<IntermediateConfig, ConfigError>> {
+        match self {
+            Self::Cli => cli::execute(resources).map(|output| output.map_err(ConfigError::Cli)),
+            Self::CLisp => clisp::execute(resources).map(|output| output.map_err(ConfigError::CLisp)),
+        }
+    }
+}
+
+#[derive(Debug)]
 pub enum ConfigError {
     Cli(CliError),
+    CLisp(CLispError),
 }
 impl From<CliError> for ConfigError {
     fn from(err: CliError) -> Self {
         Self::Cli(err)
-    }
-}
-impl From<Infallible> for ConfigError {
-    fn from(_: Infallible) -> Self {
-        unreachable!()
-    }
-}
-
-pub trait ConfigStage {
-    type Error: Into<ConfigError>;
-    type Next: ConfigStage;
-    type Resources;
-
-    #[expect(clippy::type_complexity)]
-    fn execute(
-        _: Self::Resources,
-    ) -> Option<
-        Result<
-            (
-                IntermediateConfig,
-                Option<<Self::Next as ConfigStage>::Resources>,
-            ),
-            Self::Error,
-        >,
-    >;
-}
-impl ConfigStage for Infallible {
-    type Error = Infallible;
-    type Next = Infallible;
-    type Resources = Infallible;
-
-    fn execute(
-        _: Self::Resources,
-    ) -> Option<
-        Result<
-            (
-                IntermediateConfig,
-                Option<<Self::Next as ConfigStage>::Resources>,
-            ),
-            Self::Error,
-        >,
-    > {
-        unreachable!()
     }
 }
 

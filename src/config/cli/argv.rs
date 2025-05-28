@@ -10,13 +10,15 @@ use std::{
 /// # Invariants:
 ///
 ///  - All pointers are not null and are valid utf-8.
+#[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
 pub struct Argv(&'static [*const c_char]);
 impl Argv {
     /// # Safety
     ///
-    ///   - `argv` must be safe to read (can be null)
-    ///   - `argc` must be accurate
+    /// - Pointers must be static
+    /// - `argv` must be safe to read (can be null)
+    /// - `argc` must be accurate
     pub unsafe fn new(argc: c_int, argv: *const *const c_char) -> Result<Self, ArgvError> {
         if argv.is_null() {
             return Err(ArgvError::Null);
