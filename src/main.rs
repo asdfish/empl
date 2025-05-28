@@ -3,92 +3,63 @@
 use {
     empl::{
         config::{
-            Config, EmptyConfigError, IntermediateConfig,
+            Config, ConfigError, ConfigStage, EmptyConfigError, IntermediateConfig, Resources,
             cli::{
-                argv::{ArgError, ArgvError},
+                argv::{ArgError, Argv, ArgvError},
                 flag::{ArgumentsError, Flag},
             },
-            clisp::{
-                ast::{Expr, ExprParser},
-                evaluator::Value,
-                lexer::LexemeParser,
-                parser::{Parser, ParserOutput},
-            },
         },
-        const_vec::CVec,
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
     std::{
-        env,
         error::Error,
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
-        fs, io,
+        io,
         path::PathBuf,
-        str,
+        process,
     },
     tokio::runtime,
 };
 
-const CONFIG_PATHS: [(&str, Option<&str>); 2] =
-    [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
-
 #[cfg_attr(not(test), unsafe(no_mangle))]
-extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
+extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
     match (move || -> Result<(), MainError> {
-        let path = CONFIG_PATHS
-            .into_iter()
-            .find_map(|(var, dir)| {
-                env::var_os(var).map(PathBuf::from).map(move |mut path| {
-                    const CONFIG_PATH_TAIL: &[&str] = &["empl", "main.lisp"];
-                    const CONFIG_PATH_TAIL_LENGTH: usize = const {
-                        const fn string_len_sum(sum: usize, cons: &[&str]) -> usize {
-                            match cons {
-                                [car, cdr @ ..] => string_len_sum(car.len() + sum, cdr),
-                                [] => sum,
-                            }
-                        }
-
-                        string_len_sum(0, CONFIG_PATH_TAIL) +
-                            // add path separators
-                            CONFIG_PATH_TAIL.len()
-                    };
-
-                    path.reserve(dir.unwrap_or_default().len() + 1 + CONFIG_PATH_TAIL_LENGTH);
-                    dir.into_iter()
-                        .chain(CONFIG_PATH_TAIL.iter().copied())
-                        .for_each(|tail| path.push(tail));
-
-                    path
-                })
+        unsafe { Argv::new(argc, argv) }
+            .map_err(MainError::Argv)
+            .map(Resources::new)
+            .and_then(|resources| {
+                ConfigStage::VARIANTS.into_iter().try_fold(
+                    (IntermediateConfig::default(), resources),
+                    |(mut config, mut resources), stage| {
+                        stage.execute(&mut resources)
+                            .map_err(Some)
+                            .and_then(|config| config.ok_or(None))
+                            .map(|new_config| config.join(new_config))
+                            .map(move |_| (config, resources))
+                    },
+                )
+                    .map_or_else(|err| match err.map(MainError::Config) {
+                        Some(err) => Err(err),
+                        None => Ok(None),
+                    }, |(config, _)| Ok(Some(config)))
             })
-            .ok_or(MainError::ConfigPath)?;
-
-        let config =
-            fs::read_to_string(&path).map_err(move |err| MainError::ReadConfig(err, path))?;
-
-        // TODO: error propagation
-        let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
-        let expr = ExprParser
-            .parse(&lexemes)
-            .map(|ParserOutput { output, .. }| output)
-            .unwrap_or(Expr::Value(Value::Unit));
-        let config = IntermediateConfig::eval(expr)
-            .map_err(|err| err.to_string())
-            .map_err(MainError::EvalConfig)
-            .and_then(|config| Config::try_from(config).map_err(MainError::IncompleteConfig))?;
-
-        let runtime = runtime::Builder::new_current_thread()
-            .build()
-            .map_err(MainError::Runtime)?;
-        runtime.block_on(async move {
-            TaskManager::new(&config)
-                .await
-                .map_err(MainError::NewTaskManager)?
-                .run()
-                .await
-                .map_err(MainError::Unrecoverable)
-        })
+            .map(|config| config.unwrap_or_else(|| process::exit(0)))
+            .and_then(|config| Config::try_from(config).map_err(MainError::EmptyConfig))
+            .and_then(|config| {
+                runtime::Builder::new_current_thread()
+                    .build()
+                    .map_err(MainError::Runtime)
+                    .map(move |runtime| (config, runtime))
+            })
+            .and_then(|(config, runtime)| runtime.block_on(async move {
+                TaskManager::new(&config)
+                    .await
+                    .map_err(MainError::NewTaskManager)?
+                    .run()
+                    .await
+                    .map_err(MainError::Unrecoverable)
+            }))
     })() {
         Ok(()) => 0,
         Err(err) => {
@@ -102,8 +73,8 @@ extern "system" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
 pub enum MainError {
     Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
-    ConfigPath,
-    EmptyPlaylists,
+    Config(ConfigError),
+    EmptyConfig(EmptyConfigError),
     EvalConfig(String),
     IncompleteConfig(EmptyConfigError),
     NewTaskManager(NewTaskManagerError),
@@ -117,56 +88,8 @@ impl Display for MainError {
         match self {
             Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
-            Self::ConfigPath => {
-                let message = const {
-                    const HEAD: &str = if CONFIG_PATHS.len() == 1 {
-                        "the environment variable [\""
-                    } else {
-                        "the environment variables [\""
-                    };
-                    const SEPARATOR: &str = "\", \"";
-                    const TAIL: &str = if CONFIG_PATHS.len() == 1 {
-                        "\"] is not set"
-                    } else {
-                        "\"] are not set"
-                    };
-
-                    const fn config_paths_len(len: usize, cons: &[(&str, Option<&str>)]) -> usize {
-                        match cons {
-                            [(car, _), cdr @ ..] => config_paths_len(len + car.len(), cdr),
-                            [] => len,
-                        }
-                    }
-
-                    let mut message = CVec::<
-                        u8,
-                        {
-                            HEAD.len()
-                                + SEPARATOR.len() * (CONFIG_PATHS.len() - 1)
-                                + config_paths_len(0, &CONFIG_PATHS)
-                                + TAIL.len()
-                        },
-                    >::new();
-
-                    message.concat(HEAD.as_bytes());
-                    message.concat(CONFIG_PATHS[0].0.as_bytes());
-
-                    let mut i = 1;
-                    while i < CONFIG_PATHS.len() {
-                        message.concat(SEPARATOR.as_bytes());
-                        message.concat(CONFIG_PATHS[i].0.as_bytes());
-                        i += 1;
-                    }
-                    message.concat(TAIL.as_bytes());
-
-                    assert!(str::from_utf8(message.as_slice()).is_ok());
-                    message
-                };
-
-                // SAFETY: assertion above ensures safety
-                f.write_str(unsafe { str::from_utf8_unchecked(message.as_slice()) })
-            }
-            Self::EmptyPlaylists => f.write_str("no playlists were found"),
+            Self::Config(err) => err.fmt(f),
+            Self::EmptyConfig(e) => e.fmt(f),
             Self::EvalConfig(e) => write!(f, "failed to evaluate configuration file: {e}"),
             Self::IncompleteConfig(e) => e.fmt(f),
             Self::NewTaskManager(e) => e.fmt(f),

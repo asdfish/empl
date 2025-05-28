@@ -64,12 +64,10 @@ impl ConfigStage {
     pub fn execute(
         &self,
         resources: &mut Resources,
-    ) -> Option<Result<IntermediateConfig, ConfigError>> {
+    ) -> Result<Option<IntermediateConfig>, ConfigError> {
         match self {
-            Self::Cli => cli::execute(resources).map(|output| output.map_err(ConfigError::Cli)),
-            Self::CLisp => {
-                clisp::execute(resources).map(|output| output.map_err(ConfigError::CLisp))
-            }
+            Self::Cli => cli::execute(resources).map_err(ConfigError::Cli),
+            Self::CLisp => clisp::execute(resources).map(Some).map_err(ConfigError::CLisp),
         }
     }
 }
@@ -79,9 +77,12 @@ pub enum ConfigError {
     Cli(CliError),
     CLisp(CLispError),
 }
-impl From<CliError> for ConfigError {
-    fn from(err: CliError) -> Self {
-        Self::Cli(err)
+impl Display for ConfigError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Cli(e) => e.fmt(f),
+            Self::CLisp(e) => e.fmt(f),
+        }
     }
 }
 

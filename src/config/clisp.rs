@@ -30,7 +30,7 @@ use {
     std::{
         borrow::Cow,
         env, iter,
-        ops::ControlFlow,
+        fmt::{self, Display, Formatter},
         path::{Path, PathBuf},
         rc::Rc,
         sync::Arc,
@@ -41,7 +41,7 @@ const CONFIG_FILE_NAME: &str = "main.lisp";
 const ENV_CONFIG_PATHS: [(&str, Option<&str>); 2] =
     [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
 
-pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, CLispError>> {
+pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispError> {
     let path = resources.config_path.map(Cow::Borrowed).or_else(|| {
         ENV_CONFIG_PATHS.into_iter().find_map(|(env, suffix)| {
             env::var_os(env).map(PathBuf::from).map(|mut path| {
@@ -335,15 +335,25 @@ pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, C
                 Ok(Value::Unit)
             }))),
         )));
-        if let Err(err) = environment.eval(expr) {
-            return Some(Err(CLispError::Eval(err)));
-        }
+        environment.eval(expr)?;
     }
 
-    Some(Ok(Rc::into_inner(output).unwrap().into_inner()))
+    Ok(Rc::into_inner(output).unwrap().into_inner())
 }
 
 #[derive(Debug)]
 pub enum CLispError {
     Eval(EvalError),
+}
+impl Display for CLispError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Eval(e) => e.fmt(f),
+        }
+    }
+}
+impl From<EvalError> for CLispError {
+    fn from(err: EvalError) -> Self {
+        Self::Eval(err)
+    }
 }

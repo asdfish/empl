@@ -6,7 +6,7 @@ use {
         config::{
             IntermediateConfig, KeyAction, Resources, UnknownKeyActionError,
             cli::{
-                argv::{ArgError, Argv},
+                argv::ArgError,
                 flag::{Arguments, ArgumentsError, Flag},
             },
         },
@@ -17,10 +17,10 @@ use {
         iter::{FromNonEmptyIterator, IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
     },
-    std::{path::Path, sync::Arc},
+    std::{fmt::{self, Display, Formatter}, path::Path, sync::Arc},
 };
 
-pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, CliError>> {
+pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, CliError> {
     fn check_pair<L, R>(l: &mut Option<L>, r: &mut Option<R>, output: &mut Vec<(L, R)>) {
         let l_is_some = l.is_some();
         let r_is_some = r.is_some();
@@ -44,7 +44,7 @@ pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, C
         .for_each(|(mut color, into)| color.take().map(set(into)).unwrap_or_default());
     }
     fn value(
-        args: &mut Arguments<'static, &mut Argv, ArgError>,
+        args: &mut Arguments<'static, impl Iterator<Item = Result<&'static str, ArgError>>, ArgError>,
         flag: Flag<'static>,
     ) -> Result<&'static str, CliError> {
         args.value()
@@ -58,12 +58,9 @@ pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, C
     let mut config = IntermediateConfig::default();
     let mut state = State::default();
 
-    let mut arguments = Arguments::new(&mut resources.argv);
-    while let Some(flag) = match arguments.next().transpose() {
-        Ok(flag) => flag,
-        Err(err) => return Some(Err(CliError::Arguments(err))),
-    } {
-        match match flag {
+    let mut arguments = Arguments::new(resources.argv.by_ref().skip(1));
+    while let Some(flag) = arguments.next().transpose()? {
+        match flag {
             Flag::Short('b') | Flag::Long("background") => value(&mut arguments, flag)
                 .and_then(|color| {
                     Color::try_from(color).map_err(move |_| CliError::UnknownColor(color))
@@ -125,13 +122,10 @@ pub fn execute(resources: &mut Resources) -> Option<Result<IntermediateConfig, C
                 .map(set(&mut state.key_action)),
 
             flag => Err(CliError::UnknownFlag(flag)),
-        } {
-            Ok(()) => (),
-            Err(err) => return Some(Err(err)),
-        }
+        }?
     }
 
-    Some(Ok(config))
+    Ok(Some(config))
 }
 // }
 
@@ -148,6 +142,28 @@ pub enum CliError {
     UnsetSongName,
     UnsetSongPath,
     UnsetPlaylist,
+}
+impl Display for CliError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Arguments(e) => e.fmt(f),
+            Self::EmptyPlaylist => f.write_str("cannot have empty playlist"),
+            Self::MissingArgument(flag) => write!(f, "flag `{flag}` requires an argument"),
+            Self::UnknownColor(color) => write!(f, "unknown color `{color}`"),
+            Self::UnknownColorField(field) => write!(f, "unknown color field `{field}`"),
+            Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
+            Self::UnknownKeyAction(e) => e.fmt(f),
+            Self::UnknownField(field) => write!(f, "unknown field `{field}`"),
+            Self::UnsetSongName => f.write_str("song name not set"),
+            Self::UnsetSongPath => f.write_str("song path not set"),
+            Self::UnsetPlaylist => f.write_str("playlist not set"),
+        }
+    }
+}
+impl From<ArgumentsError<'static, ArgError>> for CliError {
+    fn from(err: ArgumentsError<'static, ArgError>) -> Self {
+        Self::Arguments(err)
+    }
 }
 
 #[derive(Clone, Debug, Default)]
