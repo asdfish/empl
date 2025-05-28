@@ -133,9 +133,10 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
         }?
     }
 
+    resources.config_path = state.config_path;
+
     Ok(Some(config))
 }
-// }
 
 #[derive(Clone, Copy, Debug)]
 pub enum CliError {
