@@ -4,10 +4,7 @@ use {
     empl::{
         config::{
             Config, ConfigError, ConfigStage, EmptyConfigError, IntermediateConfig, Resources,
-            cli::{
-                argv::{ArgError, Argv, ArgvError},
-                flag::{ArgumentsError, Flag},
-            },
+            cli::argv::{Argv, ArgvError},
         },
         tasks::{NewTaskManagerError, TaskManager, UnrecoverableError},
     },
@@ -16,7 +13,6 @@ use {
         ffi::{c_char, c_int},
         fmt::{self, Display, Formatter},
         io,
-        path::PathBuf,
         process,
     },
     tokio::runtime,
@@ -79,45 +75,26 @@ extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
 
 #[derive(Debug)]
 pub enum MainError {
-    Arguments(ArgumentsError<'static, ArgError>),
     Argv(ArgvError),
     Config(ConfigError),
     EmptyConfig(EmptyConfigError),
-    EvalConfig(String),
-    IncompleteConfig(EmptyConfigError),
     NewTaskManager(NewTaskManagerError),
-    ReadConfig(io::Error, PathBuf),
     Runtime(io::Error),
-    UnknownFlag(Flag<'static>),
     Unrecoverable(UnrecoverableError),
 }
 impl Display for MainError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
-            Self::Arguments(e) => e.fmt(f),
             Self::Argv(e) => e.fmt(f),
             Self::Config(err) => err.fmt(f),
             Self::EmptyConfig(e) => e.fmt(f),
-            Self::EvalConfig(e) => write!(f, "failed to evaluate configuration file: {e}"),
-            Self::IncompleteConfig(e) => e.fmt(f),
             Self::NewTaskManager(e) => e.fmt(f),
-            Self::ReadConfig(e, path) => write!(
-                f,
-                "failed to read configuration file `{}`: {e}",
-                path.display()
-            ),
             Self::Runtime(e) => write!(f, "failed to create async runtime: {e}"),
-            Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
             Self::Unrecoverable(e) => e.fmt(f),
         }
     }
 }
 impl Error for MainError {}
-impl From<ArgumentsError<'static, ArgError>> for MainError {
-    fn from(err: ArgumentsError<'static, ArgError>) -> Self {
-        Self::Arguments(err)
-    }
-}
 impl From<ArgvError> for MainError {
     fn from(err: ArgvError) -> Self {
         Self::Argv(err)
