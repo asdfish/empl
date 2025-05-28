@@ -29,20 +29,26 @@ extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
             .map_err(MainError::Argv)
             .map(Resources::new)
             .and_then(|resources| {
-                ConfigStage::VARIANTS.into_iter().try_fold(
-                    (IntermediateConfig::default(), resources),
-                    |(mut config, mut resources), stage| {
-                        stage.execute(&mut resources)
-                            .map_err(Some)
-                            .and_then(|config| config.ok_or(None))
-                            .map(|new_config| config.join(new_config))
-                            .map(move |_| (config, resources))
-                    },
-                )
-                    .map_or_else(|err| match err.map(MainError::Config) {
-                        Some(err) => Err(err),
-                        None => Ok(None),
-                    }, |(config, _)| Ok(Some(config)))
+                ConfigStage::VARIANTS
+                    .into_iter()
+                    .try_fold(
+                        (IntermediateConfig::default(), resources),
+                        |(mut config, mut resources), stage| {
+                            stage
+                                .execute(&mut resources)
+                                .map_err(Some)
+                                .and_then(|config| config.ok_or(None))
+                                .map(|new_config| config.join(new_config))
+                                .map(move |_| (config, resources))
+                        },
+                    )
+                    .map_or_else(
+                        |err| match err.map(MainError::Config) {
+                            Some(err) => Err(err),
+                            None => Ok(None),
+                        },
+                        |(config, _)| Ok(Some(config)),
+                    )
             })
             .map(|config| config.unwrap_or_else(|| process::exit(0)))
             .and_then(|config| Config::try_from(config).map_err(MainError::EmptyConfig))
@@ -52,14 +58,16 @@ extern "system" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
                     .map_err(MainError::Runtime)
                     .map(move |runtime| (config, runtime))
             })
-            .and_then(|(config, runtime)| runtime.block_on(async move {
-                TaskManager::new(&config)
-                    .await
-                    .map_err(MainError::NewTaskManager)?
-                    .run()
-                    .await
-                    .map_err(MainError::Unrecoverable)
-            }))
+            .and_then(|(config, runtime)| {
+                runtime.block_on(async move {
+                    TaskManager::new(&config)
+                        .await
+                        .map_err(MainError::NewTaskManager)?
+                        .run()
+                        .await
+                        .map_err(MainError::Unrecoverable)
+                })
+            })
     })() {
         Ok(()) => 0,
         Err(err) => {

@@ -1,8 +1,8 @@
 use {
     crate::{
         config::clisp::parser::{
-            Parser, ParserOutput, PureParser,
             token::{Any, Just, Select},
+            Parser, ParserOutput, PureParser,
         },
         either::Either,
         ext::int::FromStrRadix,

@@ -35,6 +35,18 @@ use {
     },
 };
 
+/// The name of the binary.
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::NAME;
+/// if let Some(name) = option_env!("CARGO_PKG_NAME") {
+///      assert_eq!(name, NAME);
+/// }
+/// ```
+pub const NAME: &str = "empl";
+
 #[derive(Clone, Copy, Debug)]
 pub struct Resources {
     argv: Argv,
@@ -67,7 +79,9 @@ impl ConfigStage {
     ) -> Result<Option<IntermediateConfig>, ConfigError> {
         match self {
             Self::Cli => cli::execute(resources).map_err(ConfigError::Cli),
-            Self::CLisp => clisp::execute(resources).map(Some).map_err(ConfigError::CLisp),
+            Self::CLisp => clisp::execute(resources)
+                .map(Some)
+                .map_err(ConfigError::CLisp),
         }
     }
 }

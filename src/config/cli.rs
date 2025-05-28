@@ -17,7 +17,11 @@ use {
         iter::{FromNonEmptyIterator, IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
     },
-    std::{fmt::{self, Display, Formatter}, path::Path, sync::Arc},
+    std::{
+        fmt::{self, Display, Formatter},
+        path::Path,
+        sync::Arc,
+    },
 };
 
 pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, CliError> {
@@ -44,7 +48,11 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
         .for_each(|(mut color, into)| color.take().map(set(into)).unwrap_or_default());
     }
     fn value(
-        args: &mut Arguments<'static, impl Iterator<Item = Result<&'static str, ArgError>>, ArgError>,
+        args: &mut Arguments<
+            'static,
+            impl Iterator<Item = Result<&'static str, ArgError>>,
+            ArgError,
+        >,
         flag: Flag<'static>,
     ) -> Result<&'static str, CliError> {
         args.value()

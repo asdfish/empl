@@ -4,11 +4,11 @@ mod prelude;
 use {
     crate::{
         config::{
-            UnknownKeyActionError,
             clisp::{
                 ast::{Expr, ExprTy},
                 lexer::Literal,
             },
+            UnknownKeyActionError,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
