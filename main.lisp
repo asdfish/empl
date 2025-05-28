@@ -6,6 +6,8 @@
   (set-cfg! "key-bindings" (list
 			    (list "move-down" (list (list "" "j")))
 			    (list "move-up" (list (list "" "k")))
+			    (list "move-left" (list (list "" "h")))
+			    (list "move-right" (list (list "" "l")))
 			    (list "move-top" (list (list "" "g")
 						   (list "" "g")))
 			    (list "move-bottom" (list (list "S" "G")))
