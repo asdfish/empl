@@ -53,7 +53,7 @@ pub const VERSION: &str = "1.0.0";
 
 fn parse_key_code<S>(key_code: S) -> Result<KeyCode, S>
 where
-    S: AsRef<str>
+    S: AsRef<str>,
 {
     match key_code.as_ref() {
         "backspace" => Ok(KeyCode::Backspace),
@@ -84,44 +84,28 @@ where
         "media-play-pause" => Ok(KeyCode::Media(MediaKeyCode::PlayPause)),
         "media-reverse" => Ok(KeyCode::Media(MediaKeyCode::Reverse)),
         "media-stop" => Ok(KeyCode::Media(MediaKeyCode::Stop)),
-        "media-fast-forward" => {
-            Ok(KeyCode::Media(MediaKeyCode::FastForward))
-        }
+        "media-fast-forward" => Ok(KeyCode::Media(MediaKeyCode::FastForward)),
         "media-rewind" => Ok(KeyCode::Media(MediaKeyCode::Rewind)),
         "media-track-next" => Ok(KeyCode::Media(MediaKeyCode::TrackNext)),
-        "media-track-previous" => {
-            Ok(KeyCode::Media(MediaKeyCode::TrackPrevious))
-        }
+        "media-track-previous" => Ok(KeyCode::Media(MediaKeyCode::TrackPrevious)),
         "media-record" => Ok(KeyCode::Media(MediaKeyCode::Record)),
-        "media-lower-volume" => {
-            Ok(KeyCode::Media(MediaKeyCode::LowerVolume))
-        }
-        "media-raise-volume" => {
-            Ok(KeyCode::Media(MediaKeyCode::RaiseVolume))
-        }
+        "media-lower-volume" => Ok(KeyCode::Media(MediaKeyCode::LowerVolume)),
+        "media-raise-volume" => Ok(KeyCode::Media(MediaKeyCode::RaiseVolume)),
         "media-mute-volume" => Ok(KeyCode::Media(MediaKeyCode::MuteVolume)),
         "left-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftShift)),
-        "left-control" => {
-            Ok(KeyCode::Modifier(ModifierKeyCode::LeftControl))
-        }
+        "left-control" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftControl)),
         "left-alt" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftAlt)),
         "left-super" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftSuper)),
         "left-hyper" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftHyper)),
         "left-meta" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftMeta)),
         "right-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::RightShift)),
-        "right-control" => {
-            Ok(KeyCode::Modifier(ModifierKeyCode::RightControl))
-        }
+        "right-control" => Ok(KeyCode::Modifier(ModifierKeyCode::RightControl)),
         "right-alt" => Ok(KeyCode::Modifier(ModifierKeyCode::RightAlt)),
         "right-super" => Ok(KeyCode::Modifier(ModifierKeyCode::RightSuper)),
         "right-hyper" => Ok(KeyCode::Modifier(ModifierKeyCode::RightHyper)),
         "right-meta" => Ok(KeyCode::Modifier(ModifierKeyCode::RightMeta)),
-        "iso-level-3-shift" => {
-            Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel3Shift))
-        }
-        "iso-level-5-shift" => {
-            Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel5Shift))
-        }
+        "iso-level-3-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel3Shift)),
+        "iso-level-5-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel5Shift)),
         other => Just('f')
             .ignore_then(IntParser::<10, u8>::new())
             .parse(other)
@@ -149,7 +133,7 @@ fn parse_key_modifiers(key_modifier: &str) -> Result<KeyModifiers, char> {
                 's' => Ok(KeyModifiers::SHIFT),
                 ch => Err(ch),
             }
-                .map(move |modifier| modifiers.union(modifier))
+            .map(move |modifier| modifiers.union(modifier))
         })
 }
 

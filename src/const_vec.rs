@@ -171,7 +171,11 @@ impl<const N: usize> ConstString<N> {
 
         ch.encode_utf8(unsafe {
             slice::from_raw_parts_mut(
-                self.0.buffer.as_mut_ptr().cast::<u8>().wrapping_add(self.0.len),
+                self.0
+                    .buffer
+                    .as_mut_ptr()
+                    .cast::<u8>()
+                    .wrapping_add(self.0.len),
                 self.0.capacity(),
             )
         });

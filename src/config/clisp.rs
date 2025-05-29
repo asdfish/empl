@@ -9,14 +9,13 @@ use {
     crate::{
         config::{
             Arity, IntermediateConfig, KeyAction, NAME, Resources, TryFromValue, Value,
-            parse_key_code,
-            parse_key_modifiers,
             clisp::{
                 ast::ExprParser,
                 evaluator::{Environment, EvalError, List},
                 lexer::LexemeParser,
                 parser::{Parser, ParserOutput},
             },
+            parse_key_code, parse_key_modifiers,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,

@@ -4,8 +4,7 @@ pub mod flag;
 use {
     crate::{
         config::{
-            IntermediateConfig, KeyAction, Resources, UnknownKeyActionError,
-            NAME, VERSION,
+            IntermediateConfig, KeyAction, NAME, Resources, UnknownKeyActionError, VERSION,
             cli::{
                 argv::ArgError,
                 flag::{Arguments, ArgumentsError, Flag},
@@ -88,7 +87,7 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
 
                 eprintln!("{}", MESSAGE);
                 return Ok(None);
-            },
+            }
 
             Flag::Short('b') | Flag::Long("background") => value(&mut arguments, flag)
                 .and_then(|color| {
