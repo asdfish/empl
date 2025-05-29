@@ -9,20 +9,19 @@ use {
     crate::{
         config::{
             Arity, IntermediateConfig, KeyAction, NAME, Resources, TryFromValue, Value,
+            parse_key_code,
+            parse_key_modifiers,
             clisp::{
                 ast::ExprParser,
                 evaluator::{Environment, EvalError, List},
-                lexer::{IntParser, LexemeParser},
-                parser::{Parser, ParserOutput, token::Just},
+                lexer::LexemeParser,
+                parser::{Parser, ParserOutput},
             },
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
     },
-    crossterm::{
-        event::{KeyCode, KeyModifiers, MediaKeyCode, ModifierKeyCode},
-        style::{Color, Colors},
-    },
+    crossterm::style::{Color, Colors},
     nonempty_collections::{
         iter::{IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
@@ -131,108 +130,6 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispErr
                         set_colors(&mut this.rw(&mut owner).selection_colors, value)?;
                     }
                     "key-bindings" => {
-                        fn parse_key_code(key_code: LazyRc<str>) -> Result<KeyCode, LazyRc<str>> {
-                            // todo:
-                            // F(u8),
-                            // Char(char),
-                            match key_code.as_ref() {
-                                "backspace" => Ok(KeyCode::Backspace),
-                                "enter" => Ok(KeyCode::Enter),
-                                "left" => Ok(KeyCode::Left),
-                                "right" => Ok(KeyCode::Right),
-                                "up" => Ok(KeyCode::Up),
-                                "down" => Ok(KeyCode::Down),
-                                "home" => Ok(KeyCode::Home),
-                                "end" => Ok(KeyCode::End),
-                                "page-up" => Ok(KeyCode::PageUp),
-                                "page-down" => Ok(KeyCode::PageDown),
-                                "tab" => Ok(KeyCode::Tab),
-                                "back-tab" => Ok(KeyCode::BackTab),
-                                "delete" => Ok(KeyCode::Delete),
-                                "insert" => Ok(KeyCode::Insert),
-                                "null" => Ok(KeyCode::Null),
-                                "esc" => Ok(KeyCode::Esc),
-                                "caps-lock" => Ok(KeyCode::CapsLock),
-                                "scroll-lock" => Ok(KeyCode::ScrollLock),
-                                "num-lock" => Ok(KeyCode::NumLock),
-                                "print-screen" => Ok(KeyCode::PrintScreen),
-                                "pause" => Ok(KeyCode::Pause),
-                                "menu" => Ok(KeyCode::Menu),
-                                "keypad-begin" => Ok(KeyCode::KeypadBegin),
-                                "media-play" => Ok(KeyCode::Media(MediaKeyCode::Play)),
-                                "media-pause" => Ok(KeyCode::Media(MediaKeyCode::Pause)),
-                                "media-play-pause" => Ok(KeyCode::Media(MediaKeyCode::PlayPause)),
-                                "media-reverse" => Ok(KeyCode::Media(MediaKeyCode::Reverse)),
-                                "media-stop" => Ok(KeyCode::Media(MediaKeyCode::Stop)),
-                                "media-fast-forward" => {
-                                    Ok(KeyCode::Media(MediaKeyCode::FastForward))
-                                }
-                                "media-rewind" => Ok(KeyCode::Media(MediaKeyCode::Rewind)),
-                                "media-track-next" => Ok(KeyCode::Media(MediaKeyCode::TrackNext)),
-                                "media-track-previous" => {
-                                    Ok(KeyCode::Media(MediaKeyCode::TrackPrevious))
-                                }
-                                "media-record" => Ok(KeyCode::Media(MediaKeyCode::Record)),
-                                "media-lower-volume" => {
-                                    Ok(KeyCode::Media(MediaKeyCode::LowerVolume))
-                                }
-                                "media-raise-volume" => {
-                                    Ok(KeyCode::Media(MediaKeyCode::RaiseVolume))
-                                }
-                                "media-mute-volume" => Ok(KeyCode::Media(MediaKeyCode::MuteVolume)),
-                                "left-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftShift)),
-                                "left-control" => {
-                                    Ok(KeyCode::Modifier(ModifierKeyCode::LeftControl))
-                                }
-                                "left-alt" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftAlt)),
-                                "left-super" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftSuper)),
-                                "left-hyper" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftHyper)),
-                                "left-meta" => Ok(KeyCode::Modifier(ModifierKeyCode::LeftMeta)),
-                                "right-shift" => Ok(KeyCode::Modifier(ModifierKeyCode::RightShift)),
-                                "right-control" => {
-                                    Ok(KeyCode::Modifier(ModifierKeyCode::RightControl))
-                                }
-                                "right-alt" => Ok(KeyCode::Modifier(ModifierKeyCode::RightAlt)),
-                                "right-super" => Ok(KeyCode::Modifier(ModifierKeyCode::RightSuper)),
-                                "right-hyper" => Ok(KeyCode::Modifier(ModifierKeyCode::RightHyper)),
-                                "right-meta" => Ok(KeyCode::Modifier(ModifierKeyCode::RightMeta)),
-                                "iso-level-3-shift" => {
-                                    Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel3Shift))
-                                }
-                                "iso-level-5-shift" => {
-                                    Ok(KeyCode::Modifier(ModifierKeyCode::IsoLevel5Shift))
-                                }
-                                other => Just('f')
-                                    .ignore_then(IntParser::<10, u8>::new())
-                                    .parse(other)
-                                    .map(ParserOutput::into_inner)
-                                    .map(KeyCode::F)
-                                    .or_else(|| {
-                                        other
-                                            .chars()
-                                            .collect_array::<1>()
-                                            .map(|[key]| KeyCode::Char(key))
-                                    })
-                                    .ok_or(key_code),
-                            }
-                        }
-                        fn parse_key_modifier(key_modifier: &str) -> Result<KeyModifiers, char> {
-                            key_modifier
-                                .chars()
-                                .try_fold(KeyModifiers::NONE, |modifiers, ch| {
-                                    match ch.to_ascii_lowercase() {
-                                        'a' => Ok(KeyModifiers::ALT),
-                                        'c' => Ok(KeyModifiers::CONTROL),
-                                        'l' => Ok(KeyModifiers::SUPER),
-                                        'h' => Ok(KeyModifiers::HYPER),
-                                        'm' => Ok(KeyModifiers::META),
-                                        's' => Ok(KeyModifiers::SHIFT),
-                                        ch => Err(ch),
-                                    }
-                                        .map(move |modifier| modifiers.union(modifier))
-                                })
-                        }
-
                         // '(string '(modifier key))
                         this.rw(&mut owner).key_bindings = Rc::<List>::try_from_value(value).map_err(EvalError::WrongType).and_then(|key_bindings| {
                             key_bindings
@@ -280,7 +177,7 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispErr
                                                                                     .transpose()
                                                                                     .map_err(EvalError::WrongType)
                                                                             })
-                                                                            .and_then(|[modifier, key_code]| parse_key_modifier(modifier.as_ref())
+                                                                            .and_then(|[modifier, key_code]| parse_key_modifiers(modifier.as_ref())
                                                                                 .map_err(EvalError::UnknownKeyModifier)
                                                                                 .and_then(move |modifier| parse_key_code(key_code)
                                                                                     .map_err(LazyRc::into_owned)

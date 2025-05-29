@@ -9,16 +9,21 @@ use {
                 argv::ArgError,
                 flag::{Arguments, ArgumentsError, Flag},
             },
+            parse_key_code, parse_key_modifiers,
         },
         ext::pair::PairExt,
     },
-    crossterm::style::{Color, Colors},
+    crossterm::{
+        event::{KeyCode, KeyModifiers},
+        style::{Color, Colors},
+    },
     nonempty_collections::{
         iter::{FromNonEmptyIterator, IntoIteratorExt, NonEmptyIterator},
         vector::NEVec,
     },
     std::{
         fmt::{self, Display, Formatter},
+        mem,
         path::Path,
         sync::Arc,
     },
@@ -98,13 +103,14 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
                 })
             }
 
-            Flag::Short('l') | Flag::Long("config") => value(&mut arguments, flag)
+            Flag::Short('C') | Flag::Long("config") => value(&mut arguments, flag)
                 .map(Path::new)
                 .map(|path| state.config_path = Some(path)),
 
             Flag::Short('P') | Flag::Long("playlist") => value(&mut arguments, flag)
                 .map(String::from)
                 .and_then(|playlist| {
+                    // not obtained using `mem::take` and `NEVec::try_from` because the iterator must be transformed
                     state
                         .songs
                         .drain(..)
@@ -123,11 +129,38 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
                 .map(set(&mut state.song_name))
                 .map(|_| check_pair(&mut state.song_name, &mut state.song_path, &mut state.songs)),
 
-            Flag::Short('a') | Flag::Long("action") => value(&mut arguments, flag)
+            Flag::Short('a') | Flag::Long("key-action") => value(&mut arguments, flag)
                 .and_then(|key_action| {
                     KeyAction::parse(key_action).map_err(CliError::UnknownKeyAction)
                 })
-                .map(set(&mut state.key_action)),
+                .and_then(|key_action| {
+                    NEVec::try_from_vec(mem::take(&mut state.key_binding))
+                        .ok_or(CliError::EmptyKeyBinding)
+                        .map(move |key_binding| (key_action, key_binding))
+                })
+                .map(|key_binding| config.key_bindings.push(key_binding)),
+            Flag::Short('k') | Flag::Long("key-code") => value(&mut arguments, flag)
+                .and_then(|key_code| parse_key_code(key_code).map_err(CliError::UnknownKeyCode))
+                .map(|key_code| state.key_code = Some(key_code))
+                .map(|_| {
+                    check_pair(
+                        &mut state.key_modifiers,
+                        &mut state.key_code,
+                        &mut state.key_binding,
+                    )
+                }),
+            Flag::Short('m') | Flag::Long("key-modifiers") => value(&mut arguments, flag)
+                .and_then(|modifiers| {
+                    parse_key_modifiers(modifiers).map_err(CliError::UnknownKeyModifier)
+                })
+                .map(|modifiers| state.key_modifiers = Some(modifiers))
+                .map(|_| {
+                    check_pair(
+                        &mut state.key_modifiers,
+                        &mut state.key_code,
+                        &mut state.key_binding,
+                    )
+                }),
 
             flag => Err(CliError::UnknownFlag(flag)),
         }?
@@ -141,12 +174,15 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
 #[derive(Clone, Copy, Debug)]
 pub enum CliError {
     Arguments(ArgumentsError<'static, ArgError>),
+    EmptyKeyBinding,
     EmptyPlaylist,
     MissingArgument(Flag<'static>),
     UnknownColor(&'static str),
     UnknownColorField(&'static str),
     UnknownFlag(Flag<'static>),
     UnknownKeyAction(UnknownKeyActionError<&'static str>),
+    UnknownKeyCode(&'static str),
+    UnknownKeyModifier(char),
     UnknownField(&'static str),
     UnsetSongName,
     UnsetSongPath,
@@ -156,12 +192,15 @@ impl Display for CliError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Arguments(e) => e.fmt(f),
+            Self::EmptyKeyBinding => f.write_str("cannot have empty key bindings"),
             Self::EmptyPlaylist => f.write_str("cannot have empty playlist"),
             Self::MissingArgument(flag) => write!(f, "flag `{flag}` requires an argument"),
             Self::UnknownColor(color) => write!(f, "unknown color `{color}`"),
             Self::UnknownColorField(field) => write!(f, "unknown color field `{field}`"),
             Self::UnknownFlag(flag) => write!(f, "unknown flag `{flag}`"),
             Self::UnknownKeyAction(e) => e.fmt(f),
+            Self::UnknownKeyCode(code) => write!(f, "unknown key code `{code}`"),
+            Self::UnknownKeyModifier(modifier) => write!(f, "unknown key modifier `{modifier}`"),
             Self::UnknownField(field) => write!(f, "unknown field `{field}`"),
             Self::UnsetSongName => f.write_str("song name not set"),
             Self::UnsetSongPath => f.write_str("song path not set"),
@@ -184,7 +223,9 @@ struct State {
     song_path: Option<&'static Path>,
     songs: Vec<(&'static str, &'static Path)>,
 
-    key_action: Option<KeyAction>,
+    key_code: Option<KeyCode>,
+    key_modifiers: Option<KeyModifiers>,
+    key_binding: Vec<(KeyModifiers, KeyCode)>,
 
     config_path: Option<&'static Path>,
 }
