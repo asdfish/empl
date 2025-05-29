@@ -5,12 +5,14 @@ use {
     crate::{
         config::{
             IntermediateConfig, KeyAction, Resources, UnknownKeyActionError,
+            NAME, VERSION,
             cli::{
                 argv::ArgError,
                 flag::{Arguments, ArgumentsError, Flag},
             },
             parse_key_code, parse_key_modifiers,
         },
+        const_vec::ConstString,
         ext::pair::PairExt,
     },
     crossterm::{
@@ -74,6 +76,20 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
     let mut arguments = Arguments::new(resources.argv.by_ref().skip(1));
     while let Some(flag) = arguments.next().transpose()? {
         match flag {
+            Flag::Short('v') | Flag::Long("version") => {
+                const MESSAGE: ConstString<{ NAME.len() + 1 + VERSION.len() }> = {
+                    let mut message = ConstString::new();
+                    message.push_str(NAME);
+                    message.push(' ');
+                    message.push_str(VERSION);
+
+                    message
+                };
+
+                eprintln!("{}", MESSAGE);
+                return Ok(None);
+            },
+
             Flag::Short('b') | Flag::Long("background") => value(&mut arguments, flag)
                 .and_then(|color| {
                     Color::try_from(color).map_err(move |_| CliError::UnknownColor(color))

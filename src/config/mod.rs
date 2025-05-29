@@ -27,6 +27,30 @@ use {
     },
 };
 
+/// The name of the binary.
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::NAME;
+/// if let Some(name) = option_env!("CARGO_PKG_NAME") {
+///      assert_eq!(name, NAME);
+/// }
+/// ```
+pub const NAME: &str = "empl";
+
+/// The version of the binary.
+///
+/// # Examples
+///
+/// ```
+/// # use empl::config::VERSION;
+/// if let Some(version) = option_env!("CARGO_PKG_VERSION") {
+///      assert_eq!(version, VERSION);
+/// }
+/// ```
+pub const VERSION: &str = "1.0.0";
+
 fn parse_key_code<S>(key_code: S) -> Result<KeyCode, S>
 where
     S: AsRef<str>
@@ -128,18 +152,6 @@ fn parse_key_modifiers(key_modifier: &str) -> Result<KeyModifiers, char> {
                 .map(move |modifier| modifiers.union(modifier))
         })
 }
-
-/// The name of the binary.
-///
-/// # Examples
-///
-/// ```
-/// # use empl::config::NAME;
-/// if let Some(name) = option_env!("CARGO_PKG_NAME") {
-///      assert_eq!(name, NAME);
-/// }
-/// ```
-pub const NAME: &str = "empl";
 
 #[derive(Clone, Copy, Debug)]
 pub struct Resources {
