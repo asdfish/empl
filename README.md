@@ -68,21 +68,31 @@ Any argument between `|` indicates it can be either.
 
 The `set-cfg!` function is a special function used to configure the music player.
 
+These have their own types.
+
+ - `color` indicates a [color][#color]
+ - `modifiers` indicates a [modifier][#key-modifier]
+ - `key-code` indicates a [key code][#key-code]
+ - `key-action` indicates a [key action][#key-action]
+
 ### Arguments
 
 `(str any)`
 
 The first argument is the field you wish to configure, and the second is its value.
 
-| field           | type           | description                                                       |
-|-----------------|----------------|-------------------------------------------------------------------|
-| `cursor-colors` | `str | '(int)` | Either a list of 3 ints interpreted as rgb, or a [color](#colors)  |
-|                 |      |         |                                                                   |
+| field              | type                              | description                   |
+|--------------------|-----------------------------------|-------------------------------|
+| `cursor-colors`    | `'(color)`                        | Set the cursor colors.        |
+| `menu-colors`      | `'(color)`                        | Set the menu colors.          |
+| `selection-colors` | `'(color)`                        | Set the selection colors.     |
+| `playlists`        | `'(str '('(path string))`         | Set the playlists to be used. |
+| `key-bindings`     | `'(str '('(modifiers key-code)))` | Set the key bindings.         |
+|                    |                                   |                               |
 
+#### Color
 
-#### Colors
-
-Colors can be one of the following:
+The colors can be one of the following:
 
  - `none`
  - `reset`
@@ -102,3 +112,92 @@ Colors can be one of the following:
  - `dark_cyan`
  - `white`
  - `grey`
+
+#### Key modifier
+
+Key modifiers are a sequence of letters that accumulate to a key modifier.
+
+| letter | key        |
+|--------|------------|
+| a      | alt        |
+| c      | control    |
+| l      | super/logo |
+| h      | hyper      |
+| m      | meta       |
+| s      | shift      |
+
+For example, `sa` would be a modifier that requires shift and alt to be pressed.
+
+#### Key action
+
+Key actions are the actions that get executed once a key binding is performed.
+
+| name           | description                            |
+|----------------|----------------------------------------|
+| quit           | Halt the program.                      |
+| move-up        | Move the cursor up.                    |
+| move-down      | Move the cursor down.                  |
+| move-left      | Move the cursor left.                  |
+| move-right     | Move the cursor right.                 |
+| move-top       | Move the cursor to the top.            |
+| move-bottom    | Move the cursor to the bottom.         |
+| move-selection | Move the cursor to the selected index. |
+| select         | Select the item under the cursor.      |
+| skip-song      | Skip the current song.                 |
+
+#### Key code
+
+ - `backspace`
+ - `enter`
+ - `left`
+ - `right`
+ - `up`
+ - `down`
+ - `home`
+ - `end`
+ - `page-up`
+ - `page-down`
+ - `tab`
+ - `back-tab`
+ - `delete`
+ - `insert`
+ - `null`
+ - `esc`
+ - `caps-lock`
+ - `scroll-lock`
+ - `num-lock`
+ - `print-screen`
+ - `pause`
+ - `menu`
+ - `keypad-begin`
+ - `media-play`
+ - `media-pause`
+ - `media-play-pause`
+ - `media-reverse`
+ - `media-stop`
+ - `media-fast-forward`
+ - `media-rewind`
+ - `media-track-next`
+ - `media-track-previous`
+ - `media-record`
+ - `media-lower-volume`
+ - `media-raise-volume`
+ - `media-mute-volume`
+ - `left-shift`
+ - `left-control`
+ - `left-alt`
+ - `left-super`
+ - `left-hyper`
+ - `left-meta`
+ - `right-shift`
+ - `right-control`
+ - `right-alt`
+ - `right-super`
+ - `right-hyper`
+ - `right-meta`
+ - `iso-level-3-shift`
+ - `iso-level-5-shift`
+ - `f\d+`
+ The `f\d+` keys.
+ - `.`
+ Assume the key is a character.

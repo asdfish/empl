@@ -194,6 +194,7 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispErro
                         })?;
                     }
                     "playlists" => {
+                                        // '(string (string path))
                         let value = Rc::<List>::try_from_value(value)?;
                         this.rw(&mut owner).playlists = value
                             .iter()
