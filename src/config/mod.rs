@@ -49,7 +49,7 @@ pub const NAME: &str = "empl";
 ///      assert_eq!(version, VERSION);
 /// }
 /// ```
-pub const VERSION: &str = "1.0.0";
+pub const VERSION: &str = "2.0.0";
 
 fn parse_key_code<S>(key_code: S) -> Result<KeyCode, S>
 where
