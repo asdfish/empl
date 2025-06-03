@@ -1,5 +1,5 @@
 use {
-    crate::config::clisp::evaluator::{List, Value},
+    crate::config::lisp::evaluator::{List, Value},
     std::{iter::FusedIterator, rc::Rc},
 };
 

@@ -1,6 +1,6 @@
 use {
     criterion::{BatchSize, Criterion, criterion_group, criterion_main},
-    empl::config::clisp::{
+    empl::config::lisp::{
         ast::ExprParser, evaluator::Environment, lexer::LexemeParser, parser::Parser,
     },
 };

@@ -5,7 +5,7 @@ use {
     crate::{
         config::{
             UnknownKeyActionError,
-            clisp::{
+            lisp::{
                 ast::{Expr, ExprTy},
                 lexer::Literal,
             },
@@ -174,7 +174,7 @@ pub enum Value<'src> {
     Path(LazyRc<'src, Path>),
     String(LazyRc<'src, str>),
     List(Rc<List<'src>>),
-    Fn(LazyRc<'src, dyn ClispFn<'src> + 'src>),
+    Fn(LazyRc<'src, dyn LispFn<'src> + 'src>),
 }
 #[derive(Clone, Copy, Debug)]
 pub enum Type {
@@ -235,7 +235,7 @@ impl_value_variant!(Int(i32));
 impl_value_variant!(Path(LazyRc<'src, Path>));
 impl_value_variant!(String(LazyRc<'src, str>));
 impl_value_variant!(List(Rc<List<'src>>));
-impl_value_variant!(Fn(LazyRc<'src, dyn ClispFn<'src> + 'src>));
+impl_value_variant!(Fn(LazyRc<'src, dyn LispFn<'src> + 'src>));
 impl Debug for Value<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
@@ -302,17 +302,17 @@ pub enum InvalidColorError {
     UnknownColor(Rc<str>),
 }
 
-pub trait ClispFn<'src>:
+pub trait LispFn<'src>:
     DynClone + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
 }
-dyn_clone::clone_trait_object!(ClispFn<'_>);
-impl<'src, T> ClispFn<'src> for T where
+dyn_clone::clone_trait_object!(LispFn<'_>);
+impl<'src, T> LispFn<'src> for T where
     T: DynClone
         + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
 }
-impl ToOwned for dyn ClispFn<'_> {
+impl ToOwned for dyn LispFn<'_> {
     type Owned = Rc<Self>;
 
     fn to_owned(&self) -> Self::Owned {

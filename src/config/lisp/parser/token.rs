@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
+        config::lisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::EitherOrBoth,
     },
     std::marker::PhantomData,
@@ -47,7 +47,7 @@ where
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+/// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
 /// assert_eq!(Just('h').parse("hello"), Some(ParserOutput::new("ello", 'h')));
 /// assert_eq!(Just('h').parse("goodbye"), None);
 /// ```
@@ -85,7 +85,7 @@ where
 ///
 /// # Examples
 /// ```
-/// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Sequence};
+/// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Sequence};
 /// assert_eq!(Sequence::new("hello").parse("hello world"), Some(ParserOutput::new(" world", "hello")));
 /// assert_eq!(Sequence::new("hello").parse("goodbye world"), None);
 /// ```

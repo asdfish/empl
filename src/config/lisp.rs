@@ -9,7 +9,7 @@ use {
     crate::{
         config::{
             Arity, IntermediateConfig, KeyAction, NAME, Resources, TryFromValue, Value,
-            clisp::{
+            lisp::{
                 ast::ExprParser,
                 evaluator::{Environment, EvalError, List},
                 lexer::LexemeParser,
@@ -41,7 +41,7 @@ const CONFIG_FILE_NAME: &str = "main.lisp";
 const ENV_CONFIG_PATHS: [(&str, Option<&str>); 2] =
     [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
 
-pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispError> {
+pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispError> {
     resources
         .config_path
         .map(Cow::Borrowed)
@@ -71,11 +71,11 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispErr
                 })
                 .map(Cow::Owned)
         })
-        .ok_or(CLispError::UnsetEnvVars)
-        .and_then(|path| fs::read_to_string(&path).map_err(move |err| CLispError::ReadConfig(err, path)))
+        .ok_or(LispError::UnsetEnvVars)
+        .and_then(|path| fs::read_to_string(&path).map_err(move |err| LispError::ReadConfig(err, path)))
         .and_then(|config| {
             let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
-            ExprParser.parse(&lexemes).ok_or(CLispError::InvalidSyntax)
+            ExprParser.parse(&lexemes).ok_or(LispError::InvalidSyntax)
                 .map(ParserOutput::into_inner)
                 .and_then(|expr| {
 
@@ -257,13 +257,13 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, CLispErr
 }
 
 #[derive(Debug)]
-pub enum CLispError {
+pub enum LispError {
     Eval(EvalError),
     InvalidSyntax,
     ReadConfig(io::Error, Cow<'static, Path>),
     UnsetEnvVars,
 }
-impl Display for CLispError {
+impl Display for LispError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Eval(e) => e.fmt(f),
@@ -277,7 +277,7 @@ impl Display for CLispError {
         }
     }
 }
-impl From<EvalError> for CLispError {
+impl From<EvalError> for LispError {
     fn from(err: EvalError) -> Self {
         Self::Eval(err)
     }

@@ -7,7 +7,7 @@ use {
     crate::config::{Config, Stage},
     empl::config::{
         cli::{argv::Argv, flag::Arguments},
-        clisp::{
+        lisp::{
             ast::ExprParser,
             evaluator::Environment,
             lexer::LexemeParser,

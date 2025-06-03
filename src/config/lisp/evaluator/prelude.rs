@@ -1,8 +1,8 @@
 use {
     crate::{
-        config::clisp::{
+        config::lisp::{
             evaluator::{
-                Arity, ClispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value,
+                Arity, LispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value,
                 list,
             },
             lexer::Literal,
@@ -21,7 +21,7 @@ use {
     },
 };
 
-const fn math_fn<'src, O>(op: O) -> impl ClispFn<'src>
+const fn math_fn<'src, O>(op: O) -> impl LispFn<'src>
 where
     O: Clone + Fn(i32, i32) -> Option<i32>,
 {
@@ -45,7 +45,7 @@ where
 const fn predicate_fn<'src, Extractor, ExtractorOutput, Predicate>(
     extractor: Extractor,
     predicate: Predicate,
-) -> impl ClispFn<'src>
+) -> impl LispFn<'src>
 where
     Extractor: Clone + Fn(Value<'src>) -> Result<ExtractorOutput, EvalError>,
     Predicate: Clone + Fn(&ExtractorOutput) -> bool,
@@ -80,7 +80,7 @@ const fn seq_fn<'src, A, E, EO, F, FO>(
     arity: A,
     get_extra_args: E,
     morphism: F,
-) -> impl ClispFn<'src>
+) -> impl LispFn<'src>
 where
     A: Clone + Fn() -> Arity,
     E: Clone
@@ -89,7 +89,7 @@ where
         + Fn(
             &mut Environment<'src>,
             EO,
-            LazyRc<'src, dyn ClispFn<'src> + 'src>,
+            LazyRc<'src, dyn LispFn<'src> + 'src>,
             list::Iter<'src>,
         ) -> Result<FO, EvalError>,
     FO: Into<Value<'src>>,
@@ -99,7 +99,7 @@ where
         let map = args
             .next()
             .ok_or(EvalError::WrongArity(arity()))
-            .and_then(|map| env.eval_into::<LazyRc<'src, dyn ClispFn<'src>>>(map))?;
+            .and_then(|map| env.eval_into::<LazyRc<'src, dyn LispFn<'src>>>(map))?;
         let seq = args
             .next()
             .ok_or(EvalError::WrongArity(arity()))
@@ -112,7 +112,7 @@ where
         morphism(env, extra_args, map, seq.iter()).map(FO::into)
     }
 }
-const fn typed_predicate_fn<'src, P, T>(predicate: P) -> impl ClispFn<'src>
+const fn typed_predicate_fn<'src, P, T>(predicate: P) -> impl LispFn<'src>
 where
     P: Clone + Fn(&T) -> bool,
     T: TryFromValue<'src>,
@@ -122,7 +122,7 @@ where
         predicate,
     )
 }
-const fn value_fn<'src, F>(f: F) -> impl ClispFn<'src>
+const fn value_fn<'src, F>(f: F) -> impl LispFn<'src>
 where
     F: Clone
         + Fn(
@@ -155,7 +155,7 @@ fn concat<'src>(
         })
     })(env, args)
 }
-const fn cons<'src>() -> impl ClispFn<'src> {
+const fn cons<'src>() -> impl LispFn<'src> {
     value_fn(|args| {
         args.fuse()
             .collect_array::<2>()
@@ -169,7 +169,7 @@ const fn cons<'src>() -> impl ClispFn<'src> {
             .map(Value::List)
     })
 }
-const fn env<'src>() -> impl ClispFn<'src> {
+const fn env<'src>() -> impl LispFn<'src> {
     value_fn(|args| {
         args.into_iter()
             .fuse()
@@ -318,7 +318,7 @@ fn not<'src>(
         .map(bool::not)
         .map(Value::Bool)
 }
-const fn path<'src>() -> impl ClispFn<'src> {
+const fn path<'src>() -> impl LispFn<'src> {
     value_fn(|string| {
         string
             .fuse()
@@ -333,7 +333,7 @@ const fn path<'src>() -> impl ClispFn<'src> {
             .map(Value::Path)
     })
 }
-const fn path_children<'src>() -> impl ClispFn<'src> {
+const fn path_children<'src>() -> impl LispFn<'src> {
     value_fn(|paths| {
         paths
             .fuse()
@@ -363,7 +363,7 @@ const fn path_children<'src>() -> impl ClispFn<'src> {
             .map(Value::List)
     })
 }
-const fn path_name<'src>() -> impl ClispFn<'src> {
+const fn path_name<'src>() -> impl LispFn<'src> {
     value_fn(|path| {
         path.fuse()
             .collect_array::<1>()
@@ -404,7 +404,7 @@ where
         })
         .and_then(|tail| env.eval_tail_call(tail))
 }
-const fn seq_filter<'src>() -> impl ClispFn<'src> {
+const fn seq_filter<'src>() -> impl LispFn<'src> {
     seq_fn(
         || Arity::Static(2),
         |_, _| Ok(()),
@@ -428,7 +428,7 @@ const fn seq_filter<'src>() -> impl ClispFn<'src> {
         },
     )
 }
-const fn seq_find<'src>() -> impl ClispFn<'src> {
+const fn seq_find<'src>() -> impl LispFn<'src> {
     seq_fn(
         || Arity::Static(2),
         |_, _| Ok(()),
@@ -447,7 +447,7 @@ const fn seq_find<'src>() -> impl ClispFn<'src> {
         },
     )
 }
-const fn seq_flat_map<'src>() -> impl ClispFn<'src> {
+const fn seq_flat_map<'src>() -> impl LispFn<'src> {
     seq_fn(
         || Arity::Static(2),
         |_, _| Ok(()),
@@ -465,7 +465,7 @@ const fn seq_flat_map<'src>() -> impl ClispFn<'src> {
         },
     )
 }
-const fn seq_fold<'src>() -> impl ClispFn<'src> {
+const fn seq_fold<'src>() -> impl LispFn<'src> {
     seq_fn(
         || Arity::Static(3),
         |env, args| {
@@ -480,7 +480,7 @@ const fn seq_fold<'src>() -> impl ClispFn<'src> {
         },
     )
 }
-const fn seq_map<'src>() -> impl ClispFn<'src> {
+const fn seq_map<'src>() -> impl LispFn<'src> {
     seq_fn(
         || Arity::Static(2),
         |_, _| Ok(()),
@@ -516,7 +516,7 @@ fn try_catch<'src>(
         .collect_array::<2>()
         .ok_or(EvalError::WrongArity(Arity::Static(2)))
         .and_then(|args| {
-            args.map(|arg| env.eval_into::<LazyRc<'src, dyn ClispFn<'src>>>(arg))
+            args.map(|arg| env.eval_into::<LazyRc<'src, dyn LispFn<'src>>>(arg))
                 .transpose()
         })?;
 

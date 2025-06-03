@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{
+        config::lisp::parser::{
             Parser, ParserOutput, PureParser,
             token::{Any, Just, Select},
         },
@@ -68,7 +68,7 @@ impl<'a> Parser<'a, &'a str> for LiteralParser {
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput}};
+/// # use empl::config::lisp::{lexer::IdentParser, parser::{Parser, ParserOutput}};
 /// assert_eq!(IdentParser.parse(""), None);
 /// assert_eq!(IdentParser.parse("foo"), Some(ParserOutput::new("", "foo")));
 /// assert_eq!(IdentParser.parse("*"), Some(ParserOutput::new("", "*")));
@@ -143,7 +143,7 @@ where
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{parser::{Parser, ParserOutput}, lexer::EscapeCharacterParser};
+/// # use empl::config::lisp::{parser::{Parser, ParserOutput}, lexer::EscapeCharacterParser};
 /// assert_eq!(EscapeCharacterParser.parse("\\u{FACE}"), Some(ParserOutput::new("", '\u{FACE}')));
 /// ```
 #[derive(Clone, Copy, Debug)]
@@ -178,7 +178,7 @@ impl<'a> Parser<'a, &'a str> for EscapeCharacterParser {
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{lexer::StringParser, parser::{Parser, ParserOutput}};
+/// # use empl::config::lisp::{lexer::StringParser, parser::{Parser, ParserOutput}};
 /// # use std::borrow::Cow;
 /// assert_eq!(StringParser.parse(r#""hello world""#), Some(ParserOutput::new("", Cow::Borrowed("hello world"))));
 /// assert_eq!(StringParser.parse(r#""\u{CAFE}""#), Some(ParserOutput::new("", Cow::Borrowed("\u{CAFE}"))));
@@ -216,7 +216,7 @@ impl<'a> Parser<'a, &'a str> for StringParser {
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{lexer::WhitespaceParser, parser::{Parser, ParserOutput}};
+/// # use empl::config::lisp::{lexer::WhitespaceParser, parser::{Parser, ParserOutput}};
 /// assert_eq!(WhitespaceParser.parse("    "), Some(ParserOutput::new("", ())));
 /// assert_eq!(WhitespaceParser.parse("\n\n    ; foo\nbar"), Some(ParserOutput::new("bar", ())));
 /// ```

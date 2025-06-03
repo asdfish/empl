@@ -1,6 +1,6 @@
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserOutput},
+        config::lisp::parser::{Parsable, Parser, ParserOutput},
         ext::command::CommandChain,
     },
     bumpalo::Bump,

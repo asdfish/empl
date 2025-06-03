@@ -5,7 +5,7 @@ pub mod recursive;
 pub mod token;
 
 use {
-    crate::{config::clisp::parser::adapter::*, either::Either},
+    crate::{config::lisp::parser::adapter::*, either::Either},
     std::{marker::PhantomData, slice, str},
 };
 
@@ -86,7 +86,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
+    /// # use empl::config::lisp::{lexer::IntParser, parser::{Parser, ParserOutput}};
     /// let int_or_0 = IntParser::<10, u32>::new().co_flatten().map(|output| output.unwrap_or(0));
     /// assert_eq!(int_or_0.parse("10"), Some(ParserOutput::new("", 10)));
     /// assert_eq!(int_or_0.parse("foo"), Some(ParserOutput::new("foo", 0)));
@@ -107,7 +107,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::{lexer::IdentParser, parser::{Parser, ParserOutput, token::Just}};
+    /// # use empl::config::lisp::{lexer::IdentParser, parser::{Parser, ParserOutput, token::Just}};
     /// let string_interpolation = IdentParser.delimited_by(Just('{'), Just('}'));
     /// assert_eq!(string_interpolation.parse("{foo}"), Some(ParserOutput::new("", "foo")));
     /// ```
@@ -131,7 +131,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::{Just, Sequence}}, either::Either};
+    /// # use empl::{config::lisp::parser::{Parser, ParserOutput, token::{Just, Sequence}}, either::Either};
     /// let abc = Just('a').either_or(Sequence::new("bc"));
     /// assert_eq!(abc.parse("a"), Some(ParserOutput::new("", Either::Left('a'))));
     /// assert_eq!(abc.parse("bc"), Some(ParserOutput::new("", Either::Right("bc"))));
@@ -154,7 +154,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Any};
     /// let is_a = Any::new().filter(|ch: &char| 'a'.eq(ch));
     /// assert_eq!(is_a.parse("a"), Some(ParserOutput::new("", 'a')));
     /// assert_eq!(is_a.parse("b"), None);
@@ -177,7 +177,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Any};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Any};
     /// let digit = Any::new().filter_map(|ch: char| ch.to_digit(10));
     /// assert_eq!(digit.parse("1"), Some(ParserOutput::new("", 1)));
     /// assert_eq!(digit.parse("a"), None);
@@ -210,7 +210,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// # use std::convert::Infallible;
     /// let a_count = Just('a').fold(|| 0, |accum, _, _| Some(accum + 1));
     /// assert_eq!(a_count.parse("aaa"), Some(ParserOutput::new("", 3)));
@@ -237,7 +237,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// let ab = Just('a').ignore_then(Just('b'));
     /// assert_eq!(ab.parse("ab"), Some(ParserOutput::new("", 'b')));
     /// ```
@@ -270,7 +270,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::{Any, Just}}, either::Either};
+    /// # use empl::{config::lisp::parser::{Parser, ParserOutput, token::{Any, Just}}, either::Either};
     /// let lowercase = Any::new().map(|ch: char| ch.to_ascii_lowercase());
     /// assert_eq!(lowercase.parse("a"), Some(ParserOutput::new("", 'a')));
     /// assert_eq!(lowercase.parse("A"), Some(ParserOutput::new("", 'a')));
@@ -293,7 +293,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// let count_a = Just('a').map_iter(|iter| iter.count());
     /// assert_eq!(count_a.parse("aaa"), Some(ParserOutput::new("", 3)));
     /// assert_eq!(count_a.parse("aaabbb"), Some(ParserOutput::new("bbb", 3)));
@@ -316,7 +316,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// let maybe_a = Just('a').maybe();
     /// assert_eq!(maybe_a.parse("a"), Some(ParserOutput::new("", Some('a'))));
     /// assert_eq!(maybe_a.parse("b"), Some(ParserOutput::new("b", None)));
@@ -337,7 +337,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::{config::clisp::parser::{Parser, ParserOutput, token::Just}, either::Either};
+    /// # use empl::{config::lisp::parser::{Parser, ParserOutput, token::Just}, either::Either};
     /// let a_or_b = Just('a').or(Just('b'));
     /// assert_eq!(a_or_b.parse("a"), Some(ParserOutput::new("", 'a')));
     /// assert_eq!(a_or_b.parse("b"), Some(ParserOutput::new("", 'b')));
@@ -361,7 +361,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// assert_eq!(Just('h').then(Just('i')).parse("hi"), Some(ParserOutput::new("", ('h', 'i'))));
     /// assert_eq!(Just('h').then(Just('i')).parse("ho"), None);
     /// ```
@@ -383,7 +383,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, token::Just};
     /// let ab = Just('a').then_ignore(Just('b'));
     /// assert_eq!(ab.parse("ab"), Some(ParserOutput::new("", 'a')));
     /// ```
@@ -430,7 +430,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, PureParser, token::Just};
     /// let a = Just('a').as_slice();
     /// assert_eq!(a.parse("a"), Some(ParserOutput::new("", "a")));
     /// ```
@@ -450,7 +450,7 @@ where
     /// # Examples
     ///
     /// ```
-    /// # use empl::config::clisp::parser::{Parser, ParserOutput, PureParser, token::Just};
+    /// # use empl::config::lisp::parser::{Parser, ParserOutput, PureParser, token::Just};
     /// let a_s = Just('a').repeated();
     /// assert_eq!(a_s.parse("aaabbb"), Some(ParserOutput::new("bbb", "aaa")));
     /// ```

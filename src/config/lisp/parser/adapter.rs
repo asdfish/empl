@@ -6,7 +6,7 @@
 
 use {
     crate::{
-        config::clisp::parser::{Parsable, Parser, ParserOutput, PureParser},
+        config::lisp::parser::{Parsable, Parser, ParserOutput, PureParser},
         either::Either,
     },
     std::marker::PhantomData,

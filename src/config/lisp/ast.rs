@@ -1,5 +1,5 @@
 use {
-    crate::config::clisp::{
+    crate::config::lisp::{
         evaluator::Value,
         lexer::{Lexeme, Literal},
         parser::{
@@ -15,7 +15,7 @@ use {
 pub enum Expr<'a> {
     List(VecDeque<Self>),
     Literal(&'a Literal<'a>),
-    /// Should not be used when parsing tokens. This is just for calling [ClispFn][crate::config::clisp::evaluator::ClispFn] with pre-existing values.
+    /// Should not be used when parsing tokens. This is just for calling [LispFn][crate::config::lisp::evaluator::LispFn] with pre-existing values.
     Value(Value<'a>),
 }
 #[derive(Clone, Copy, Debug)]

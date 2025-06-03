@@ -1,5 +1,5 @@
 use {
-    crate::config::clisp::parser::{Parsable, Parser, ParserOutput},
+    crate::config::lisp::parser::{Parsable, Parser, ParserOutput},
     std::{cell::OnceCell, marker::PhantomData},
 };
 
@@ -8,7 +8,7 @@ use {
 /// # Examples
 ///
 /// ```
-/// # use empl::config::clisp::{lexer::IntParser, parser::{Parser, ParserOutput, recursive::RecursiveParser, token::Just}};
+/// # use empl::config::lisp::{lexer::IntParser, parser::{Parser, ParserOutput, recursive::RecursiveParser, token::Just}};
 ///
 /// #[derive(Debug, PartialEq)]
 /// enum Expr {

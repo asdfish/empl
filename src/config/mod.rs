@@ -1,12 +1,12 @@
 pub mod cli;
-pub mod clisp;
+pub mod lisp;
 
 use {
     crate::{
         config::{
             cli::{CliError, argv::Argv},
-            clisp::{
-                CLispError,
+            lisp::{
+                LispError,
                 evaluator::{Arity, TryFromValue, Value},
                 lexer::IntParser,
                 parser::{Parser, ParserOutput, token::Just},
@@ -158,10 +158,10 @@ impl From<Argv> for Resources {
 #[derive(Clone, Copy, Debug)]
 pub enum ConfigStage {
     Cli,
-    CLisp,
+    Lisp,
 }
 impl ConfigStage {
-    pub const VARIANTS: [Self; 2] = [Self::Cli, Self::CLisp];
+    pub const VARIANTS: [Self; 2] = [Self::Cli, Self::Lisp];
 
     pub fn execute(
         &self,
@@ -169,9 +169,9 @@ impl ConfigStage {
     ) -> Result<Option<IntermediateConfig>, ConfigError> {
         match self {
             Self::Cli => cli::execute(resources).map_err(ConfigError::Cli),
-            Self::CLisp => clisp::execute(resources)
+            Self::Lisp => lisp::execute(resources)
                 .map(Some)
-                .map_err(ConfigError::CLisp),
+                .map_err(ConfigError::Lisp),
         }
     }
 }
@@ -179,13 +179,13 @@ impl ConfigStage {
 #[derive(Debug)]
 pub enum ConfigError {
     Cli(CliError),
-    CLisp(CLispError),
+    Lisp(LispError),
 }
 impl Display for ConfigError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         match self {
             Self::Cli(e) => e.fmt(f),
-            Self::CLisp(e) => e.fmt(f),
+            Self::Lisp(e) => e.fmt(f),
         }
     }
 }
