@@ -19,6 +19,8 @@ Any argument following a `...` is considered to be variadic, so `(int int ... in
 
 Any argument with a `?` indicates it is optional.
 
+Any argument between `|` indicates it can be either.
+
  - `int` indicates a number
  - `str` indicates a string
  - `any` indicates anything
@@ -72,3 +74,31 @@ The `set-cfg!` function is a special function used to configure the music player
 
 The first argument is the field you wish to configure, and the second is its value.
 
+| field           | type           | description                                                       |
+|-----------------|----------------|-------------------------------------------------------------------|
+| `cursor-colors` | `str | '(int)` | Either a list of 3 ints interpreted as rgb, or a [color](#colors)  |
+|                 |      |         |                                                                   |
+
+
+#### Colors
+
+Colors can be one of the following:
+
+ - `none`
+ - `reset`
+ - `black`
+ - `dark_grey`
+ - `red`
+ - `dark_red`
+ - `green`
+ - `dark_green`
+ - `yellow`
+ - `dark_yellow`
+ - `blue`
+ - `dark_blue`
+ - `magenta`
+ - `dark_magenta`
+ - `cyan`
+ - `dark_cyan`
+ - `white`
+ - `grey`

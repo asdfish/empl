@@ -26,7 +26,6 @@ use {
         ops::{Range, RangeFrom},
         path::Path,
         rc::Rc,
-        str::FromStr,
     },
 };
 
@@ -286,10 +285,14 @@ impl<'src> TryFrom<Value<'src>> for Option<Color> {
 
                 Ok(Some(Color::Rgb { r, g, b }))
             }
-            Value::String(name) if name.as_ref() == "none" => Ok(None),
-            Value::String(name) => Color::from_str(name.as_ref())
-                .map_err(|_| InvalidColorError::UnknownColor(name.into_owned()))
-                .map(Some),
+            Value::String(name) => Color::try_from(name.as_ref())
+                .map(Some)
+                .or_else(|_| if name.as_ref() == "none" {
+                    Ok(None)
+                } else {
+                    Err(())
+                })
+                .map_err(|_| InvalidColorError::UnknownColor(name.into_owned())),
             val => Err(InvalidColorError::WrongType(Type::from(val))),
         }
     }
