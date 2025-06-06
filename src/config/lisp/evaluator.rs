@@ -14,7 +14,6 @@ use {
         lazy_rc::LazyRc,
     },
     crossterm::style::Color,
-    dyn_clone::DynClone,
     nonempty_collections::vector::NEVec,
     std::{
         any::type_name,
@@ -164,7 +163,7 @@ impl From<TryFromValueError> for EvalError {
     }
 }
 
-#[derive(Clone, Default)]
+#[derive(Default)]
 pub enum Value<'src> {
     #[default]
     Unit,
@@ -174,6 +173,19 @@ pub enum Value<'src> {
     String(LazyRc<'src, str>),
     List(Rc<List<'src>>),
     Fn(LazyRc<'src, dyn LispFn<'src> + 'src>),
+}
+impl Clone for Value<'_> {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Unit => Self::Unit,
+            Self::Bool(b) => Self::Bool(*b),
+            Self::Int(i) => Self::Int(*i),
+            Self::Path(p) => Self::Path(LazyRc::clone(p)),
+            Self::String(s) => Self::String(LazyRc::clone(s)),
+            Self::List(l) => Self::List(Rc::clone(l)),
+            Self::Fn(f) => Self::Fn(LazyRc::clone(f)),
+        }
+    }
 }
 #[derive(Clone, Copy, Debug)]
 pub enum Type {
@@ -306,21 +318,11 @@ pub enum InvalidColorError {
 }
 
 pub trait LispFn<'src>:
-    DynClone + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
+    Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
 }
-dyn_clone::clone_trait_object!(LispFn<'_>);
-impl<'src, T> LispFn<'src> for T where
-    T: DynClone
-        + Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
+impl<'src, T> LispFn<'src> for T where T: Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
-}
-impl ToOwned for dyn LispFn<'_> {
-    type Owned = Rc<Self>;
-
-    fn to_owned(&self) -> Self::Owned {
-        dyn_clone::clone_box(self).into()
-    }
 }
 
 pub trait TryFromValue<'src> {
