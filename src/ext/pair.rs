@@ -104,7 +104,7 @@ impl<L, R, E> BiTranspose<L, R, E> for (Result<L, E>, Result<R, E>) {
         }
     }
 }
-trait Hkt<T, E = ()> {
+pub trait Hkt<T, E = ()> {
     fn from_control_flow(_: ControlFlow<E, T>) -> Self
     where
         Self: Sized;
