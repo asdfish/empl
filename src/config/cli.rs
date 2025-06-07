@@ -14,7 +14,7 @@ use {
         const_vec::ConstString,
         ext::pair::{
             BiTranspose,
-            Pair,
+            BiFunctor,
         },
     },
     crossterm::{

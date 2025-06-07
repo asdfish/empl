@@ -1,9 +1,17 @@
 use std::ops::ControlFlow;
 
-pub trait Pair<L, R> {
+pub trait BiFunctor<L, R> {
     fn fst(self) -> L;
     fn snd(self) -> R;
 
+    fn bimap<F, G, L2, R2>(self, f: F, g: G) -> (L2, R2)
+    where
+        Self: Sized,
+        F: FnOnce(L) -> L2,
+        G: FnOnce(R) -> R2,
+    {
+        self.map_fst(f).map_snd(g)
+    }
     fn map_fst<F, L2>(self, _: F) -> (L2, R)
     where
         F: FnOnce(L) -> L2;
@@ -11,7 +19,7 @@ pub trait Pair<L, R> {
     where
         F: FnOnce(R) -> R2;
 }
-impl<L, R> Pair<L, R> for (L, R) {
+impl<L, R> BiFunctor<L, R> for (L, R) {
     fn fst(self) -> L {
         self.0
     }
@@ -19,6 +27,14 @@ impl<L, R> Pair<L, R> for (L, R) {
         self.1
     }
 
+    fn bimap<F, G, L2, R2>(self, f: F, g: G) -> (L2, R2)
+    where
+        Self: Sized,
+        F: FnOnce(L) -> L2,
+        G: FnOnce(R) -> R2,
+    {
+        (f(self.0), g(self.1))
+    }
     fn map_fst<F, L2>(self, morphism: F) -> (L2, R)
     where
         F: FnOnce(L) -> L2,
@@ -44,26 +60,6 @@ pub trait BiTranspose<L, R, E = ()> {
     }
     fn to_control_flow(self) -> ControlFlow<E, (L, R)>;
 }
-impl<L, R> BiTranspose<L, R> for (Option<L>, R) {
-    type Hkt = Option<(L, R)>;
-
-    fn to_control_flow(self) -> ControlFlow<(), (L, R)> {
-        match self {
-            (Some(l), r) => ControlFlow::Continue((l, r)),
-            (None, _) => ControlFlow::Break(()),
-        }
-    }
-}
-impl<L, R> BiTranspose<L, R> for (L, Option<R>) {
-    type Hkt = Option<(L, R)>;
-
-    fn to_control_flow(self) -> ControlFlow<(), (L, R)> {
-        match self {
-            (l, Some(r)) => ControlFlow::Continue((l, r)),
-            (_, None) => ControlFlow::Break(()),
-        }
-    }
-}
 impl<L, R> BiTranspose<L, R> for (Option<L>, Option<R>) {
     type Hkt = Option<(L, R)>;
 
@@ -71,26 +67,6 @@ impl<L, R> BiTranspose<L, R> for (Option<L>, Option<R>) {
         match self {
             (Some(l), Some(r)) => ControlFlow::Continue((l, r)),
             _ => ControlFlow::Break(()),
-        }
-    }
-}
-impl<L, R, E> BiTranspose<L, R, E> for (Result<L, E>, R) {
-    type Hkt = Result<(L, R), E>;
-
-    fn to_control_flow(self) -> ControlFlow<E, (L, R)> {
-        match self {
-            (Ok(l), r) => ControlFlow::Continue((l, r)),
-            (Err(e), _) => ControlFlow::Break(e),
-        }
-    }
-}
-impl<L, R, E> BiTranspose<L, R, E> for (L, Result<R, E>) {
-    type Hkt = Result<(L, R), E>;
-
-    fn to_control_flow(self) -> ControlFlow<E, (L, R)> {
-        match self {
-            (l, Ok(r)) => ControlFlow::Continue((l, r)),
-            (_, Err(e)) => ControlFlow::Break(e),
         }
     }
 }

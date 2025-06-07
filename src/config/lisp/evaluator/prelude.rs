@@ -8,7 +8,7 @@ use {
             lexer::Literal,
         },
         either::EitherOrBoth,
-        ext::{array::ArrayExt, iterator::IteratorExt, pair::{BiTranspose, Pair}},
+        ext::{array::ArrayExt, iterator::IteratorExt, pair::{BiTranspose, BiFunctor}},
         lazy_rc::LazyRc,
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
@@ -143,7 +143,9 @@ fn concat<'src>(
             })
             .try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-            .and_then(|vals| vals.next().transpose())
+                .and_then(|vals| vals.next()
+                    .map_snd(Ok)
+                    .transpose())
             .map(|cons| cons.map_fst(|car| String::from(car.as_ref())))
             .and_then(|(mut car, mut cdr)| {
                 cdr.try_for_each(|tail| tail.map(|tail| car.push_str(tail.as_ref())))
