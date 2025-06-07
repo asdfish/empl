@@ -12,7 +12,10 @@ use {
             parse_key_code, parse_key_modifiers,
         },
         const_vec::ConstString,
-        ext::pair::PairExt,
+        ext::pair::{
+            BiTranspose,
+            Pair,
+        },
     },
     crossterm::{
         event::{KeyCode, KeyModifiers},
@@ -35,7 +38,7 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
         let l_is_some = l.is_some();
         let r_is_some = r.is_some();
         if let Some((l, r)) =
-            (l.take_if(move |_| r_is_some), r.take_if(move |_| l_is_some)).transpose_option()
+            <(Option<L>, Option<R>) as BiTranspose<L, R>>::transpose((l.take_if(move |_| r_is_some), r.take_if(move |_| l_is_some)))
         {
             output.push((l, r));
         }
