@@ -119,12 +119,12 @@ Key modifiers are a sequence of letters that accumulate to a key modifier.
 
 | letter | key        |
 |--------|------------|
-| a      | alt        |
-| c      | control    |
-| l      | super/logo |
-| h      | hyper      |
-| m      | meta       |
-| s      | shift      |
+| `a`    | alt        |
+| `c`    | control    |
+| `l`    | super/logo |
+| `h`    | hyper      |
+| `m`    | meta       |
+| `s`    | shift      |
 
 For example, `sa` would be a modifier that requires shift and alt to be pressed.
 
@@ -132,18 +132,18 @@ For example, `sa` would be a modifier that requires shift and alt to be pressed.
 
 Key actions are the actions that get executed once a key binding is performed.
 
-| name           | description                            |
-|----------------|----------------------------------------|
-| quit           | Halt the program.                      |
-| move-up        | Move the cursor up.                    |
-| move-down      | Move the cursor down.                  |
-| move-left      | Move the cursor left.                  |
-| move-right     | Move the cursor right.                 |
-| move-top       | Move the cursor to the top.            |
-| move-bottom    | Move the cursor to the bottom.         |
-| move-selection | Move the cursor to the selected index. |
-| select         | Select the item under the cursor.      |
-| skip-song      | Skip the current song.                 |
+| name             | description                            |
+|------------------|----------------------------------------|
+| `quit`           | Halt the program.                      |
+| `move-up`        | Move the cursor up.                    |
+| `move-down`      | Move the cursor down.                  |
+| `move-left`      | Move the cursor left.                  |
+| `move-right`     | Move the cursor right.                 |
+| `move-top`       | Move the cursor to the top.            |
+| `move-bottom`    | Move the cursor to the bottom.         |
+| `move-selection` | Move the cursor to the selected index. |
+| `select`         | Select the item under the cursor.      |
+| `skip-song`      | Skip the current song.                 |
 
 #### Key code
 
