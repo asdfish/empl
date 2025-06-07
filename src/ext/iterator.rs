@@ -1,6 +1,6 @@
 use {
     crate::{
-        either::EitherOrBoth,
+        either::{Either, EitherOrBoth},
         ext::command::{CommandChain, CommandIter},
     },
     std::{
@@ -69,16 +69,18 @@ pub trait IteratorExt: Iterator {
         Self::Item: PartialEq<T>,
         R: IntoIterator<Item = T>,
     {
-        match self
-            .zip_all(r)
-            .try_fold(Some(Ordering::Equal), |_, items| match items {
-                EitherOrBoth::Left(_) => ControlFlow::Break(Some(Ordering::Greater)),
-                EitherOrBoth::Right(_) => ControlFlow::Break(Some(Ordering::Less)),
-                EitherOrBoth::Both(l, r) if l == r => ControlFlow::Continue(Some(Ordering::Equal)),
-                EitherOrBoth::Both(..) => ControlFlow::Break(None),
-            }) {
-            ControlFlow::Continue(v) | ControlFlow::Break(v) => v,
-        }
+        Either::from(
+            self.zip_all(r)
+                .try_fold(Some(Ordering::Equal), |_, items| match items {
+                    EitherOrBoth::Left(_) => ControlFlow::Break(Some(Ordering::Greater)),
+                    EitherOrBoth::Right(_) => ControlFlow::Break(Some(Ordering::Less)),
+                    EitherOrBoth::Both(l, r) if l == r => {
+                        ControlFlow::Continue(Some(Ordering::Equal))
+                    }
+                    EitherOrBoth::Both(..) => ControlFlow::Break(None),
+                }),
+        )
+        .into_inner()
     }
 
     fn zip_all<I, R>(self, r: I) -> ZipAll<Self, R>

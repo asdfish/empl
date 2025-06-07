@@ -10,6 +10,7 @@ use {
         fmt::{self, Debug, Display, Formatter},
         io,
         marker::Unpin,
+        ops::ControlFlow,
         pin::Pin,
         task::{Context, Poll},
     },
@@ -248,6 +249,15 @@ decl_either!(
     ],
     (twelveth, Twelveth)
 );
+
+impl<L, R> From<ControlFlow<L, R>> for Either<L, R> {
+    fn from(control_flow: ControlFlow<L, R>) -> Self {
+        match control_flow {
+            ControlFlow::Break(l) => Self::Left(l),
+            ControlFlow::Continue(r) => Self::Right(r),
+        }
+    }
+}
 
 #[derive(Clone, Copy, Debug)]
 pub enum EitherOrBoth<L, R> {
