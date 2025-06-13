@@ -38,7 +38,7 @@ where
     I: Parsable<'a, Item = T>,
 {
     fn output_len(output: Self::Output) -> usize {
-        I::item_len(output)
+        I::item_len(&output)
     }
 }
 
@@ -77,7 +77,7 @@ where
     T: PartialEq,
 {
     fn output_len(output: Self::Output) -> usize {
-        I::item_len(output)
+        I::item_len(&output)
     }
 }
 

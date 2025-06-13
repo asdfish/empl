@@ -4,18 +4,15 @@ pub mod flag;
 use {
     crate::{
         config::{
-            IntermediateConfig, KeyAction, NAME, Resources, UnknownKeyActionError, VERSION,
             cli::{
                 argv::ArgError,
                 flag::{Arguments, ArgumentsError, Flag},
             },
-            parse_key_code, parse_key_modifiers,
+            parse_key_code, parse_key_modifiers, IntermediateConfig, KeyAction, Resources,
+            UnknownKeyActionError, NAME, VERSION,
         },
         const_vec::ConstString,
-        ext::pair::{
-            BiTranspose,
-            BiFunctor,
-        },
+        ext::pair::{BiFunctor, BiTranspose},
     },
     crossterm::{
         event::{KeyCode, KeyModifiers},
@@ -37,9 +34,10 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
     fn check_pair<L, R>(l: &mut Option<L>, r: &mut Option<R>, output: &mut Vec<(L, R)>) {
         let l_is_some = l.is_some();
         let r_is_some = r.is_some();
-        if let Some((l, r)) =
-            <(Option<L>, Option<R>) as BiTranspose<L, R>>::transpose((l.take_if(move |_| r_is_some), r.take_if(move |_| l_is_some)))
-        {
+        if let Some((l, r)) = <(Option<L>, Option<R>) as BiTranspose<L, R>>::bi_transpose((
+            l.take_if(move |_| r_is_some),
+            r.take_if(move |_| l_is_some),
+        )) {
             output.push((l, r));
         }
     }

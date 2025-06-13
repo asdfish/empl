@@ -18,6 +18,15 @@ pub trait BiFunctor<L, R> {
     fn map_snd<F, R2>(self, _: F) -> (L, R2)
     where
         F: FnOnce(R) -> R2;
+
+    fn bi_map<F, G, L2, R2>(self, f: F, g: G) -> (L2, R2)
+    where
+        Self: Sized,
+        F: FnOnce(L) -> L2,
+        G: FnOnce(R) -> R2,
+    {
+        self.map_fst(f).map_snd(g)
+    }
 }
 impl<L, R> BiFunctor<L, R> for (L, R) {
     fn fst(self) -> L {
@@ -52,7 +61,7 @@ impl<L, R> BiFunctor<L, R> for (L, R) {
 pub trait BiTranspose<L, R, E = ()> {
     type Hkt: Hkt<(L, R), E>;
 
-    fn transpose(self) -> Self::Hkt
+    fn bi_transpose(self) -> Self::Hkt
     where
         Self: Sized,
     {
