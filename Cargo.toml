@@ -3,7 +3,7 @@ authors = ["asdfish"]
 description = "terminal music player"
 edition = "2024"
 license = "GPL-3.0-or-later"
-readme = "README.md"
+nreadme = "README.md"
 name = "empl"
 repository = "https://github.com/asdfish/empl"
 version = "2.0.0"
@@ -38,3 +38,8 @@ unicode-width = { version = "0.2.0", default-features = false }
 
 [dev-dependencies]
 criterion = { version = "0.6.0", default-features = false }
+
+[profile.release]
+codegen-units = 1
+lto = "fat"
+panic = "abort"
