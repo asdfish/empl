@@ -4,18 +4,20 @@ pub mod ast;
 pub mod evaluator;
 pub mod lexer;
 pub mod parser;
+mod recovery;
 
 use {
     crate::{
         config::{
-            Arity, IntermediateConfig, KeyAction, NAME, Resources, TryFromValue, Value,
             lisp::{
                 ast::ExprParser,
                 evaluator::{Environment, EvalError, List},
                 lexer::LexemeParser,
                 parser::{Parser, ParserOutput},
+                recovery::create_default_config,
             },
-            parse_key_code, parse_key_modifiers,
+            parse_key_code, parse_key_modifiers, Arity, IntermediateConfig, KeyAction, Resources,
+            TryFromValue, Value, NAME,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
@@ -72,7 +74,10 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispErro
                 .map(Cow::Owned)
         })
         .ok_or(LispError::UnsetEnvVars)
-        .and_then(|path| fs::read_to_string(&path).map_err(move |err| LispError::ReadConfig(err, path)))
+        .and_then(|path| fs::read_to_string(&path)
+		  .map(Cow::Owned)
+		  .or_else(|_| create_default_config(&path))
+		  .map_err(move |err| LispError::Config(err, path)))
         .and_then(|config| {
             let lexemes = LexemeParser.iter(&config).collect::<Vec<_>>();
             ExprParser.parse(&lexemes).ok_or(LispError::InvalidSyntax)
@@ -261,7 +266,7 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispErro
 pub enum LispError {
     Eval(EvalError),
     InvalidSyntax,
-    ReadConfig(io::Error, Cow<'static, Path>),
+    Config(io::Error, Cow<'static, Path>),
     UnsetEnvVars,
 }
 impl Display for LispError {
@@ -269,7 +274,7 @@ impl Display for LispError {
         match self {
             Self::Eval(e) => e.fmt(f),
             Self::InvalidSyntax => f.write_str("invalid syntax"),
-            Self::ReadConfig(err, path) => write!(
+            Self::Config(err, path) => write!(
                 f,
                 "failed to read configuration at `{}`: {err}",
                 path.display()
