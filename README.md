@@ -13,6 +13,8 @@ Configuration is done at `${XDG_CONFIG_HOME}/empl/main.lisp` or `${HOME}/.config
 
 An example configuration file is provided at [./main.lisp](./main.lisp).
 
+The configuration must also be a singular expression, so if you need multiple expressions, put everything in a `progn`.
+
 ## Builtin functions
 
 Argument types are listed in a pseudo s-expression format where every item in the list is the item type.
