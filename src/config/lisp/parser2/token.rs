@@ -3,52 +3,31 @@ use crate::config::lisp::{
     parser2::{Parser, ParserInput},
 };
 
+#[derive(Clone, Copy, Debug)]
 pub struct Any;
-impl<'a, I> Parser<'a, I> for Any
+impl<'src, I> Parser<'src, I> for Any
 where
-    I: Parsable<'a>,
+    I: Parsable<'src>,
 {
     type Output = I::Item;
 
-    fn parse(
-        &self,
-        mut input: ParserInput<'a, I>,
-    ) -> Result<(ParserInput<'a, I>, Self::Output), ParserInput<'a, I>> {
-        input.next().map(|output| (input, output)).ok_or(input)
+    fn parse<'id>(&self, input: &mut ParserInput<'id, 'src, I>) -> Option<Self::Output> {
+        input.write(|mut input| input.next())
     }
 }
 
-pub struct Empty;
-impl<'a, I> Parser<'a, I> for Empty
+#[derive(Clone, Copy, Debug)]
+pub struct Just<T>(pub T)
 where
-    I: Parsable<'a>,
-{
-    type Output = ();
-
-    fn parse(
-        &self,
-        input: ParserInput<'a, I>,
-    ) -> Result<(ParserInput<'a, I>, Self::Output), ParserInput<'a, I>> {
-        Ok((input, ()))
-    }
-}
-
-pub struct Just<T>(T);
-impl<'a, I, T> Parser<'a, I> for Just<T>
+    T: PartialEq;
+impl<'src, I, T> Parser<'src, I> for Just<T>
 where
-    I: Parsable<'a, Item = T>,
+    I: Parsable<'src, Item = T>,
     T: PartialEq,
 {
     type Output = T;
 
-    fn parse(
-        &self,
-        mut input: ParserInput<'a, I>,
-    ) -> Result<(ParserInput<'a, I>, Self::Output), ParserInput<'a, I>> {
-        input
-            .next()
-            .filter(|item| item.eq(&self.0))
-            .map(move |item| (input, item))
-            .ok_or(input)
+    fn parse<'id>(&self, input: &mut ParserInput<'id, 'src, I>) -> Option<Self::Output> {
+        input.branch(|mut input| input.next().filter(|item| self.0.eq(item)))
     }
 }
