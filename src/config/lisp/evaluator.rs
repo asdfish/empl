@@ -4,11 +4,11 @@ mod prelude;
 use {
     crate::{
         config::{
-            UnknownKeyActionError,
             lisp::{
                 ast::{Expr, ExprTy},
                 lexer::Literal,
             },
+            UnknownKeyActionError,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
@@ -122,6 +122,15 @@ pub enum Arity {
     RangeFrom(RangeFrom<usize>),
     Range(Range<usize>),
 }
+impl Display for Arity {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::Static(n) => Display::fmt(n, f),
+            Self::RangeFrom(RangeFrom { start }) => write!(f, "{start}.."),
+            Self::Range(Range { start, end }) => write!(f, "{start}..{end}"),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum EvalError {
@@ -129,9 +138,9 @@ pub enum EvalError {
     MultipleBindings(String),
     NonIdentListBinding(ExprTy),
     EmptyListBindings,
-    EnvVar(env::VarError),
+    EnvVar(env::VarError, Rc<str>),
     InvalidColor(InvalidColorError),
-    Io(io::Error),
+    ReadPath(io::Error, Rc<Path>),
     NoBindings,
     NoBody,
     NotAFunction,
@@ -148,13 +157,36 @@ pub enum EvalError {
 }
 impl Display for EvalError {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        // TODO: implement display properly
-        write!(f, "{:?}", self)
-    }
-}
-impl From<env::VarError> for EvalError {
-    fn from(err: env::VarError) -> Self {
-        Self::EnvVar(err)
+        match self {
+            Self::EmptyApply => f.write_str("cannot apply a non existant function"),
+            Self::MultipleBindings(ident) => {
+                write!(f, "cannot bind identifier `{ident}` more than once")
+            }
+            Self::NonIdentListBinding(expr) => {
+                write!(f, "expected list of identifiers, found `{expr}`")
+            }
+            Self::EmptyListBindings => f.write_str("let bindings cannot be empty"),
+            Self::EnvVar(err, var) => {
+                f.write_str("failed to get environment variable `{var}`: {err}")
+            }
+            Self::InvalidColor(err) => err.fmt(f),
+            Self::ReadPath(err, path) => {
+                write!(f, "failed to read path `{}`: {err}", path.display())
+            }
+            Self::NoBindings => f.write_str("expected bindings"),
+            Self::NoBody => f.write_str("expected body expression"),
+            Self::NotAFunction => f.write_str("expected function"),
+            Self::NotFound(ident) => write!(f, "nothing is bound to identifier `{ident}`"),
+            Self::Overflow => f.write_str("integer overflow"),
+            Self::UnknownCfgField(field) => write!(f, "unknown configuration field `{field}`"),
+            Self::UnknownKeyAction(err) => Display::fmt(err, f),
+            Self::UnknownKeyModifier(modifier) => write!(f, "unknown key modifier `{modifier}`"),
+            Self::UnknownKeyCode(code) => write!(f, "unknown key code `{code}`"),
+            Self::WrongType(err) => Display::fmt(err, f),
+            Self::WrongArity(arity) => write!(f, "expected arity of `{arity}`"),
+            Self::WrongListArity(arity) => write!(f, "expected list of arity `{arity}`"),
+            Self::WrongBindingArity(arity) => write!(f, "expected arity of `{arity}` in binding"),
+        }
     }
 }
 impl From<TryFromValueError> for EvalError {
@@ -299,10 +331,12 @@ impl<'src> TryFrom<Value<'src>> for Option<Color> {
             }
             Value::String(name) => Color::try_from(name.as_ref())
                 .map(Some)
-                .or_else(|_| if name.as_ref() == "none" {
-                    Ok(None)
-                } else {
-                    Err(())
+                .or_else(|_| {
+                    if name.as_ref() == "none" {
+                        Ok(None)
+                    } else {
+                        Err(())
+                    }
                 })
                 .map_err(|_| InvalidColorError::UnknownColor(name.into_owned())),
             val => Err(InvalidColorError::WrongType(Type::from(val))),
@@ -321,7 +355,8 @@ pub trait LispFn<'src>:
     Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
 }
-impl<'src, T> LispFn<'src> for T where T: Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
+impl<'src, T> LispFn<'src> for T where
+    T: Fn(&mut Environment<'src>, VecDeque<Expr<'src>>) -> Result<Value<'src>, EvalError>
 {
 }
 

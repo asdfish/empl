@@ -2,18 +2,22 @@ use {
     crate::{
         config::lisp::{
             evaluator::{
-                Arity, LispFn, Environment, EvalError, Expr, ExprTy, List, TryFromValue, Value,
-                list,
+                list, Arity, Environment, EvalError, Expr, ExprTy, LispFn, List, TryFromValue,
+                Value,
             },
             lexer::Literal,
         },
         either::EitherOrBoth,
-        ext::{array::ArrayExt, iterator::IteratorExt, pair::{BiTranspose, BiFunctor}},
+        ext::{
+            array::ArrayExt,
+            iterator::IteratorExt,
+            pair::{BiFunctor, BiTranspose},
+        },
         lazy_rc::LazyRc,
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
-        collections::{HashMap, HashSet, VecDeque, vec_deque},
+        collections::{vec_deque, HashMap, HashSet, VecDeque},
         env,
         ops::{ControlFlow, Not},
         path::{self, Path, PathBuf},
@@ -143,9 +147,7 @@ fn concat<'src>(
             })
             .try_into_nonempty_iter()
             .ok_or(EvalError::WrongArity(Arity::RangeFrom(2..)))
-                .and_then(|vals| vals.next()
-                    .map_snd(Ok)
-                    .transpose())
+            .and_then(|vals| vals.next().map_snd(Ok).transpose())
             .map(|cons| cons.map_fst(|car| String::from(car.as_ref())))
             .and_then(|(mut car, mut cdr)| {
                 cdr.try_for_each(|tail| tail.map(|tail| car.push_str(tail.as_ref())))
@@ -179,7 +181,9 @@ const fn env<'src>() -> impl LispFn<'src> {
             .ok_or(EvalError::WrongArity(Arity::Static(1)))
             .and_then(|[var]| var)
             .and_then(|var| LazyRc::<str>::try_from_value(var).map_err(EvalError::WrongType))
-            .and_then(|var| env::var(var.as_ref()).map_err(EvalError::EnvVar))
+            .and_then(|var| {
+                env::var(var.as_ref()).map_err(|err| EvalError::EnvVar(err, var.into_owned()))
+            })
             .map(Rc::from)
             .map(LazyRc::Owned)
             .map(Value::String)
@@ -346,19 +350,25 @@ const fn path_children<'src>() -> impl LispFn<'src> {
                 LazyRc::<Path>::try_from_value(path)
                     .map_err(EvalError::WrongType)
                     .and_then(|path| {
+                        let path_clone = LazyRc::clone(&path);
                         path.read_dir()
-                            .map(|dir| {
-                                dir.map(|dir_ent| {
+                            .map(move |dir| {
+                                dir.map(move |dir_ent| {
                                     dir_ent
                                         .map(|dir_ent| dir_ent.path())
                                         .map(Rc::from)
                                         .map(LazyRc::Owned)
                                         .map(Value::Path)
-                                        .map_err(EvalError::Io)
+                                        .map_err(|err| {
+                                            EvalError::ReadPath(
+                                                err,
+                                                path_clone.clone().into_owned(),
+                                            )
+                                        })
                                 })
                             })
-                            .map_err(EvalError::Io)
-                            .and_then(Iterator::collect::<Result<Vec<_>, _>>)
+                            .map_err(|err| EvalError::ReadPath(err, path.into_owned()))
+                            .and_then(Iterator::collect::<Result<Vec<_>, EvalError>>)
                     })
             })
             .map(List::new)

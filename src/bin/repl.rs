@@ -70,6 +70,9 @@ fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         }
 
         let mut environment = Environment::new();
-        println!("{:?}", environment.eval(ast.output));
+        match environment.eval(ast.output) {
+            Ok(output) => println!("{output:?}"),
+            Err(err) => eprintln!("{err}"),
+        }
     }
 }

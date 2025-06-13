@@ -3,12 +3,15 @@ use {
         evaluator::Value,
         lexer::{Lexeme, Literal},
         parser::{
-            Parser, ParserOutput,
             recursive::RecursiveParser,
             token::{Any, Just},
+            Parser, ParserOutput,
         },
     },
-    std::collections::VecDeque,
+    std::{
+        collections::VecDeque,
+        fmt::{self, Display, Formatter},
+    },
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -23,6 +26,15 @@ pub enum ExprTy {
     List,
     Literal,
     Value,
+}
+impl Display for ExprTy {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::List => f.write_str("list"),
+            Self::Literal => f.write_str("literal"),
+            Self::Value => f.write_str("value"),
+        }
+    }
 }
 impl From<Expr<'_>> for ExprTy {
     fn from(expr: Expr<'_>) -> Self {
