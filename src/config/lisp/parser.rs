@@ -10,7 +10,7 @@ use {
 };
 
 /// Trait for types that can be used by a [Parser].
-pub trait Parsable<'a>: Copy + Sized {
+pub trait Parsable<'a>: Copy + Sized + 'a {
     type Item: Copy + 'a;
     type Iter: Iterator<Item = Self::Item>;
 

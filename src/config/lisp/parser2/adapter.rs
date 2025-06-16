@@ -6,27 +6,48 @@ use {
     std::marker::PhantomData,
 };
 
-pub struct Or<'a, I, L, R>
-where
-    I: Parsable<'a>,
-    L: Parser<'a, I>,
-    R: Parser<'a, I, Output = L::Output>,
-{
-    pub(super) l: L,
-    pub(super) r: R,
-    pub(super) _marker: PhantomData<&'a I>,
-}
-impl<'src, I, L, R> Parser<'src, I> for Or<'src, I, L, R>
+pub(super) trait ParserExt<'src, I>: Parser<'src, I>
 where
     I: Parsable<'src>,
-    L: Parser<'src, I>,
-    R: Parser<'src, I, Output = L::Output>,
 {
-    type Output = L::Output;
+    fn iter<'id, 'input>(
+        self,
+        input: &'input mut ParserInput<'id, 'src, I>,
+    ) -> Iter<'id, 'input, 'src, I, Self>
+    where
+        Self: Sized,
+    {
+        Iter {
+            parser: self,
+            input,
+            _marker: PhantomData,
+        }
+    }
+}
+impl<'src, I, P> ParserExt<'src, I> for P
+where
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
+{
+}
 
-    fn parse<'id>(&self, input: &mut ParserInput<'id, 'src, I>) -> Option<Self::Output> {
-        input
-            .branch(|mut input| self.l.parse(input.as_mut()))
-            .or_else(|| input.branch(|mut input| self.r.parse(input.as_mut())))
+pub struct Iter<'id, 'input, 'src, I, P>
+where
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
+{
+    pub(super) parser: P,
+    pub(super) input: &'input mut ParserInput<'id, 'src, I>,
+    pub(super) _marker: PhantomData<&'src ()>,
+}
+impl<'id, 'input, 'src, I, P> Iterator for Iter<'id, 'input, 'src, I, P>
+where
+    I: Parsable<'src>,
+    P: Parser<'src, I>,
+{
+    type Item = P::Output;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.parser.parse(self.input)
     }
 }
