@@ -41,8 +41,10 @@ use {
 };
 
 const CONFIG_FILE_NAME: &str = "main.lisp";
-const ENV_CONFIG_PATHS: [(&str, Option<&str>); 2] =
-    [("XDG_CONFIG_HOME", None), ("HOME", Some(".config"))];
+const ENV_CONFIG_PATHS: [(&[&str], Option<&str>); 2] = [
+    (&["APPDATA", "XDG_CONFIG_HOME"], None),
+    (&["HOME"], Some(".config")),
+];
 
 pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispError> {
     resources
@@ -51,6 +53,7 @@ pub fn execute(resources: &mut Resources) -> Result<IntermediateConfig, LispErro
         .or_else(|| {
             ENV_CONFIG_PATHS
                 .into_iter()
+                .flat_map(|(envs, suffix)| envs.iter().map(move |env| (env, suffix)))
                 .find_map(|(env, suffix)| {
                     env::var_os(env).map(PathBuf::from).map(|mut path| {
                         path.reserve(
