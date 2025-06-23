@@ -31,7 +31,7 @@ jobs:
           sudo apt update
           sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu --yes
 
-          export CC=${{matrix.arch}}-linux-gnu-gcc
+          # export CC=${{matrix.arch}}-linux-gnu-gcc
 
           export ALSA_VERSION=1.2.14
 
@@ -45,7 +45,7 @@ jobs:
           autoheader
           automake --foreign --copy --add-missing
           autoconf
-          ./configure --enable-static=yes --enable-shared=no
+          ./configure --enable-static=yes --enable-shared=no --host x86_64-unknown-linux-gnu --build ${{matrix.arch}}-unknown-linux-gnu
           make -j
           
       # - name: linux aarch64 install dependencies
