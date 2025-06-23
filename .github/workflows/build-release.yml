@@ -28,6 +28,7 @@ jobs:
       - name: linux install dependencies
         if: runner.os == 'Linux'
         run: |
+          set +e
           sudo dpkg --add-architecture ${{matrix.dpkg-target}}
           sudo apt update -o Acquire::ForceIPv4=true
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
