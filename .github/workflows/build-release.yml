@@ -35,8 +35,8 @@ jobs:
 
           cat <<EOF | sudo tee /etc/apt/sources.list
           deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME main universe multiverse restricted
-          deb [arch=${{matrix.dpkg-target}}] ${{matirx.ubuntu-repo}} $UBUNTU_CODENAME-updates main universe multiverse restricted
-          deb [arch=${{matrid.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-security main universe multiverse restricted
+          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-updates main universe multiverse restricted
+          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-security main universe multiverse restricted
           EOF
 
           sudo dpkg --add-architecture ${{matrix.dpkg-target}}
