@@ -10,6 +10,10 @@ jobs:
         arch: [aarch64, x86_64]
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
+          - arch: aarch64
+            gcc-package: gcc-aarch64-linux-gnu
+          - arch: x86_64
+            gcc-package: gcc-x86-64-linux-gnu
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
@@ -25,7 +29,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt update
-          sudo apt install gcc-${{matrix.arch}}-linux-gnu --yes
+          sudo apt install ${{matrix.gcc-package}} --yes
 
           export CC=gcc-${{matrix.arch}}-linux-gnu
 
