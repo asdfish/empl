@@ -15,6 +15,7 @@ jobs:
             target-suffix: -unknown-linux-musl
           - os: windows-latest
             target-suffix: -pc-windows-msvc
+    runs-on: ${{matrix.os}}
     steps:
       - name: checkout
         uses: actions/checkout@v4
