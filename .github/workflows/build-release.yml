@@ -11,9 +11,12 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - arch: aarch64
+            os: ubuntu-latest
+            rustflags: 'arm-linux-gnueabi-ld'
+
+          - arch: aarch64
             dpkg-target: arm64
             ubuntu-repo: https://ports.ubuntu.com/ubuntu-ports
-            rustflags: '-C linker=arm-linux-gnueabi-ld'
           - arch: x86_64
             dpkg-target: amd64
             ubuntu-repo: https://archive.ubuntu.com/ubuntu
