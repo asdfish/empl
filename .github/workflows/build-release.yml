@@ -25,6 +25,7 @@ jobs:
             target-suffix: unknown-linux-gnu
           - os: windows-latest
             target-suffix: pc-windows-msvc
+            executable-suffix: '.exe'
     runs-on: ${{matrix.os}}
     steps:
       - name: checkout
@@ -57,6 +58,12 @@ jobs:
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
+      - name: upload
+        uses: actions/upload-artifact@v4
+        with:
+          path: |
+            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/empl${{matrix.executable-suffix}}
+            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/repl{{matrix.executable-suffix}}            
 
 # jobs:
 #   build:
