@@ -12,7 +12,7 @@ jobs:
         include:
           - arch: aarch64
             os: ubuntu-latest
-            rustflags: 'arm-linux-gnueabi-ld'
+            rustflags: '-C linker=arm-linux-gnueabi-ld'
 
           - arch: aarch64
             dpkg-target: arm64
