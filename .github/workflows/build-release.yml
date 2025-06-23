@@ -53,6 +53,7 @@ jobs:
       - name: build
         env:
           PKG_CONFIG_SYSROOT_DIR: 'sysroot'
+          PKG_CONFIG_PATH: './sysroot/lib/pkgconfig'
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
