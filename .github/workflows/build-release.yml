@@ -40,7 +40,7 @@ jobs:
 
           cd alsa-lib-${ALSA_VERSION}
 
-          autoconf
+          autoconf || true
           ./configure --enable-static=yes --enable-shared=no
           make -j
           
