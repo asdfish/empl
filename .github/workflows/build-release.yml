@@ -63,8 +63,8 @@ jobs:
         with:
           name: ${{matrix-arch}}-${{matrix.target-suffix}}
           path: |
-            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/empl${{matrix.executable-suffix}}
-            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/repl{{matrix.executable-suffix}}            
+            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/empl${{matrix.executable-suffix}}
+            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/repl{{matrix.executable-suffix}}            
 
 # jobs:
 #   build:
