@@ -42,9 +42,10 @@ jobs:
           sudo dpkg --add-architecture ${{matrix.dpkg-target}}
           sudo apt update
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
+
+          ls /usr/lib
       - name: build
         run: |
-          ls /usr/lib
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}}
 
