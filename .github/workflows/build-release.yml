@@ -13,6 +13,7 @@ jobs:
           - arch: aarch64
             dpkg-target: arm64
             ubuntu-repo: https://ports.ubuntu.com/ubuntu-ports
+            rustflags: '-C linker=arm-linux-gnueabi-ld'
           - arch: x86_64
             dpkg-target: amd64
             ubuntu-repo: https://archive.ubuntu.com/ubuntu
@@ -47,12 +48,9 @@ jobs:
       - name: build
         env:
           PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: "/usr/lib/aarch64-linux-gnu/"
-          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig/"          
+          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig/"
+          RUSTFLAGS: ${{matrix.rustflags}}
         run: |
-          if [ command -v arm-linux-gnueabi-ld ]; then
-              export LD='arm-linux-enueabi-ld'
-          fi
-
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
 
