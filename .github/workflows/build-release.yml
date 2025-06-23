@@ -11,11 +11,9 @@ jobs:
           - aarch64-pc-windows-gnullvm
           - aarch64-apple-darwin
           - aarch64-unknown-linux-musl
-          - aarch64-unknown-freebsd
           - x86_64-pc-windows-gnullvm
           - x86_64-apple-darwin
           - x86_64-unknown-linux-musl
-          - x86_64-unknown-freebsd
     runs-on: ubuntu-latest
     steps:
       - name: checkout
