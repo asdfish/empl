@@ -13,13 +13,8 @@ jobs:
           - arch: aarch64
             os: ubuntu-latest
             rustflags: '-C linker=aarch64-linux-gnu-gcc'
-          - arch: aarch64
-            dpkg-target: arm64
-            ubuntu-repo: https://ports.ubuntu.com/ubuntu-ports
-          - arch: x86_64
-            dpkg-target: amd64
-            ubuntu-repo: https://archive.ubuntu.com/ubuntu
-          - os: macos-latest
+ 
+         - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
             target-suffix: unknown-linux-gnu
@@ -30,84 +25,39 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: linux install dependencies
-        if: runner.os == 'Linux'
+      - name: linux aarch64 install dependencies
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
         run: |
           set +e
 
           UBUNTU_CODENAME="$(lsb_release -sc)"
 
           cat <<EOF | sudo tee /etc/apt/sources.list
-          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME main universe multiverse restricted
-          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-updates main universe multiverse restricted
-          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-security main universe multiverse restricted
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME main universe multiverse restricted
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-updates main universe multiverse restricted
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-security main universe multiverse restricted
           EOF
 
-          sudo dpkg --add-architecture ${{matrix.dpkg-target}}
+          sudo dpkg --add-architecture arm64
           sudo apt update
-          sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
-      - name: linux arm64 install dependencies
-        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+          sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
+
+          mkdir -p aarch64-sysroot/usr/share
+          ln -sf /usr/lib/aarch64-linux-gnu/pkgconfig aarch64-sysroot/usr/share/pkgconfig
+      - name: linux x86_64 install dependencies
+        if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
-          sudo apt install gcc-aarch64-linux-gnu
+          sudo apt update
+          sudo apt install libasound2-dev --yes
       - name: build
         env:
-          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: "/usr/lib/aarch64-linux-gnu/"
-          PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig/"
+          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: "./aarch64-sysroot"
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
-          cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
+          cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
       - name: upload
         uses: actions/upload-artifact@v4
         with:
-          name: ${{matrix.arch}}-${{matrix.target-suffix}}
-          path: |
-            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/empl${{matrix.executable-suffix}}
-            ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/repl{{matrix.executable-suffix}}            
-
-# jobs:
-#   build:
-#     runs-on: ${{ matrix.os }}
-#     strategy:
-#       matrix:
-#         os: [macos-latest, ubuntu-latest, windows-latest]
-#         include:
-#         - os: macos-latest
-#           target: macos-x86_64
-#           path-prefix: ./target/release/
-#           path-suffix: ''
-#         - os: ubuntu-latest
-#           target: linux-x86_64
-#           path-prefix: ./target/release/
-#           path-suffix: ''
-#         - os: windows-latest
-#           target: windows-x86_64
-#           path-prefix: .\target\release\
-#           path-suffix: .exe
-
-#     steps:
-#       - uses: actions/checkout@v4
-
-#       - name: Linux dependencies
-#         if: runner.os == 'Linux'
-#         run: |
-#           sudo apt-get update
-#           sudo apt-get install -y libasound2-dev
-
-#       - name: Build
-#         run: |
-#           cargo build --release
-
-#       - name: Prepare artifacts
-#         run: |
-#           mkdir dist
-#           mv ${{ matrix.path-prefix }}empl${{ matrix.path-suffix }} dist
-#           mv ${{ matrix.path-prefix }}repl${{ matrix.path-suffix }} dist
-
-#       - name: Upload artifacts
-#         uses: actions/upload-artifact@v4
-#         with:
-#           name: ${{ matrix.target }}
-#           path: dist/*
-#           if-no-files-found: error
+          name: empl-${{matrix.arch}}-${{matrix.target-suffix}}
+          path: ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/empl${{matrix.executable-suffix}}
