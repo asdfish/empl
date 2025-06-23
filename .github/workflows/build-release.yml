@@ -49,11 +49,12 @@ jobs:
           make -j
           make install
           find ../sysroot
+
+          export PKG_CONFIG_SYSROOT_DIR=$(realpath ../sysroot)
+          export PKG_CONFIG_PATH=$(realpath ../sysroot/lib/pkgconfig)          
           
       - name: build
         env:
-          PKG_CONFIG_SYSROOT_DIR: 'sysroot'
-          PKG_CONFIG_PATH: './sysroot/lib/pkgconfig'
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
