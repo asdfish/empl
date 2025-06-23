@@ -20,12 +20,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: get toolchains
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          target: ${{matrix.target}}
-          override: true
+      # - name: get toolchains
+      #   uses: actions-rs/toolchain@v1
+      #   with:
+      #     toolchain: stable
+      #     target: ${{matrix.target}}
+      #     override: true
       - name: build
         uses: actions-rs/cargo@v1
         with:
