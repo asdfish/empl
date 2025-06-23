@@ -89,6 +89,29 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
                 eprintln!("{}", MESSAGE);
                 return Ok(None);
             }
+            Flag::Short('h') | Flag::Long("help") => {
+                eprintln!(
+                    "Usage: empl [OPTIONS]
+
+Options:
+  -v --version                   Print version information and exit
+  -h --help                      Print this message and exit
+  -b --background    [COLOR]     Set the current background color
+  -f --foreground    [COLOR]     Set the current foreground color
+  -s --song-path     [PATH]      Add a song to the current playlist
+  -n --song-name     [STRING]    Set the name of the previous song
+  -P --playlist      [STRING]    Create a playlist with a specified name
+                                 with the songs before this flag
+  -k --key-code      [KEY]       Add a key code to the current key binding
+  -m --key-modifiers [MODIFIERS] Set the modifier for the current key code
+  -a --key-action    [ACTION]    Consume the current key binding and bind
+                                 it to this action
+  -c --color         [FIELD]     Update the color for a field using the
+                                 current background and foreground colors
+  -C --config        [PATH]      Set the path to the config file"
+                );
+                return Ok(None);
+            }
 
             Flag::Short('b') | Flag::Long("background") => value(&mut arguments, flag)
                 .and_then(|color| {
@@ -137,7 +160,7 @@ pub fn execute(resources: &mut Resources) -> Result<Option<IntermediateConfig>, 
                         .map(move |songs| (playlist, songs))
                 })
                 .map(|playlist| config.playlists.push(playlist)),
-            Flag::Short('s') | Flag::Long("song-path") => value(&mut arguments, flag)
+            Flag::Short('s') | Flag::Long("song") => value(&mut arguments, flag)
                 .map(Path::new)
                 .map(set(&mut state.song_path))
                 .map(|_| check_pair(&mut state.song_name, &mut state.song_path, &mut state.songs)),
