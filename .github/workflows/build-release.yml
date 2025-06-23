@@ -20,18 +20,14 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      # - name: get toolchains
-      #   uses: actions-rs/toolchain@v1
-      #   with:
-      #     toolchain: stable
-      #     target: ${{matrix.target}}
-      #     override: true
       - name: build
-        uses: actions-rs/cargo@v1
+        uses: houseabsolute/actions-rust-cross
         with:
-          use-cross: true
           command: build
-          args: --release --target ${{matrix.target}}
+          target: ${{matrix.target}}
+          args: --locked --release
+          strip: true
+          use-rust-cache: true
 
 # jobs:
 #   build:
