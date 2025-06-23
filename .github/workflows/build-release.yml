@@ -21,7 +21,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
       - name: build
-        uses: houseabsolute/actions-rust-cross
+        uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
           target: ${{matrix.target}}
