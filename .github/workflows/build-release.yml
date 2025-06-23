@@ -51,9 +51,7 @@ jobs:
           
       - name: build
         env:
-          ALSA_DYNAMIC: ''
-          PKG_CONFIG_SYSROOT_DIR: '/'
-          PKG_CONFIG_PATH: '/usr/lib/aarch64-linux-gnu/pkgconfig'
+          PKG_CONFIG_SYSROOT_DIR: 'sysroot'
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
