@@ -33,13 +33,13 @@ jobs:
 
           UBUNTU_CODENAME="$(lsb_release -sc)"
 
-          cat <<EOF | sudo tee /etc/apt/sources.list
-          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME main universe multiverse restricted
-          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-updates main universe multiverse restricted
-          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-security main universe multiverse restricted
-          EOF
+          # cat <<EOF | sudo tee /etc/apt/sources.list
+          # deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME main universe multiverse restricted
+          # deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-updates main universe multiverse restricted
+          # deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-security main universe multiverse restricted
+          # EOF
 
-          sudo dpkg --add-architecture arm64
+          # sudo dpkg --add-architecture arm64
           sudo apt update
           sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
       - name: linux x86_64 install dependencies
