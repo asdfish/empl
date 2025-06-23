@@ -8,8 +8,13 @@ jobs:
     strategy:
       matrix:
         arch: [aarch64, x86_64]
-        os: [macos-latest, ubuntu-22.04, windows-latest]
+        os: [macos-latest, ubuntu-latest, windows-latest]
         include:
+          - arch: aarch64
+            dpkg-target: arm64
+          - arch: x86_64
+            dpkg-target: amd64
+
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
@@ -20,13 +25,12 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: linux dependencies
+      - name: linux install dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo dpkg --add-architecture arm64
-          sudo apt-get update -o Acquire::AllowInsecureRepositories=true 
-          sudo apt-get install libasound2-dev --yes
-          sudo apt-get install libasound2-dev:arm64 --yes
+          sudo dpkg --add-architecture ${{runner.dpkg-target}}
+          sudo apt update -o Acquire::ForceIPv4=true
+          sudo apt install libasound2-dev:${{runner.dpkg-target}} --yes
       - name: build
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
