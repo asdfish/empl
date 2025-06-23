@@ -40,9 +40,6 @@ jobs:
           sudo dpkg --add-architecture arm64
           sudo apt update
           sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
-
-          mkdir -p aarch64-sysroot/usr/share
-          ln -sf /usr/lib/aarch64-linux-gnu/pkgconfig aarch64-sysroot/usr/share/pkgconfig
       - name: linux x86_64 install dependencies
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
@@ -50,7 +47,8 @@ jobs:
           sudo apt install libasound2-dev --yes
       - name: build
         env:
-          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: './aarch64-sysroot'
+          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: '/usr/lib/aarch64-linux-gnu'
+          PKG_CONFIG_PATH: '/usr/lib/aarch64-linux-gnu/pkgconfig'
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
