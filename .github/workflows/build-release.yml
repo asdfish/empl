@@ -7,24 +7,29 @@ jobs:
   build:
     strategy:
       matrix:
-        target:
-          - aarch64-pc-windows-gnullvm
-          - aarch64-apple-darwin
-          - aarch64-unknown-linux-musl
-          - x86_64-pc-windows-gnullvm
-          - x86_64-apple-darwin
-          - x86_64-unknown-linux-musl
-    runs-on: ubuntu-latest
+        os: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - os: macos-latest
+            target-suffix: -apple-darwin
+          - os: ubuntu-latest
+            target-suffix: -unknown-linux-musl
+          - os: windows-latest
+            target-suffix: -pc-windows-msvc
     steps:
       - name: checkout
         uses: actions/checkout@v4
+      - name: linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get upgrade --yes
+          sudo apt-get install libasound2-dev --yes
       - name: build
-        uses: houseabsolute/actions-rust-cross@v1
-        with:
-          command: build
-          target: ${{ matrix.target }}
-          args: "--locked --release"
-          strip: true
+        run: |
+          rustup target add aarch64-${{matrix.os}}
+          rustup target add x86_64-${{matrix.os}}
+          cargo build --locked --release --target aarch64-${{matrix.os}}
+          cargo build --locked --release --target x86_64-${{matrix.os}}          
 
 # jobs:
 #   build:
