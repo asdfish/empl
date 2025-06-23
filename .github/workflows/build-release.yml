@@ -43,10 +43,9 @@ jobs:
           sudo apt update
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
 
-          find /usr/lib
       - name: build
         env:
-          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: "/usr/lib/aarch64-linux-gnu"
+          PKG_CONFIG_SYSROOT_DIR_aarch64-unknown-linux-gnu: "/usr/aarch64-linux-gnu"
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}}
