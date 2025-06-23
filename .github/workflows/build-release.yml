@@ -12,7 +12,7 @@ jobs:
         include:
           - arch: aarch64
             os: ubuntu-latest
-            rustflags: '-C linker=aarch64-linux-gnu-cc'
+            rustflags: '-C linker=aarch64-linux-gnu-gcc'
           - arch: aarch64
             dpkg-target: arm64
             ubuntu-repo: https://ports.ubuntu.com/ubuntu-ports
