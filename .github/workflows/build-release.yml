@@ -41,7 +41,7 @@ jobs:
           sudo apt update
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
       - name: linux arm64 install dependencies
-        if: runner.os == 'Linux' && runner.arch == "aarch64"
+        if: runner.os == 'Linux' && runner.arch == 'aarch64'
         run: |
           sudo apt install binutils-arm-linux-gnueabi
       - name: build
