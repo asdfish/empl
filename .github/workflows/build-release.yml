@@ -30,6 +30,8 @@ jobs:
       - name: linux install dependencies
         if: runner.os == 'Linux'
         run: |
+          set +e
+
           UBUNTU_CODENAME="$(lsb_release -sc)"
 
           cat <<EOF | sudo tee /etc/apt/sources.list
