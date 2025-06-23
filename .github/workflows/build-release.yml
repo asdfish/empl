@@ -11,11 +11,11 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: macos-latest
-            target-suffix: -apple-darwin
+            target-suffix: apple-darwin
           - os: ubuntu-latest
-            target-suffix: -unknown-linux-musl
+            target-suffix: unknown-linux-musl
           - os: windows-latest
-            target-suffix: -pc-windows-msvc
+            target-suffix: pc-windows-msvc
     runs-on: ${{matrix.os}}
     steps:
       - name: checkout
