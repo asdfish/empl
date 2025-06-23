@@ -12,9 +12,10 @@ jobs:
         include:
           - arch: aarch64
             dpkg-target: arm64
+            ubuntu-repo: https://ports.ubuntu.com/ubuntu-ports
           - arch: x86_64
             dpkg-target: amd64
-
+            ubuntu-repo: https://archive.ubuntu.com/ubuntu
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
@@ -29,8 +30,17 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set +e
+
+          UBUNTU_CODENAME="$(lsb_release -sc)"
+
+          cat <<EOF | sudo tee /etc/apt/sources.list
+          deb [arch=${{matrix.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME main universe multiverse restricted
+          deb [arch=${{matrix.dpkg-target}}] ${{matirx.ubuntu-repo}} $UBUNTU_CODENAME-updates main universe multiverse restricted
+          deb [arch=${{matrid.dpkg-target}}] ${{matrix.ubuntu-repo}} $UBUNTU_CODENAME-security main universe multiverse restricted
+          EOF
+
           sudo dpkg --add-architecture ${{matrix.dpkg-target}}
-          sudo apt update -o Acquire::ForceIPv4=true
+          sudo apt update
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
       - name: build
         run: |
