@@ -8,7 +8,7 @@ jobs:
     strategy:
       matrix:
         arch: [aarch64, x86_64]
-        os: [macos-latest, ubuntu-latest, windows-latest]
+        os: [macos-latest, ubuntu-22.04, windows-latest]
         include:
           - os: macos-latest
             target-suffix: apple-darwin
