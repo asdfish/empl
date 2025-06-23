@@ -61,6 +61,7 @@ jobs:
       - name: upload
         uses: actions/upload-artifact@v4
         with:
+          name: ${{matrix-arch}}-${{matrix.target-suffix}}
           path: |
             ./target/${{matrix.arch}}-${{matrix.target-suffix}}/empl${{matrix.executable-suffix}}
             ./target/${{matrix.arch}}-${{matrix.target-suffix}}/repl{{matrix.executable-suffix}}            
