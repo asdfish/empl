@@ -44,14 +44,14 @@ jobs:
           sudo apt update
           sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
 
-          dpkg -L libasound2-dev
+          find /usr | grep asound
       - name: linux x86_64 install dependencies
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
           sudo apt update
           sudo apt install libasound2-dev --yes
 
-          dpkg -L libasound2-dev
+          find /usr | grep asound
       - name: build
         env:
           ALSA_DYNAMIC: ''
