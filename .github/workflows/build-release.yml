@@ -13,8 +13,7 @@ jobs:
           - arch: aarch64
             os: ubuntu-latest
             rustflags: '-C linker=aarch64-linux-gnu-gcc'
- 
-         - os: macos-latest
+          - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
             target-suffix: unknown-linux-gnu
