@@ -7,6 +7,7 @@ jobs:
   build:
     strategy:
       matrix:
+        arch: [aarch64, x86_64]
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - os: macos-latest
@@ -27,10 +28,8 @@ jobs:
           sudo apt-get install libasound2-dev --yes
       - name: build
         run: |
-          rustup target add aarch64-${{matrix.os}}
-          rustup target add x86_64-${{matrix.os}}
-          cargo build --locked --release --target aarch64-${{matrix.os}}
-          cargo build --locked --release --target x86_64-${{matrix.os}}          
+          rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
+          cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}}
 
 # jobs:
 #   build:
