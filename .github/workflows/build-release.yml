@@ -23,9 +23,11 @@ jobs:
       - name: linux dependencies
         if: runner.os == 'Linux'
         run: |
+          sudo dpkg --add-architecture arm64 
           sudo apt-get update
           sudo apt-get upgrade --yes
           sudo apt-get install libasound2-dev --yes
+          sudo apt-get install libasound2-dev:arm64 --yes
       - name: build
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
