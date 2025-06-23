@@ -30,7 +30,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           set +e
-n
+
           UBUNTU_CODENAME="$(lsb_release -sc)"
 
           cat <<EOF | sudo tee /etc/apt/sources.list
