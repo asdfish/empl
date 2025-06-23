@@ -28,9 +28,9 @@ jobs:
       - name: linux install dependencies
         if: runner.os == 'Linux'
         run: |
-          sudo dpkg --add-architecture ${{runner.dpkg-target}}
+          sudo dpkg --add-architecture ${{matrix.dpkg-target}}
           sudo apt update -o Acquire::ForceIPv4=true
-          sudo apt install libasound2-dev:${{runner.dpkg-target}} --yes
+          sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
       - name: build
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
