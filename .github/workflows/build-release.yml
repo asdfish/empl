@@ -12,14 +12,13 @@ jobs:
         include:
           - arch: aarch64
             os: ubuntu-latest
-            rustflags: '-C linker=aarch64-linux-gnu-gcc -L native=/usr/lib/aarch64-linux-gnu'
+            rustflags: '-C linker=aarch64-linux-gnu-gcc'
           - arch: x86_64
             os: ubuntu-latest
-            rustflags: '-L native=/usr/lib'
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
-            target-suffix: unknown-linux-musl
+            target-suffix: unknown-linux-gnu
           - os: windows-latest
             target-suffix: pc-windows-msvc
             executable-suffix: '.exe'
@@ -43,15 +42,11 @@ jobs:
           sudo dpkg --add-architecture arm64
           sudo apt update
           sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
-
-          find /usr | grep asound
       - name: linux x86_64 install dependencies
         if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
           sudo apt update
           sudo apt install libasound2-dev --yes
-
-          find /usr | grep asound
       - name: build
         env:
           ALSA_DYNAMIC: ''
