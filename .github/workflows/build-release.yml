@@ -24,10 +24,9 @@ jobs:
         uses: houseabsolute/actions-rust-cross@v1
         with:
           command: build
-          target: ${{matrix.target}}
-          args: --locked --release
+          target: ${{ matrix.target }}
+          args: "--locked --release"
           strip: true
-          use-rust-cache: true
 
 # jobs:
 #   build:
