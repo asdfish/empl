@@ -56,6 +56,8 @@ jobs:
           PKG_CONFIG_PATH: "/usr/lib/aarch64-linux-gnu/pkgconfig/"
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
+          rustup toolchain add stable-${{matrix.arch}}-${{matrix.target-suffix}}
+          rustup toolchain default stable-${{matrix.arch}}-${{matrix.target-suffix}}
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
 
