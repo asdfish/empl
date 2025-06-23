@@ -43,7 +43,7 @@ jobs:
           sudo apt update
           sudo apt install libasound2-dev:${{matrix.dpkg-target}} --yes
 
-          find /usr/lib/aarch64-linux-gnu
+          find /usr/lib/aarch64-linux-gnu || yes
 
       - name: build
         env:
