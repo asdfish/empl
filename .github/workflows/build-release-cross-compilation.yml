@@ -1,4 +1,4 @@
-name: Linux release build
+name: Release build cross compiled
 
 on:
   workflow_dispatch:

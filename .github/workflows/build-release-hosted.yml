@@ -1,4 +1,4 @@
-name: Proprietary os release build
+name: Hosted release build
 
 on:
   workflow_dispatch:
