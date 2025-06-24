@@ -49,7 +49,7 @@ strip = "symbols"
 [profile.release.package."*"]
 codegen-units = 1
 
-[workspace.metadata.cross.target.'cfg(linux)']
+[workspace.metadata.cross.target."*-linux-musl"]
 pre-build = [
           "dpkg --add-architecture ${CROSS_DEB_ARCH}",
           "apt-get update",
