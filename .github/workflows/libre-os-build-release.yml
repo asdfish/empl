@@ -24,6 +24,5 @@ jobs:
         env:
           PKG_CONFIG_PATH: ${{matrix.pkg-config-path}}
         run: |
-          env
           cargo install cross
           cross build --target ${{matrix.target}} --locked --release --verbose

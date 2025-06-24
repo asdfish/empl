@@ -1,15 +1,15 @@
-[target.aarch64-unknown-linux-musl]
+[build.env]
 passthrough = ["PKG_CONFIG_PATH"]
+
+[target.aarch64-unknown-linux-musl]
+
 pre-build = [
-          "env",
           "dpkg --add-architecture arm64",
           "apt-get update",
           "apt-get install libasound2-dev:arm64 --yes",
 ]
 [target.x86_64-unknown-linux-musl]
-passthrough = ["PKG_CONFIG_PATH"]
 pre-build = [
-          "env",
           "dpkg --add-architecture amd64",
           "apt-get update",
           "apt-get install libasound2-dev:amd64 --yes",
