@@ -7,3 +7,5 @@ pre-build = "./cross/debian_packages.sh"
 pre-build = "./cross/debian_packages.sh"
 [target.arm-unknown-linux-gnueabihf]
 pre-build = "./cross/debian_packages.sh"
+[target.mipsel-unknown-linux-gnu]
+pre-build = "./cross/debian_packages.sh"
