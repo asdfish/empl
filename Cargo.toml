@@ -49,9 +49,7 @@ strip = "symbols"
 [profile.release.package."*"]
 codegen-units = 1
 
-[workspace.metadata.cross.target."*-linux-musl"]
-pre-build = [
-          "dpkg --add-architecture ${CROSS_DEB_ARCH}",
-          "apt-get update",
-          "apt-get install libasound2-dev:${CROSS_DEB_ARCH} --yes"
-]
+[workspace.metadata.cross.target.aarch64-unknown-linux-musl]
+pre-build = "./cross/debian_packages.sh"
+[workspace.metadata.cross.target.x86_64-unknown-linux-musl]
+pre-build = "./cross/debian_packages.sh"
