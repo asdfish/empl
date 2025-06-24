@@ -48,7 +48,7 @@ jobs:
           autoheader
           automake --foreign --copy --add-missing
           autoconf
-          ./configure --enable-static=yes --enable-shared=no --host x86_64-unknown-linux-gnu --build ${{matrix.arch}}-unknown-linux-gnu --prefix $(realpath ../sysroot)
+          CFLAGS='-static' ./configure --enable-static=yes --enable-shared=no --host x86_64-unknown-linux-gnu --build ${{matrix.arch}}-unknown-linux-gnu --prefix $(realpath ../sysroot) -lmusl
           make -j
           make install
           find ../sysroot
