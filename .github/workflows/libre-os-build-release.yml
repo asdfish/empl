@@ -11,11 +11,16 @@ jobs:
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-musl          
           # - x86_64-unknown-freebsd
+        include:
+          - target: aarch64-unknown-linux-musl
+            pkg-config-path: /usr/lib/aarch64-linux-gnu
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
+        env:
+          PKG_CONFIG_PATH: ${{matrix.pkg-config-path}}
         run: |
           cargo install cross
           cross build --target ${{matrix.target}} --locked --release --verbose
