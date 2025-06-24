@@ -22,6 +22,8 @@ jobs:
             target-suffix: pc-windows-msvc
             executable-suffix: '.exe'
     runs-on: ${{matrix.os}}
+    defaults:
+      shell: bash
     steps:
       - name: checkout
         uses: actions/checkout@v4
@@ -49,14 +51,14 @@ jobs:
           make -j
           make install
           find ../sysroot
-
-          export PKG_CONFIG_SYSROOT_DIR=$(realpath ../sysroot)
-          export PKG_CONFIG_PATH=$(realpath ../sysroot/lib/pkgconfig)          
           
       - name: build
         env:
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
+          export PKG_CONFIG_SYSROOT_DIR=$(realpath ../sysroot)
+          export PKG_CONFIG_PATH=$(realpath ../sysroot/lib/pkgconfig)
+          
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
       - name: upload
