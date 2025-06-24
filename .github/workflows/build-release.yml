@@ -57,7 +57,8 @@ jobs:
         env:
           RUSTFLAGS: ${{matrix.rustflags}}
         run: |
-          export ALSA_NO_PKG_CONFIG=''
+          export PKG_CONFIG_SYSROOT_DIR="$(realpath sysroot)"
+          export PKG_CONFIG_PATH="$(realpath sysroot/lib/pkgconfig)"          
           
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
