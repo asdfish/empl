@@ -11,7 +11,7 @@ jobs:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
           - arm-unknown-linux-gnueabihf
-          - mipsel-unknown-linux-gnu
+          - powerpc64le-unknown-linux-gnu
           # - x86_64-unknown-freebsd
         include:
           - target: x86_64-unknown-linux-gnu
@@ -20,8 +20,8 @@ jobs:
             triple: aarch64-linux-gnu/
           - target: arm-unknown-linux-gnueabihf
             triple: arm-linux-gnueabihf/
-          - target: mipsel-unknown-linux-gnu
-            triple: mipsel-linux-gnu/
+          - target: powerpc64le-unknown-linux-gnu
+            triple: powerpc64le-linux-gnu/
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
