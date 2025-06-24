@@ -1,0 +1,30 @@
+name: Prioprietary os release build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        arch: [aarch64, arm64e, i686, x86_64]
+        os: [macos-latest, windows-latest]
+        include:
+          - os: macos-latest
+            target-suffix: apple-darwin
+          - os: windows-latest
+            target-suffix: pc-windows-msvc
+            executable-suffix: '.exe'
+    runs-on: ${{matrix.os}}
+    steps:
+      - name: checkout
+        uses: actions/checkout@v4
+      - name: build
+        run: |
+          rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
+          cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
+      - name: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: empl-${{matrix.arch}}-${{matrix.target-suffix}}
+          path: ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/empl${{matrix.executable-suffix}}
