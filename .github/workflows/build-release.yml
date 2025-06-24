@@ -11,13 +11,15 @@ jobs:
         os: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - arch: aarch64
-            arch-kebab-case: aarch64
+            os: ubuntu-latest
+            rustflags: '-C linker=aarch64-linux-gnu-gcc -L native=/usr/lib/aarch64-linux-gnu'
           - arch: x86_64
-            arch-kebab-case: x86-64
+            os: ubuntu-latest
+            rustflags: '-L native=/usr/lib'
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
-            target-suffix: unknown-linux-gnu
+            target-suffix: unknown-linux-musl
           - os: windows-latest
             target-suffix: pc-windows-msvc
             executable-suffix: '.exe'
@@ -28,36 +30,31 @@ jobs:
     steps:
       - name: checkout
         uses: actions/checkout@v4
-      - name: linux static alsa
-        if: runner.os == 'Linux'
+      - name: linux aarch64 install dependencies
+        if: runner.os == 'Linux' && matrix.arch == 'aarch64'
+        run: |
+          set +e
+
+          UBUNTU_CODENAME="$(lsb_release -sc)"
+
+          cat <<EOF | sudo tee /etc/apt/sources.list
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME main universe multiverse restricted
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-updates main universe multiverse restricted
+          deb [arch=arm64] https://ports.ubuntu.com/ubuntu-ports $UBUNTU_CODENAME-security main universe multiverse restricted
+          EOF
+
+          sudo dpkg --add-architecture arm64
+          sudo apt update
+          sudo apt install libasound2-dev:arm64 gcc-aarch64-linux-gnu --yes
+      - name: linux x86_64 install dependencies
+        if: runner.os == 'Linux' && matrix.arch == 'x86_64'
         run: |
           sudo apt update
-          sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu --yes
-
-          export ALSA_VERSION=1.2.14
-
-          wget https://github.com/alsa-project/alsa-lib/archive/refs/tags/v${ALSA_VERSION}.tar.gz
-          tar -xvf v${ALSA_VERSION}.tar.gz
-
-          cd alsa-lib-${ALSA_VERSION}
-
-          libtoolize --force --copy --automake
-          aclocal
-          autoheader
-          automake --foreign --copy --add-missing
-          autoconf
-          CFLAGS='-static' ./configure --enable-static=yes --enable-shared=no --host x86_64-unknown-linux-gnu --build ${{matrix.arch}}-unknown-linux-gnu --prefix $(realpath ../sysroot)
-          make -j
-          make install
-          find ../sysroot
-          
+          sudo apt install libasound2-dev --yes
       - name: build
         env:
           RUSTFLAGS: ${{matrix.rustflags}}
-        run: |
-          export PKG_CONFIG_SYSROOT_DIR="$(realpath sysroot)"
-          export PKG_CONFIG_PATH="$(realpath sysroot/lib/pkgconfig)"          
-          
+        run: |          
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
       - name: upload
