@@ -11,22 +11,25 @@ jobs:
           - x86_64-unknown-linux-gnu
           - aarch64-unknown-linux-gnu
           - arm-unknown-linux-gnueabihf
+          - mips64el-unknown-linux-gnuabi64
           # - x86_64-unknown-freebsd
         include:
           - target: x86_64-unknown-linux-gnu
-            debian-install-path: /usr/lib/x86_64-linux-gnu
+            triple: x86_64-linux-gnu/
           - target: aarch64-unknown-linux-gnu
-            debian-install-path: /usr/lib/aarch64-linux-gnu
+            triple: aarch64-linux-gnu/
           - target: arm-unknown-linux-gnueabihf
-            debian-install-path: /usr/lib/arm-linux-gnueabihf
+            triple: arm-linux-gnueabihf/
+          - target: mips64el-unknown-linux-gnuabi64
+            triple: mips64el-linux-gnuabi64/
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
         env:
-          PKG_CONFIG_PATH: ${{matrix.debian-install-path}}/pkgconfig
-          RUSTFLAGS: -C link-arg=-L${{matrix.debian-install-path}}/
+          PKG_CONFIG_PATH: /usr/lib/${{matrix.triple}}pkgconfig
+          RUSTFLAGS: -C link-arg=-L/usr/lib/${{matrix.triple}}
         uses: houseabsolute/actions-rust-cross@v1
         with:
           force-use-cross: true
