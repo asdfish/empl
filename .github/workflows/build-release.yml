@@ -32,7 +32,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt update
-          sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu --yes
+          sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu musl --yes
 
           # export CC=${{matrix.arch}}-linux-gnu-gcc
 
