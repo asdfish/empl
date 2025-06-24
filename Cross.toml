@@ -5,3 +5,5 @@ passthrough = ["PKG_CONFIG_PATH"]
 pre-build = "./cross/debian_packages.sh"
 [target.x86_64-unknown-linux-gnu]
 pre-build = "./cross/debian_packages.sh"
+[target.arm-unknown-linux-gnueabihf]
+pre-build = "./cross/debian_packages.sh"
