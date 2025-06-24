@@ -15,4 +15,5 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         run: |
-          rustup toolchain install ${{matrix.arch}}-${{matrix.target-suffix}}
+          cargo install cross
+          cross build --target ${{arch}}-${{target-suffix}}
