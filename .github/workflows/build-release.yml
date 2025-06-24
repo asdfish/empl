@@ -17,7 +17,7 @@ jobs:
           - os: macos-latest
             target-suffix: apple-darwin
           - os: ubuntu-latest
-            target-suffix: unknown-linux-musl
+            target-suffix: unknown-linux-gnu
           - os: windows-latest
             target-suffix: pc-windows-msvc
             executable-suffix: '.exe'
@@ -32,7 +32,7 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt update
-          sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu musl --yes
+          sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu --yes
 
           # export CC=${{matrix.arch}}-linux-gnu-gcc
 
