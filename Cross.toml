@@ -9,4 +9,5 @@ pre-build = [
           "dpkg --add-architecture amd64",
           "apt-get update",
           "apt-get install libasound2-dev:amd64 --yes",
+          "export PKG_CONFIG_PATH=/usr/lib/aarch64-linux-gnu/"
 ]
