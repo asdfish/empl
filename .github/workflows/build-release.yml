@@ -23,7 +23,8 @@ jobs:
             executable-suffix: '.exe'
     runs-on: ${{matrix.os}}
     defaults:
-      shell: bash
+      run:
+        shell: bash
     steps:
       - name: checkout
         uses: actions/checkout@v4
