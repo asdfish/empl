@@ -7,37 +7,24 @@ jobs:
   build:
     strategy:
       matrix:
-        target:
-          - aarch64-apple-darwin
-          - x86_64-apple-darwin
-          - aarch64-pc-windows-msvc
-          - i686-pc-windows-msvc
-          - x86_64-pc-windows-msvc
+        arch: [aarch64, x86_64]
+        os: [macos-latest, windows-latest]
         include:
-          - target: aarch64-apple-darwin
-            host: macos-latest
-          - target: x86_64-apple-darwin
-            host: macos-latest
-
-          - target: aarch64-pc-windows-msvc
-            host: windows-latest
-            executable-suffix: .exe
-          - target: i686-pc-windows-msvc
-            host: windows-latest
-            executable-suffix: .exe
-          - target: x86_64-pc-windows-msvc
-            host: windows-latest
-            executable-suffix: .exe
-    runs-on: ${{matrix.host}}
+          - os: macos-latest
+            target-suffix: apple-darwin
+          - os: windows-latest
+            target-suffix: pc-windows-msvc
+            executable-suffix: '.exe'
+    runs-on: ${{matrix.os}}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
         run: |
-          rustup target add ${{matrix.target}}
-          cargo build --bin empl --locked --release --target ${{matrix.target}} --verbose
+          rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
+          cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: empl-${{matrix.target}}
-          path: ./target/${{matrix.target}}/release/empl${{matrix.executable-suffix}}
+          name: empl-${{matrix.arch}}-${{matrix.target-suffix}}
+          path: ./target/${{matrix.arch}}-${{matrix.target-suffix}}/release/empl${{matrix.executable-suffix}}
