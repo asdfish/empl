@@ -17,13 +17,13 @@ jobs:
             executable-suffix: '.exe'
     runs-on: ${{matrix.os}}
     steps:
-      - name: checkout
+      - name: Checkout
         uses: actions/checkout@v4
-      - name: build
+      - name: Build
         run: |
           rustup target add ${{matrix.arch}}-${{matrix.target-suffix}}
           cargo build --bin empl --locked --release --target ${{matrix.arch}}-${{matrix.target-suffix}} --verbose
-      - name: upload
+      - name: Upload
         uses: actions/upload-artifact@v4
         with:
           name: empl-${{matrix.arch}}-${{matrix.target-suffix}}

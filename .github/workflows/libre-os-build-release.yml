@@ -1,0 +1,21 @@
+name: Libre os release build
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        arch: [aarch64, x86_64]
+        os: [unknown-freebsd, unknown-linux-musl]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        uses: houesabsolute/actions-rust-cross@v1
+        with:
+          target: ${{matrix.arch}}-${{target.os}}
+          args: --release --locked --bin empl
+          strip: true
