@@ -1,4 +1,4 @@
-name: Release build
+name: Linux release build
 
 on:
   workflow_dispatch:
@@ -12,33 +12,16 @@ jobs:
           - aarch64-unknown-linux-gnu
           - arm-unknown-linux-gnueabihf
           - powerpc64le-unknown-linux-gnu
-          - aarch64-apple-darwin
-          - x86_64-apple-darwin
-          - x86_64-pc-windows-msvc
-          - aarch64-pc-windows-msvc          
         include:
           - target: x86_64-unknown-linux-gnu
             triple: x86_64-linux-gnu/
-            host: ubuntu-latest
           - target: aarch64-unknown-linux-gnu
             triple: aarch64-linux-gnu/
-            host: ubuntu-latest            
           - target: arm-unknown-linux-gnueabihf
             triple: arm-linux-gnueabihf/
-            host: ubuntu-latest                        
           - target: powerpc64le-unknown-linux-gnu
             triple: powerpc64le-linux-gnu/
-            host: ubuntu-latest
-
-          - target: aarch64-apple-darwin
-            host: macos-latest
-          - target: x86_64-apple-darwin
-            host: macos-latest
-          - target: aarch64-pc-windows-msvc
-            host: windows-latest
-          - target: x86_64-pc-windows-msvc
-            host: windows-latest
-    runs-on: ${{matrix.host}}
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
