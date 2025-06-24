@@ -34,8 +34,6 @@ jobs:
           sudo apt update
           sudo apt install gcc-${{matrix.arch-kebab-case}}-linux-gnu --yes
 
-          # export CC=${{matrix.arch}}-linux-gnu-gcc
-
           export ALSA_VERSION=1.2.14
 
           wget https://github.com/alsa-project/alsa-lib/archive/refs/tags/v${ALSA_VERSION}.tar.gz
