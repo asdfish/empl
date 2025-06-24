@@ -14,7 +14,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
-        uses: houesabsolute/actions-rust-cross@v1
+        uses: houseabsolute/actions-rust-cross@v1
         with:
           target: ${{matrix.arch}}-${{matrix.target-suffix}}
           args: --release --locked --bin empl
