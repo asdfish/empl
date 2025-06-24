@@ -2,14 +2,6 @@
 passthrough = ["PKG_CONFIG_PATH"]
 
 [target.aarch64-unknown-linux-gnu]
-pre-build = [
-          "dpkg --add-architecture arm64",
-          "apt-get update",
-          "apt-get install libasound2-dev:arm64 --yes",
-]
+pre-build = "./cross/debian_packages.sh"
 [target.x86_64-unknown-linux-gnu]
-pre-build = [
-          "dpkg --add-architecture amd64",
-          "apt-get update",
-          "apt-get install libasound2-dev:amd64 --yes",
-]
+pre-build = "./cross/debian_packages.sh"
