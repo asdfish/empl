@@ -20,7 +20,7 @@ jobs:
             triple: aarch64-linux-gnu/
           - target: arm-unknown-linux-gnueabihf
             triple: arm-linux-gnueabihf/
-          - target: mipsel-unknown-linux-gnuabi64
+          - target: mipsel-unknown-linux-gnu
             triple: mipsel-linux-gnu/
     runs-on: ubuntu-latest
     steps:
