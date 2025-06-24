@@ -26,6 +26,7 @@ jobs:
           RUSTFLAGS: -C link-arg=-L${{matrix.debian-install-path}}/
         uses: houseabsolute/actions-rust-cross@v1
         with:
+          force-use-cross: true
           target: ${{matrix.target}}
           args: --locked --release --bin empl
           strip: true
