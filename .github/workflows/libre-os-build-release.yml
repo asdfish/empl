@@ -16,4 +16,4 @@ jobs:
       - name: Build
         run: |
           cargo install cross
-          cross build --target ${{arch}}-${{target-suffix}}
+          cross build --target ${{matrix.arch}}-${{matrix.target-suffix}}
