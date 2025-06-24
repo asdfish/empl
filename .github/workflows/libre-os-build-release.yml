@@ -24,6 +24,8 @@ jobs:
         env:
           PKG_CONFIG_PATH: ${{matrix.debian-install-path}}/pkgconfig
           RUSTFLAGS: -C link-arg=-L${{matrix.debian-install-path}}/
-        run: |
-          cargo install cross
-          cross build --target ${{matrix.target}} --locked --release --verbose
+        use: houseabsolute/actions-rust-cross@v1
+        with:
+          target: ${{matrix.target}}
+          args: --locked --release --bin empl
+          strip: true
