@@ -1,4 +1,4 @@
-name: Release build cross compiled
+name: Cross compiled release build
 
 on:
   workflow_dispatch:
