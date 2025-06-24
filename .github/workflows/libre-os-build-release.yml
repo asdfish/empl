@@ -10,7 +10,7 @@ jobs:
         target:
           - x86_64-unknown-linux-musl
           - aarch64-unknown-linux-musl          
-          - x86_64-unknown-freebsd
+          # - x86_64-unknown-freebsd
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,4 +18,4 @@ jobs:
       - name: Build
         run: |
           cargo install cross
-          cross build --target ${{matrix.target}} --locked --release
+          cross build --target ${{matrix.target}} --locked --release --verbose
