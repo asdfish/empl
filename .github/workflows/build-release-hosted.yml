@@ -10,22 +10,22 @@ jobs:
         target:
           - aarch64-apple-darwin
           - x86_64-apple-darwin
-          - aarch64-pc-windows-gnullvm
-          - i686-pc-windows-gnu
-          - x86_64-pc-windows-gnullvm
+          - aarch64-pc-windows-msvc
+          - i686-pc-windows-msvc
+          - x86_64-pc-windows-msvc
         include:
           - target: aarch64-apple-darwin
             host: macos-latest
           - target: x86_64-apple-darwin
             host: macos-latest
 
-          - target: aarch64-pc-windows-gnullvm
+          - target: aarch64-pc-windows-msvc
             host: windows-latest
             executable-suffix: .exe
-          - target: i686-pc-windows-gnu
+          - target: i686-pc-windows-msvc
             host: windows-latest
             executable-suffix: .exe
-          - target: x86_64-pc-windows-gnullvm
+          - target: x86_64-pc-windows-msvc
             host: windows-latest
             executable-suffix: .exe
     runs-on: ${{matrix.host}}
