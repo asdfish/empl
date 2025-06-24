@@ -35,3 +35,9 @@ jobs:
           target: ${{matrix.target}}
           args: --locked --release --bin empl
           strip: true
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: empl-${{matrix.target}}
+          path: ./target/${{matrix.target}}/release/empl
+          if-no-files-found: error
