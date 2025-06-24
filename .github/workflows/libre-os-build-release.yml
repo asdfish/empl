@@ -24,7 +24,7 @@ jobs:
         env:
           PKG_CONFIG_PATH: ${{matrix.debian-install-path}}/pkgconfig
           RUSTFLAGS: -C link-arg=-L${{matrix.debian-install-path}}/
-        use: houseabsolute/actions-rust-cross@v1
+        uses: houseabsolute/actions-rust-cross@v1
         with:
           target: ${{matrix.target}}
           args: --locked --release --bin empl
