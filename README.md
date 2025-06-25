@@ -20,6 +20,14 @@ The configuration must also be a singular expression, so if you need multiple ex
 
 The default configuration file requires you to put files in the format of `~/Music/PLAYLIST/SONG` where `PLAYLIST` is the name of a playlist and `SONG` is a song in the playlist.
 
+For example, if you had files in the structure of:
+
+ - ~/Music/playlist1/
+ - ~/Music/playlist1/song1.mp3
+ - ~/Music/playlist1/song2.mp3
+ 
+This would create a playlist named `playlist1` with the songs `song1.mp3` and `song2.mp3`.
+
 ## Builtin functions
 
 Argument types are listed in a pseudo s-expression format where every item in the list is the item type.
