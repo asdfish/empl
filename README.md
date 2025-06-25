@@ -73,13 +73,13 @@ Any argument between `|` indicates it can be either.
 | `path-name`      | `(path)`                              | Get the name part of a path as a string.                                                                             |
 | `path-separator` | `()`                                  | Return the operating system's path separator.                                                                        |
 | `progn`          | `(expr ... expr)`                     | Evaluate all arguments and return the last.                                                                          |
-| `seq-filter`     | `((lambda '(any) bool) '(any))`       | Filter the list to only the elements that pass the predicate.                                                        |
-| `seq-find`       | `((lambda '(any) bool) '(any))`       | Return the first element that passes the predicate.                                                                  |
-| `seq-flat-map`   | `((lambda '(any) '(any)) '(any))`     | Maps each element and flattens them.                                                                                 |
-| `seq-fold`       | `((lambda '(any) any) any '(any))`    | Folds each element. The first argument is the fold, the second is the accumulator and the final one is the elements. |
-| `seq-map`        | `((lambda '(any) any) '(any))`        | Maps each element.                                                                                                   |
+| `seq-filter`     | `((lambda (any) bool) '(any))`        | Filter the list to only the elements that pass the predicate.                                                        |
+| `seq-find`       | `((lambda (any) bool) '(any))`        | Return the first element that passes the predicate.                                                                  |
+| `seq-flat-map`   | `((lambda (any) '(any)) '(any))`      | Maps each element and flattens them.                                                                                 |
+| `seq-fold`       | `((lambda (any) any) any '(any))`     | Folds each element. The first argument is the fold, the second is the accumulator and the final one is the elements. |
+| `seq-map`        | `((lambda (any) any) '(any))`         | Maps each element.                                                                                                   |
 | `seq-rev`        | `('(any))`                            | Reverses a list.                                                                                                     |
-| `try-catch`      | `((lambda '() any) (lambda '() any))` | Try the first function, if it fails call the second function.                                                        |
+| `try-catch`      | `((lambda () any) (lambda () any))`   | Try the first function, if it fails call the second function.                                                        |
 
 ## `set-cfg!`
 
