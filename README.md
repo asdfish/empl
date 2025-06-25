@@ -12,9 +12,13 @@ cargo install --path .
 
 Configuration is done at `${XDG_CONFIG_HOME}/empl/main.lisp` or `${HOME}/.config/empl/main.lisp` using a custom lisp dialect.
 
+## Default configuration
+
 An example configuration file is provided at [./main.lisp](./main.lisp). It will also be automatically copied into the path above if it does noe exist.
 
 The configuration must also be a singular expression, so if you need multiple expressions, put everything in a `progn`.
+
+The default configuration file requires you to put files in the format of `~/Music/PLAYLIST/SONG` where `PLAYLIST` is the name of a playlist and `SONG` is a song in the playlist.
 
 ## Builtin functions
 
