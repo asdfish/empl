@@ -10,7 +10,7 @@ cargo install --path .
 
 # Configuration
 
-Configuration is done at `${XDG_CONFIG_HOME}/empl/main.lisp` or `${HOME}/.config/empl/main.lisp` using a custom lisp dialect.
+Configuration is done at `${APPDATA}/empl/main.lisp`, `${XDG_CONFIG_HOME}/empl/main.lisp`, or `${HOME}/.config/empl/main.lisp` using a custom lisp dialect.
 
 ## Default configuration
 
