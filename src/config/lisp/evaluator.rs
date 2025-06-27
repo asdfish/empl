@@ -167,7 +167,7 @@ impl Display for EvalError {
             }
             Self::EmptyListBindings => f.write_str("let bindings cannot be empty"),
             Self::EnvVar(err, var) => {
-                f.write_str("failed to get environment variable `{var}`: {err}")
+                write!(f, "failed to get environment variable `{var}`: {err}")
             }
             Self::InvalidColor(err) => err.fmt(f),
             Self::ReadPath(err, path) => {
