@@ -16,7 +16,9 @@
                             (list "skip-song" (list (list "" "s")))
                             (list "quit" (list (list "" "q")))))
 
-  (let ((music-dir (path (concat (env "HOME") (path-separator) "Music")))
+  (let ((music-dir (path (concat (or (env "HOME")
+                                     (env "HOMEPATH"))
+                                 (path-separator) "Music")))
         (playlist-paths (seq-filter path-is-dir (path-children music-dir)))
         (playlists (seq-map
                     (lambda (playlist)
