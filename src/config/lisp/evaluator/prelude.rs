@@ -2,8 +2,8 @@ use {
     crate::{
         config::lisp::{
             evaluator::{
-                list, Arity, Environment, EvalError, Expr, ExprTy, LispFn, List, TryFromValue,
-                Value,
+                Arity, Environment, EvalError, Expr, ExprTy, LispFn, List, TryFromValue, Value,
+                list,
             },
             lexer::Literal,
         },
@@ -17,8 +17,8 @@ use {
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
-        collections::{vec_deque, HashMap, HashSet, VecDeque},
-        env,
+        collections::{HashMap, HashSet, VecDeque, vec_deque},
+        env, iter,
         ops::{ControlFlow, Not},
         path::{self, Path, PathBuf},
         rc::Rc,
@@ -187,6 +187,34 @@ const fn env<'src>() -> impl LispFn<'src> {
             .map(Rc::from)
             .map(LazyRc::Owned)
             .map(Value::String)
+    })
+}
+const fn eq<'src>() -> impl LispFn<'src> {
+    value_fn(|args| {
+        const ARITY: Arity = Arity::RangeFrom(2..);
+
+        let (car, cdr) = args
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(ARITY))?
+            .next();
+        let car = car?;
+
+        let (cadr, cddr) = cdr
+            .try_into_nonempty_iter()
+            .ok_or(EvalError::WrongArity(ARITY))?
+            .next();
+
+        match iter::once(cadr)
+            .chain(cddr)
+            .try_fold(true, |_, item| match item {
+                Ok(item) if item == car => ControlFlow::Continue(true),
+                Ok(_) => ControlFlow::Break(Ok(false)),
+                Err(err) => ControlFlow::Break(Err(err)),
+            }) {
+            ControlFlow::Continue(b) => Ok(b),
+            ControlFlow::Break(o) => o,
+        }
+        .map(Value::Bool)
     })
 }
 fn r#if<'src>(
@@ -587,6 +615,10 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         (
             "env",
             Value::Fn(LazyRc::Borrowed(&adapt_const!(const { env() }))),
+        ),
+        (
+            "eq",
+            Value::Fn(LazyRc::Borrowed(&adapt_const!(const { eq() }))),
         ),
         ("if", Value::Fn(LazyRc::Borrowed(&r#if))),
         ("lambda", Value::Fn(LazyRc::Borrowed(&lambda))),
