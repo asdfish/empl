@@ -67,7 +67,6 @@ Any argument between `|` indicates it can be either.
 | `list`           | `(... any)`                           | Create a cons list using the arguments.                                                                              |
 | `nil`            | `()`                                  | Return an empty list.                                                                                                |
 | `not`            | `(bool)`                              | Reverse a boolean.                                                                                                   |
-| `or`             | `(any any ...)`                       | Return the first value that is not nil.                                                                              |
 | `path`           | `(str)`                               | Convert a string to a path.                                                                                          |
 | `path-children`  | `(path)`                              | Get a list of child nodes in a path.                                                                                 |
 | `path-exists`    | `(path)`                              | Predicate for determining if a path exists.                                                                          |

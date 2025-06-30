@@ -2,8 +2,8 @@ use {
     crate::{
         config::lisp::{
             evaluator::{
-                Arity, Environment, EvalError, Expr, ExprTy, LispFn, List, TryFromValue, Value,
-                list,
+                list, Arity, Environment, EvalError, Expr, ExprTy, LispFn, List, TryFromValue,
+                Value,
             },
             lexer::Literal,
         },
@@ -17,7 +17,7 @@ use {
     },
     nonempty_collections::iter::{IntoIteratorExt, NonEmptyIterator},
     std::{
-        collections::{HashMap, HashSet, VecDeque, vec_deque},
+        collections::{vec_deque, HashMap, HashSet, VecDeque},
         env,
         ops::{ControlFlow, Not},
         path::{self, Path, PathBuf},
@@ -324,24 +324,6 @@ fn not<'src>(
         .map(bool::not)
         .map(Value::Bool)
 }
-fn or<'src>(
-    env: &mut Environment<'src>,
-    args: VecDeque<Expr<'src>>,
-) -> Result<Value<'src>, EvalError> {
-    if args.len() < 2 {
-        return Err(EvalError::WrongArity(Arity::RangeFrom(2..)));
-    }
-
-    args.into_iter()
-        .map(|expr| env.eval(expr))
-        .find_map(|expr| match expr {
-            Ok(Value::List(list)) if list.is_nil() => None,
-            Ok(value) => Some(Ok(value)),
-            Err(err) => Some(Err(err)),
-        })
-        .transpose()
-        .map(|val| val.unwrap_or(Value::List(Rc::new(List::Nil))))
-}
 const fn path<'src>() -> impl LispFn<'src> {
     value_fn(|string| {
         string
@@ -612,7 +594,6 @@ pub fn new<'a>() -> HashMap<&'a str, Value<'a>> {
         ("list", Value::Fn(LazyRc::Borrowed(&list))),
         ("nil", Value::Fn(LazyRc::Borrowed(&nil))),
         ("not", Value::Fn(LazyRc::Borrowed(&not))),
-        ("or", Value::Fn(LazyRc::Borrowed(&or))),
         (
             "path",
             Value::Fn(LazyRc::Borrowed(&adapt_const!(const { path() }))),
