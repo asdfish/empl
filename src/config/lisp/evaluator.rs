@@ -4,11 +4,11 @@ mod prelude;
 use {
     crate::{
         config::{
+            UnknownKeyActionError,
             lisp::{
                 ast::{Expr, ExprTy},
                 lexer::Literal,
             },
-            UnknownKeyActionError,
         },
         ext::{array::ArrayExt, iterator::IteratorExt},
         lazy_rc::LazyRc,
@@ -391,6 +391,10 @@ impl<'src> List<'src> {
         iter.into_iter()
             .rev()
             .fold(Rc::new(List::Nil), |cdr, val| Rc::new(List::Cons(val, cdr)))
+    }
+
+    pub const fn is_nil(&self) -> bool {
+        matches!(self, Self::Nil)
     }
 
     pub fn iter(self: Rc<Self>) -> list::Iter<'src> {
