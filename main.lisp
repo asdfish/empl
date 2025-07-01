@@ -20,6 +20,8 @@
                              (lambda () (env "HOME"))))
         (music-dir (path (concat home-dir (path-separator) "Music")))
         (playlist-paths (seq-filter path-is-dir (path-children music-dir)))
+        (non-empty-playlist-paths (seq-filter (lambda (path) (not (eq (nil) (path-children path))))
+                                              playlist-paths))
         (playlists (seq-map
                     (lambda (playlist)
                       (list
@@ -30,5 +32,5 @@
                         (seq-filter
                          path-is-file
                          (path-children playlist)))))
-                    playlist-paths)))
+                    non-empty-playlist-paths)))
     (set-cfg! "playlists" playlists)))
