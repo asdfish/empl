@@ -4,12 +4,12 @@ pub mod lisp;
 use {
     crate::{
         config::{
-            cli::{argv::Argv, CliError},
+            cli::{CliError, argv::Argv},
             lisp::{
+                LispError,
                 evaluator::{Arity, TryFromValue, Value},
                 lexer::IntParser,
-                parser::{token::Just, Parser, ParserOutput},
-                LispError,
+                parser::{Parser, ParserOutput, token::Just},
             },
         },
         ext::iterator::IteratorExt,
@@ -49,7 +49,7 @@ pub const NAME: &str = "empl";
 ///      assert_eq!(version, VERSION);
 /// }
 /// ```
-pub const VERSION: &str = "2.1.3";
+pub const VERSION: &str = "2.1.5";
 
 fn parse_key_code<S>(key_code: S) -> Result<KeyCode, S>
 where
