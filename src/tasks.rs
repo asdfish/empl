@@ -43,6 +43,8 @@ use {
     },
 };
 
+const CHANNEL_SIZE: usize = 5;
+
 pub struct TaskManager<'a> {
     audio: AudioTask,
     audio_completion: AudioCompletionTask,
@@ -52,15 +54,15 @@ pub struct TaskManager<'a> {
 }
 impl<'a> TaskManager<'a> {
     pub async fn new(config: &'a Config) -> Result<Self, NewTaskManagerError> {
-        let (audio_action_tx, audio_action_rx) = mpsc::channel(1);
+        let (audio_action_tx, audio_action_rx) = mpsc::channel(CHANNEL_SIZE);
         let _ = audio_action_tx
             .send(AudioAction::Play(Arc::clone(
                 &config.playlists.first().1.first().1,
             )))
             .await;
-        let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::channel(1);
-        let (event_tx, event_rx) = mpsc::channel(1);
-        let (display_tx, display_rx) = mpsc::channel(1);
+        let (change_completion_notifier_tx, change_completion_notifier_rx) = mpsc::channel(CHANNEL_SIZE);
+        let (event_tx, event_rx) = mpsc::channel(CHANNEL_SIZE);
+        let (display_tx, display_rx) = mpsc::channel(CHANNEL_SIZE);
         let display_state = DisplayState::new(config);
         let _ = display_tx
             .send(DamageList::new(
@@ -251,7 +253,7 @@ impl<'a> RecoverableError<'a> {
             rx: &mut mpsc::Receiver<T>,
             msg: Option<T>,
         ) {
-            let (new_tx, new_rx) = mpsc::channel(1);
+            let (new_tx, new_rx) = mpsc::channel(CHANNEL_SIZE);
             if let Some(msg) = msg {
                 let result = new_tx.send(msg).await;
                 debug_assert!(result.is_ok());

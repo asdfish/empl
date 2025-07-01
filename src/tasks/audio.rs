@@ -1,7 +1,7 @@
 use {
     crate::{
         either::{Either, EitherOutput},
-        tasks::{ChannelError, RecoverableError, TaskError, UnrecoverableError, state::Event},
+        tasks::{ChannelError, RecoverableError, TaskError, UnrecoverableError, CHANNEL_SIZE, state::Event},
     },
     awedio::{
         Sound,
@@ -33,7 +33,7 @@ impl AudioTask {
         event_tx: mpsc::Sender<Event>,
     ) -> Result<Self, AudioBackendError> {
         let mut backend = Backend::with_defaults().ok_or(AudioBackendError::NoDevice)?;
-        let (error_tx, error_rx) = mpsc::channel(1);
+        let (error_tx, error_rx) = mpsc::channel(CHANNEL_SIZE);
         let error_tx = error_tx;
 
         Ok(Self {
