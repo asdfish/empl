@@ -6,7 +6,7 @@ license = "GPL-3.0-or-later"
 readme = "README.md"
 name = "empl"
 repository = "https://github.com/asdfish/empl"
-version = "2.1.5"
+version = "2.1.6"
 default-run = "empl"
 
 [[bin]]
