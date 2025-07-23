@@ -131,7 +131,10 @@ mod tests {
 
     #[test]
     fn path_segment_display() {
-        assert_eq!(PathSegment::HomeDir.to_string(), "${HOME}");
+        #[cfg(unix)]
+        {
+            assert_eq!(PathSegment::HomeDir.to_string(), "${HOME}");
+        }
         assert_eq!(PathSegment::EnvVar(c"foo").to_string(), "${foo}");
         assert_eq!(PathSegment::Segment("bar").to_string(), "bar");
     }
@@ -142,9 +145,9 @@ mod tests {
     #[test]
     fn env_vars() {
         use arrayvec::ArrayVec;
-        use libc::{setenv, unsetenv};
+        use std::env;
 
-        unsafe { setenv(c"HOME".as_ptr(), c"/home/foo".as_ptr(), 1) };
+        unsafe { env::set_var("HOME", "/home/foo") };
 
         let mut homes = ArrayVec::<_, 3>::new();
 
@@ -158,7 +161,7 @@ mod tests {
             .into_iter()
             .for_each(|home| assert_eq!(home, Some(Path::new("/home/foo"))));
 
-        unsafe { unsetenv(c"HOME".as_ptr()) };
+        unsafe { env::remove_var("HOME") };
 
         [
             unsafe { get_env(c"HOME") }
