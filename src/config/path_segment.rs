@@ -181,34 +181,29 @@ mod tests {
 
         let mut homes = ArrayVec::<_, 3>::new();
 
-        homes.push(unsafe { get_env(c"HOME") }.ok().map(Path::new));
+        homes.push(unsafe { get_env(c"HOME") }.ok().map(Path::new).unwrap());
         #[cfg(unix)]
         {
-            homes.push(unsafe { PathSegment::HomeDir.to_path() }.ok());
+            homes.push(unsafe { PathSegment::HomeDir.to_path() }.unwrap());
         }
-        homes.push(unsafe { PathSegment::EnvVar(c"HOME").to_path() }.ok());
-        homes.into_iter().enumerate().for_each(|(i, home)| {
-            println!("test 1/{i}");
-            assert_eq!(home, Some(Path::new("/home/foo")));
+        homes.push(unsafe { PathSegment::EnvVar(c"HOME").to_path() }.unwrap());
+        homes.into_iter().for_each(|home| {
+            assert_eq!(home, Path::new("/home/foo"));
         });
 
         unsafe { env::remove_var("HOME") };
 
         [
             unsafe { get_env(c"HOME") }
-                .err()
-                .map(GetPathSegmentError::UnknownEnvVar),
-            unsafe { PathSegment::EnvVar(c"HOME").to_path() }.err(),
+                .map_err(GetPathSegmentError::UnknownEnvVar)
+                .unwrap_err(),
+            unsafe { PathSegment::EnvVar(c"HOME").to_path() }.unwrap_err(),
         ]
         .into_iter()
-        .enumerate()
-        .for_each(|(i, error)| {
-            println!("test 2/{i}");
+        .for_each(|error| {
             assert_eq!(
                 error,
-                Some(GetPathSegmentError::UnknownEnvVar(UnknownEnvVarError(
-                    c"HOME"
-                )))
+                GetPathSegmentError::UnknownEnvVar(UnknownEnvVarError(c"HOME"))
             )
         });
 

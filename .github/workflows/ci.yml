@@ -9,7 +9,7 @@ jobs:
           - build
           - test
           - fmt --check
-          - clippy --no-deps
+          - clippy --no-deps -- -Dwarnings
         hosts: [macos-latest, ubuntu-latest, windows-latest]
 
     runs-on: ${{matrix.hosts}}
