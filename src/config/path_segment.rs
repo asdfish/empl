@@ -203,7 +203,7 @@ mod tests {
                 .map(os_str_to_path)
                 .unwrap(),
         );
-        #[cfg(unix)]
+        #[cfg(all(unix, not(miri)))]
         {
             homes.push(unsafe { PathSegment::HomeDir.to_path() }.unwrap());
         }
@@ -228,7 +228,7 @@ mod tests {
             )
         });
 
-        #[cfg(unix)]
+        #[cfg(all(unix, not(miri)))]
         {
             assert_ne!(
                 unsafe { PathSegment::HomeDir.to_path() },
