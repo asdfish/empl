@@ -85,6 +85,7 @@ impl<'a> Iterator for Argv<'a> {
                 self.0 = cdr;
 
                 if car.is_null() {
+                    // TODO: replace with become keyword once [https://github.com/rust-lang/rust/issues/112788] becomes stable
                     self.next()
                 } else {
                     Some(

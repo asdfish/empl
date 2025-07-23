@@ -19,12 +19,14 @@
 pub mod choice;
 
 use {
-    crate::config::path_segment::PathSegment,
+    crate::config::path_segment::{GetPathSegmentError, PathSegment},
     const_format::{
         self as cfmt,
         marker_traits::{FormatMarker, IsNotStdKind},
         try_, writec,
     },
+    itertools::Itertools,
+    std::path::{self, PathBuf},
 };
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -33,6 +35,30 @@ pub struct PathSegments<'a>(&'a [PathSegment<'a>]);
 impl<'a> PathSegments<'a> {
     pub const fn new(segments: &'a [PathSegment<'a>]) -> Self {
         Self(segments)
+    }
+
+    #[expect(unstable_name_collisions)]
+    pub fn size_hint(&self) -> usize {
+        self.0
+            .iter()
+            .map(|segment| segment.size_hint())
+            .intersperse(Some(path::MAIN_SEPARATOR.len_utf8()))
+            .flatten()
+            .sum::<usize>()
+    }
+
+    /// # Safety
+    ///
+    /// See [PathSeparator::to_path]'s section on safety.
+    pub unsafe fn to_path_buf(&self) -> Result<PathBuf, GetPathSegmentError<'a>> {
+        self.0.iter().try_fold(
+            PathBuf::with_capacity(self.size_hint()),
+            |mut accum, segment| {
+                unsafe { segment.to_path() }
+                    .map(|segment| accum.push(segment))
+                    .map(|_| accum)
+            },
+        )
     }
 }
 impl FormatMarker for PathSegments<'_> {
@@ -45,7 +71,7 @@ impl PathSegments<'_> {
         while i < self.0.len() {
             try_!(writec!(f, "{}", self.0[i]));
             if i < self.0.len() - 1 {
-                try_!(writec!(f, "/"));
+                try_!(writec!(f, "{}", path::MAIN_SEPARATOR));
             }
 
             i += 1;
@@ -61,17 +87,32 @@ mod tests {
 
     #[test]
     fn path_segments_display() {
-        assert_eq!(formatc!("{}", PathSegments(&[])), "");
-        assert_eq!(
-            formatc!("{}", PathSegments(&[PathSegment::Segment("foo")])),
-            "foo"
-        );
-        assert_eq!(
-            formatc!(
-                "{}",
-                PathSegments(&[PathSegment::Segment("foo"), PathSegment::Segment("bar")])
-            ),
-            "foo/bar"
+        macro_rules! test_path_segments_display {
+            ($segments:expr, $output:expr $(,)?) => {
+                $segments.0.iter().for_each(|segment| {
+                    assert!(
+                        !segment.is_dynamic(),
+                        "this test can only use static path segments"
+                    )
+                });
+
+                let display = formatc!("{}", $segments);
+                assert_eq!(display, $output);
+                assert_eq!(
+                    unsafe { $segments.to_path_buf() }
+                        .unwrap()
+                        .display()
+                        .to_string(),
+                    display
+                );
+            };
+        }
+
+        test_path_segments_display!(PathSegments(&[]), "");
+        test_path_segments_display!(PathSegments(&[PathSegment::Segment("foo")]), "foo");
+        test_path_segments_display!(
+            PathSegments(&[PathSegment::Segment("foo"), PathSegment::Segment("bar")]),
+            format!("foo{}bar", path::MAIN_SEPARATOR),
         );
     }
 }

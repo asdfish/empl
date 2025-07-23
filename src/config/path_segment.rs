@@ -83,6 +83,18 @@ pub enum PathSegment<'a> {
     Segment(&'a str),
 }
 impl<'a> PathSegment<'a> {
+    pub const fn is_dynamic(&self) -> bool {
+        !matches!(self, Self::Segment(_))
+    }
+
+    pub const fn size_hint(&self) -> Option<usize> {
+        if let Self::Segment(segment) = self {
+            Some(segment.len())
+        } else {
+            None
+        }
+    }
+
     /// # Safety
     ///
     /// This cannot be called when other threads are modifying environment variables or errno.
