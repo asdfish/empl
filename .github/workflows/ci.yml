@@ -10,6 +10,7 @@ jobs:
           - "build --locked"
           - "fmt --check"
           - "clippy --locked --no-deps -- -Dwarnings"
+          # These will probably pass since the default images shouldn't have any crazy configurations.
           - "miri test --locked -- --include-ignored"
           - "test --locked -- --include-ignored"
         hosts: ["macos-latest", "ubuntu-latest", "windows-latest"]
