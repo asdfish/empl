@@ -16,16 +16,5 @@
 // You should have received a copy of the GNU General Public License
 // along with empl.  If not, see <http://www.gnu.org/licenses/>.
 
-#![cfg_attr(not(test), no_main)]
-
-use std::ffi::{c_char, c_int};
-
-pub mod cli;
-pub mod config;
-pub mod display;
-
-// SAFETY: Every c program has done this since the dawn of time.
-#[cfg_attr(not(test), unsafe(no_mangle))]
-extern "C" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
-    0
-}
+pub mod argv;
+pub mod parser;
