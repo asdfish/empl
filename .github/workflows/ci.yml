@@ -28,5 +28,6 @@ jobs:
         if: ${{matrix.rustup_component}}
         shell: bash
         run: rustup component add `echo ${{matrix.cargo_arguments}} | awk '{ print $1; }'`
+      - uses: Swatinem/rust-cache@v2
       - name: Run cargo
         run: cargo ${{matrix.cargo_arguments}}
