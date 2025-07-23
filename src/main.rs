@@ -49,5 +49,6 @@ extern "C" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         }
     })
     .and_then(|config| config.ok_or(0))
+    .inspect(|config| println!("{config:?}"))
     .map_or_else(identity, |_| 0)
 }

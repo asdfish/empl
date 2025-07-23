@@ -24,7 +24,7 @@ use std::{
 };
 
 /// Iterator for c style `argc` and `argv`.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(transparent)]
 pub struct Argv<'a>(&'a [*const c_char]);
 impl<'a> Argv<'a> {
@@ -94,5 +94,30 @@ impl<'a> Iterator for Argv<'a> {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use {super::*, std::ptr};
+
+    #[test]
+    fn argv_new() {
+        let foo = c"foo";
+        let bar = c"bar";
+        let foo_bar = [foo.as_ptr(), bar.as_ptr()];
+
+        [0, -1]
+            .into_iter()
+            .flat_map(|argc| [(argc, ptr::dangling()), (argc, ptr::null())])
+            .map(|(argc, argv)| (argc, argv, Argv(&[])))
+            .chain((0..=2).map(|len| {
+                (
+                    len,
+                    foo_bar.as_ptr(),
+                    Argv(&foo_bar[..usize::try_from(len).unwrap()]),
+                )
+            }))
+            .for_each(|(argc, argv, output)| assert_eq!(unsafe { Argv::new(argc, argv) }, output));
     }
 }

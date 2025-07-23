@@ -41,10 +41,11 @@ unsafe extern "C" {
     fn link_error() -> !;
 }
 
-#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Config<'a> {
     /// The path to the entry point for the configuration file.
     config_file: Option<&'a Path>,
+    exprs: Vec<&'a [u8]>,
 }
 impl<'a> Config<'a> {
     /// Parser some cli flags.
@@ -75,7 +76,9 @@ Options:
   -h --help           Print this message and exit.
   -v --version        Print version information and exit.
   -c --config  [PATH] Set the path to the entrypoint to the config file.
-                      Defaults to {}.\n",
+                      Defaults to {}.
+  -e --eval    [EXPR] Add an expression that will be evaluated at the end
+                      of the config file.\n",
                                     env!("CARGO_BIN_NAME"),
                                     Choice::new(DEFAULT_PATHS).unwrap(),
                                 )
@@ -106,6 +109,9 @@ Options:
                     output.config_file = Some(Path::new(unsafe {
                         OsStr::from_encoded_bytes_unchecked(opts.value()?)
                     }));
+                }
+                Opt::Short(b'e') | Opt::Long(b"eval") => {
+                    output.exprs.push(opts.value()?);
                 }
                 flag => return Err(ParseCliArgumentsError::UnknownFlag(flag)),
             }
@@ -152,10 +158,25 @@ impl<'a> From<getargs::Error<&'a [u8]>> for ParseCliArgumentsError<'a> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {
+        super::*,
+        std::{io, iter},
+    };
 
     #[test]
-    fn config_output() {
+    fn cli_required_args() {
+        [b"-c" as &[u8], b"--config", b"-e", b"--eval"]
+            .into_iter()
+            .for_each(|arg| {
+                assert!(matches!(
+                    Config::new(iter::once(arg), &mut io::empty()).unwrap_err(),
+                    ParseCliArgumentsError::MissingValue(_)
+                ))
+            })
+    }
+
+    #[test]
+    fn cli_output() {
         [
             (&[b"-h" as &[u8]] as &[&[u8]], None),
             (&[b"--help"], None),
@@ -165,19 +186,28 @@ mod tests {
                 &[b"-cfoo"],
                 Some(Config {
                     config_file: Some(Path::new("foo")),
+                    ..Default::default()
                 }),
             ),
             (
                 &[b"--config", b"foo"],
                 Some(Config {
                     config_file: Some(Path::new("foo")),
+                    ..Default::default()
+                }),
+            ),
+            (
+                &[b"-efoo", b"--eval", b"bar"],
+                Some(Config {
+                    exprs: vec![b"foo", b"bar"],
+                    ..Default::default()
                 }),
             ),
         ]
         .into_iter()
         .for_each(|(args, output)| {
             assert_eq!(
-                Config::new(args.iter().copied(), &mut std::io::empty()).unwrap(),
+                Config::new(args.iter().copied(), &mut io::empty()).unwrap(),
                 output
             )
         });
@@ -185,8 +215,6 @@ mod tests {
 
     #[test]
     fn stdout_ends_in_newline() {
-        use std::iter;
-
         let mut stdout = Vec::new();
 
         [b"-h" as &[u8], b"--help", b"-v", b"--version"]
