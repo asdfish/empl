@@ -5,7 +5,6 @@ use {
         error::Error,
         ffi::{CStr, OsStr},
         fmt::{self, Display, Formatter},
-        io,
         path::Path,
     },
 };
@@ -97,7 +96,7 @@ impl<'a> PathSegment<'a> {
                             .map(|bytes| unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
                             .map(Path::new)
                     } else {
-                        Err(GetPathSegmentError::ReadPwd(io::Error::last_os_error()))
+                        Err(GetPathSegmentError::ReadPwd(std::io::Error::last_os_error()))
                     }
                 }),
             Self::EnvVar(var) => unsafe { get_env(var) }
@@ -111,11 +110,12 @@ impl<'a> PathSegment<'a> {
 #[derive(Debug)]
 pub enum GetPathSegmentError<'a> {
     #[cfg(unix)]
-    ReadPwd(io::Error),
+    ReadPwd(std::io::Error),
     UnknownEnvVar(UnknownEnvVarError<'a>),
 }
 impl PartialEq for GetPathSegmentError<'_> {
     fn eq(&self, r: &Self) -> bool {
+        #[allow(unreachable_patterns)]
         match (self, r) {
             #[cfg(unix)]
             (Self::ReadPwd(l), Self::ReadPwd(r)) => l.kind() == r.kind(),
@@ -157,9 +157,10 @@ mod tests {
             homes.push(unsafe { PathSegment::HomeDir.to_path() }.ok());
         }
         homes.push(unsafe { PathSegment::EnvVar(c"HOME").to_path() }.ok());
-        homes
-            .into_iter()
-            .for_each(|home| assert_eq!(home, Some(Path::new("/home/foo"))));
+        homes.into_iter().enumerate().for_each(|(i, home)| {
+            println!("test 1/{i}");
+            assert_eq!(home, Some(Path::new("/home/foo")));
+        });
 
         unsafe { env::remove_var("HOME") };
 
@@ -170,7 +171,9 @@ mod tests {
             unsafe { PathSegment::EnvVar(c"HOME").to_path() }.err(),
         ]
         .into_iter()
-        .for_each(|error| {
+        .enumerate()
+        .for_each(|(i, error)| {
+            println!("test 2/{i}");
             assert_eq!(
                 error,
                 Some(GetPathSegmentError::UnknownEnvVar(UnknownEnvVarError(
