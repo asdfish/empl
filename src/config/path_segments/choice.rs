@@ -37,7 +37,7 @@ impl<'a> Choice<'a> {
     ///
     /// This will return [None] if [<[_]>::len] is less than 1.
     pub const fn new(items: &'a [PathSegments<'a>]) -> Option<Self> {
-        if items.len().is_empty() {
+        if items.is_empty() {
             None
         } else {
             Some(Self(items))
