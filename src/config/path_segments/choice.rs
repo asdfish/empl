@@ -71,22 +71,11 @@ impl Choice<'_> {
 
 #[cfg(test)]
 mod tests {
-    use {
-        super::*, crate::config::path_segment::PathSegment, arrayvec::ArrayVec,
-        const_format::formatc,
-    };
+    use {super::*, crate::config::path_segment::PathSegment, const_format::formatc};
 
     #[test]
     fn choice_length_requirement() {
-        (0..1)
-            .map(|len| {
-                (0..len)
-                    .map(|_| PathSegments::default())
-                    .collect::<ArrayVec<_, 2>>()
-            })
-            .for_each(|segments| {
-                assert_eq!(Choice::new(&segments), None);
-            })
+        assert_eq!(Choice::new(&[]), None);
     }
 
     #[test]
