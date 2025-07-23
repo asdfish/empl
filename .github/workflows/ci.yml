@@ -11,6 +11,7 @@ jobs:
           - fmt --check
           - clippy --no-deps -- -Dwarnings
           - miri test
+          - test
         hosts: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - cargo_arguments: miri test
