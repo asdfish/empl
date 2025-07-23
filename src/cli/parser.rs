@@ -27,8 +27,9 @@ use {
     getargs::{Opt, Options},
     std::{
         error::Error,
+        ffi::OsStr,
         fmt::{self, Display, Formatter},
-        io::{self, Write, stdout},
+        io::{self, Write},
         path::Path,
     },
 };
@@ -37,13 +38,13 @@ unsafe extern "C" {
     /// # Safety
     ///
     /// This function is call to safe if it does not exist.
-    fn _link_error() -> !;
+    fn link_error() -> !;
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Config<'a> {
     /// The path to the entry point for the configuration file.
-    _config_file_entry: Option<&'a Path>,
+    config_file: Option<&'a Path>,
 }
 impl<'a> Config<'a> {
     /// Parser some cli flags.
@@ -53,18 +54,18 @@ impl<'a> Config<'a> {
     /// - `Ok(Some(_))` indicates that the config was sucessfully parsed.
     /// - `Ok(None)` indicates the user selected an option that stopped parsing successfully such as `-h` or `-v`.
     /// - `Err(_)` indicates an error during parsing.
-    pub fn new<I>(iter: I) -> Result<Option<Self>, ParseCliArgumentsError<'a>>
+    pub fn new<I, O>(iter: I, stdout: &mut O) -> Result<Option<Self>, ParseCliArgumentsError<'a>>
     where
         I: IntoIterator<Item = &'a [u8]>,
+        O: Write,
     {
-        let output = Self::default();
+        let mut output = Self::default();
         let mut opts = Options::new(iter.into_iter());
 
         #[expect(clippy::never_loop)]
         while let Some(opt) = opts.next_opt()? {
             match opt {
                 Opt::Short(b'h') | Opt::Long(b"help") => {
-                    let mut stdout = stdout().lock();
                     return stdout
                         .write_all(
                             const {
@@ -87,7 +88,6 @@ Options:
                         .map_err(ParseCliArgumentsError::PrintStdout);
                 }
                 Opt::Short(b'v') | Opt::Long(b"version") => {
-                    let mut stdout = stdout().lock();
                     return stdout
                         .write_all(
                             const {
@@ -102,6 +102,11 @@ Options:
                         .and_then(|_| stdout.flush())
                         .map(|_| None)
                         .map_err(ParseCliArgumentsError::PrintStdout);
+                }
+                Opt::Short(b'c') | Opt::Long(b"config") => {
+                    output.config_file = Some(Path::new(unsafe {
+                        OsStr::from_encoded_bytes_unchecked(opts.value()?)
+                    }));
                 }
                 flag => return Err(ParseCliArgumentsError::UnknownFlag(flag)),
             }
@@ -140,8 +145,57 @@ impl<'a> From<getargs::Error<&'a [u8]>> for ParseCliArgumentsError<'a> {
             }
             _ => {
                 // SAFETY: this will cause a link error.
-                unsafe { _link_error() }
+                unsafe { link_error() }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn config_output() {
+        [
+            (&[b"-h" as &[u8]] as &[&[u8]], None),
+            (&[b"--help"], None),
+            (&[b"-v"], None),
+            (&[b"--version"], None),
+            (
+                &[b"-cfoo"],
+                Some(Config {
+                    config_file: Some(Path::new("foo")),
+                }),
+            ),
+            (
+                &[b"--config", b"foo"],
+                Some(Config {
+                    config_file: Some(Path::new("foo")),
+                }),
+            ),
+        ]
+        .into_iter()
+        .for_each(|(args, output)| {
+            assert_eq!(
+                Config::new(args.iter().copied(), &mut std::io::empty()).unwrap(),
+                output
+            )
+        });
+    }
+
+    #[test]
+    fn stdout_ends_in_newline() {
+        use std::iter;
+
+        let mut stdout = Vec::new();
+
+        [b"-h" as &[u8], b"--help", b"-v", b"--version"]
+            .into_iter()
+            .for_each(|flag| {
+                stdout.clear();
+                Config::new(iter::once(flag), &mut stdout).unwrap();
+                assert_eq!(*stdout.last().unwrap(), b'\n');
+            })
     }
 }
