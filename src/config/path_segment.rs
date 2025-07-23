@@ -117,6 +117,7 @@ pub enum GetPathSegmentError<'a> {
 impl PartialEq for GetPathSegmentError<'_> {
     fn eq(&self, r: &Self) -> bool {
         match (self, r) {
+            #[cfg(unix)]
             (Self::ReadPwd(l), Self::ReadPwd(r)) => l.kind() == r.kind(),
             (Self::UnknownEnvVar(l), Self::UnknownEnvVar(r)) => l == r,
             _ => false,
