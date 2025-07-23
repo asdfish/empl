@@ -61,8 +61,8 @@ mod tests {
     use {super::*, crate::tests::ENV_VAR_LOCK};
 
     #[test]
-    #[ignore = "this test may fail on weird configurations"]
-    fn platform_support() {
+    #[ignore = "this test may fail due to weird configurations"]
+    fn platform_default() {
         let _lock = ENV_VAR_LOCK.read().unwrap();
 
         DEFAULT_PATHS
