@@ -1,0 +1,18 @@
+on:
+  push: ["*"]
+
+jobs:
+  build:
+    strategy:
+      cargo_arguments:
+        - build
+        - test
+        - fmt --check
+        - clippy
+      hosts: [ubuntu-latest, windows-latest]
+
+    runs-on: ${{matrix.hosts}}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run cargo
+        run: cargo ${{matrix.cargo_arguments}}
