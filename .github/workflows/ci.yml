@@ -31,6 +31,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo
         env:
-          RUSTFLAGS: -D warning
-          RUSTDOCFLAGS: -D warning
+          RUSTFLAGS: -D warnings
+          RUSTDOCFLAGS: -D warnings
         run: cargo ${{matrix.cargo_arguments}}
