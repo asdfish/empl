@@ -7,14 +7,14 @@ jobs:
     strategy:
       matrix:
         cargo_arguments:
-          - build
-          - fmt --check
-          - clippy --no-deps -- -Dwarnings
-          - miri test -- --include-ignored
-          - test -- --include-ignored
-        hosts: [macos-latest, ubuntu-latest, windows-latest]
+          - "build --locked"
+          - "fmt --check"
+          - "clippy --locked --no-deps -- -Dwarnings"
+          - "miri test --locked -- --include-ignored"
+          - "test --locked -- --include-ignored"
+        hosts: ["macos-latest", "ubuntu-latest", "windows-latest"]
         include:
-          - cargo_arguments: miri test
+          - cargo_arguments: "miri test"
             rustup_component: true
             nightly: true
 
