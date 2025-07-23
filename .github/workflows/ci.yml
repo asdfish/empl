@@ -15,10 +15,14 @@ jobs:
         include:
           - cargo_arguments: miri test
             rustup_component: true
+            nightly: true
 
     runs-on: ${{matrix.hosts}}
     steps:
       - uses: actions/checkout@v4
+      - name: Install nightly toolchain
+        if: ${{matrix.nightly}}
+        run: rustup toolchain install nightly && rustup default nightly
       - name: Install rustup component
         if: ${{matrix.rustup_component}}
         shell: bash
