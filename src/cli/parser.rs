@@ -19,10 +19,15 @@
 //! Parser for the config created from command line options.
 
 use {
-    cfg_if::cfg_if,
-    const_format::formatcp,
+    crate::{
+        config::{default_paths::DEFAULT_PATHS, path_segments::choice::Choice},
+        display::IntoDisplay,
+    },
+    const_format::{formatc, formatcp},
     getargs::{Opt, Options},
     std::{
+        error::Error,
+        fmt::{self, Display, Formatter},
         io::{self, Write, stdout},
         path::Path,
     },
@@ -33,22 +38,6 @@ unsafe extern "C" {
     ///
     /// This function is call to safe if it does not exist.
     fn _link_error() -> !;
-}
-
-// [cfg_if] does not support returning expressions
-#[expect(clippy::needless_return)]
-const fn human_default_config_dirs() -> &'static str {
-    cfg_if! {
-        if #[cfg(windows)] {
-            return r#"`${%APPDATA%}\empl\config\main.scm`"#;
-        } else if #[cfg(target_os = "macos")] {
-            return "`${HOME}/Library/Application Support/empl/main.scm`";
-        } else if #[cfg(unix)] {
-            return "`${XDG_CONFIG_HOME}/empl/main.scm` or `${HOME}/.config/empl/main.scm`";
-        } else {
-            compile_error!("unsupported platform");
-        }
-    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -64,10 +53,11 @@ impl<'a> Config<'a> {
     /// - `Ok(Some(_))` indicates that the config was sucessfully parsed.
     /// - `Ok(None)` indicates the user selected an option that stopped parsing successfully such as `-h` or `-v`.
     /// - `Err(_)` indicates an error during parsing.
-    pub fn new<I>(iter: I) -> Result<Option<Self>, ParserCliArgumentsError<'a>>
+    pub fn new<I>(iter: I) -> Result<Option<Self>, ParseCliArgumentsError<'a>>
     where
         I: IntoIterator<Item = &'a [u8]>,
     {
+        let output = Self::default();
         let mut opts = Options::new(iter.into_iter());
 
         #[expect(clippy::never_loop)]
@@ -78,23 +68,23 @@ impl<'a> Config<'a> {
                     return stdout
                         .write_all(
                             const {
-                                formatcp!(
+                                formatc!(
                                     "Usage: {} [OPTIONS..]
 
 Options:
   -h --help           Print this message and exit.
   -v --version        Print version information and exit.
   -c --config  [PATH] Set the path to the entrypoint to the config file.
-                      Defaults to {}.",
+                      Defaults to {}.\n",
                                     env!("CARGO_BIN_NAME"),
-                                    human_default_config_dirs(),
+                                    Choice::new(DEFAULT_PATHS).unwrap(),
                                 )
                                 .as_bytes()
                             },
                         )
                         .and_then(|_| stdout.flush())
                         .map(|_| None)
-                        .map_err(ParserCliArgumentsError::PrintStdout);
+                        .map_err(ParseCliArgumentsError::PrintStdout);
                 }
                 Opt::Short(b'v') | Opt::Long(b"version") => {
                     let mut stdout = stdout().lock();
@@ -102,7 +92,7 @@ Options:
                         .write_all(
                             const {
                                 formatcp!(
-                                    "{} {}",
+                                    "{} {}\n",
                                     env!("CARGO_BIN_NAME"),
                                     env!("CARGO_PKG_VERSION")
                                 )
@@ -111,28 +101,42 @@ Options:
                         )
                         .and_then(|_| stdout.flush())
                         .map(|_| None)
-                        .map_err(ParserCliArgumentsError::PrintStdout);
+                        .map_err(ParseCliArgumentsError::PrintStdout);
                 }
-                flag => return Err(ParserCliArgumentsError::UnknownFlag(flag)),
+                flag => return Err(ParseCliArgumentsError::UnknownFlag(flag)),
             }
         }
 
-        todo!()
+        Ok(Some(output))
     }
 }
 
-pub enum ParserCliArgumentsError<'a> {
+#[derive(Debug)]
+pub enum ParseCliArgumentsError<'a> {
     PrintStdout(io::Error),
     MissingValue(Opt<&'a [u8]>),
     UnexpectedValue(Opt<&'a [u8]>),
     UnknownFlag(Opt<&'a [u8]>),
 }
-impl<'a> From<getargs::Error<&'a [u8]>> for ParserCliArgumentsError<'a> {
+impl Display for ParseCliArgumentsError<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        match self {
+            Self::PrintStdout(error) => write!(f, "failed to write to stdout: {error}"),
+            Self::MissingValue(flag) => write!(f, "flag `{}` requires a value", flag.display()),
+            Self::UnexpectedValue(flag) => {
+                write!(f, "flag `{}` does not take a value", flag.display())
+            }
+            Self::UnknownFlag(flag) => write!(f, "unexpected flag `{}`", flag.display()),
+        }
+    }
+}
+impl Error for ParseCliArgumentsError<'_> {}
+impl<'a> From<getargs::Error<&'a [u8]>> for ParseCliArgumentsError<'a> {
     fn from(error: getargs::Error<&'a [u8]>) -> Self {
         match error {
-            getargs::Error::RequiresValue(flag) => ParserCliArgumentsError::MissingValue(flag),
+            getargs::Error::RequiresValue(flag) => ParseCliArgumentsError::MissingValue(flag),
             getargs::Error::DoesNotRequireValue(flag) => {
-                ParserCliArgumentsError::UnexpectedValue(flag)
+                ParseCliArgumentsError::UnexpectedValue(flag)
             }
             _ => {
                 // SAFETY: this will cause a link error.

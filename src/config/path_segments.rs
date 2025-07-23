@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU General Public License
 // along with empl.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod choice;
+
 use {
     crate::config::path_segment::PathSegment,
     const_format::{
@@ -25,9 +27,14 @@ use {
     },
 };
 
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[repr(transparent)]
 pub struct PathSegments<'a>(&'a [PathSegment<'a>]);
+impl<'a> PathSegments<'a> {
+    pub const fn new(segments: &'a [PathSegment<'a>]) -> Self {
+        Self(segments)
+    }
+}
 impl FormatMarker for PathSegments<'_> {
     type Kind = IsNotStdKind;
     type This = Self;

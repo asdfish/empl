@@ -16,37 +16,40 @@
 // You should have received a copy of the GNU General Public License
 // along with empl.  If not, see <http://www.gnu.org/licenses/>.
 
-use {crate::config::path_segment::PathSegment, cfg_if::cfg_if};
+use {
+    crate::config::{path_segment::PathSegment, path_segments::PathSegments},
+    cfg_if::cfg_if,
+};
 
 cfg_if! {
     if #[cfg(windows)] {
-        const _DEFAULT_PATHS: &[&[PathSegment]] = &[&[
+        pub const DEFAULT_PATHS: &[PathSegments] = &[PathSegments::new(&[
             PathSegment::EnvVar(c"%APPDATA%"),
             PathSegment::Segment("empl"),
             PathSegment::Segment("config"),
             PathSegment::Segment("main.scm"),
-        ]];
+        ])];
     } else if #[cfg(target_os = "macos")] {
-        const _DEFAULT_PATHS: &[&[PathSegment]] = &[&[
+        pub const DEFAULT_PATHS: &[PathSegments] = &[PathSegments::new(&[
             PathSegment::HomeDir,
             PathSegment::Segment("Library"),
             PathSegment::Segment("Application Support"),
             PathSegment::Segment("empl"),
             PathSegment::Segment("main.scm"),
-        ]];
+        ])];
     } else if #[cfg(unix)] {
-        const _DEFAULT_PATHS: &[&[PathSegment]] = &[
-            &[
+        pub const DEFAULT_PATHS: &[PathSegments] = &[
+            PathSegments::new(&[
                 PathSegment::EnvVar(c"XDG_CONFIG_HOME"),
                 PathSegment::Segment("empl"),
                 PathSegment::Segment("main.scm"),
-            ],
-            &[
+            ]),
+            PathSegments::new(&[
                 PathSegment::HomeDir,
                 PathSegment::Segment(".config"),
                 PathSegment::Segment("empl"),
                 PathSegment::Segment("main.scm"),
-            ]
+            ]),
         ];
     } else {
         compile_error!("unsupported platform");

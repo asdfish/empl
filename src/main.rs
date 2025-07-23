@@ -18,7 +18,16 @@
 
 #![cfg_attr(not(test), no_main)]
 
-use std::ffi::{c_char, c_int};
+use {
+    cli::{
+        argv::Argv,
+        parser::{Config, ParseCliArgumentsError},
+    },
+    std::{
+        convert::identity,
+        ffi::{c_char, c_int},
+    },
+};
 
 pub mod cli;
 pub mod config;
@@ -26,6 +35,15 @@ pub mod display;
 
 // SAFETY: Every c program has done this since the dawn of time.
 #[cfg_attr(not(test), unsafe(no_mangle))]
-extern "C" fn main(_argc: c_int, _argv: *const *const c_char) -> c_int {
-    0
+extern "C" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
+    Config::new(unsafe { Argv::new(argc, argv) }.skip(1))
+        .map_err(|error| match error {
+            ParseCliArgumentsError::PrintStdout(_) => todo!(),
+            error => {
+                eprintln!("{error}");
+                1
+            }
+        })
+        .and_then(|config| config.ok_or(0))
+        .map_or_else(identity, |_| 0)
 }
