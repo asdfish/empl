@@ -35,6 +35,8 @@ unsafe extern "C" {
     fn _link_error() -> !;
 }
 
+// [cfg_if] does not support returning expressions
+#[expect(clippy::needless_return)]
 const fn human_default_config_dirs() -> &'static str {
     cfg_if! {
         if #[cfg(windows)] {
@@ -52,7 +54,7 @@ const fn human_default_config_dirs() -> &'static str {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Config<'a> {
     /// The path to the entry point for the configuration file.
-    config_file_entry: Option<&'a Path>,
+    _config_file_entry: Option<&'a Path>,
 }
 impl<'a> Config<'a> {
     /// Parser some cli flags.
@@ -68,6 +70,7 @@ impl<'a> Config<'a> {
     {
         let mut opts = Options::new(iter.into_iter());
 
+        #[expect(clippy::never_loop)]
         while let Some(opt) = opts.next_opt()? {
             match opt {
                 Opt::Short(b'h') | Opt::Long(b"help") => {

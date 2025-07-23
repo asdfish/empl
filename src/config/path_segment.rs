@@ -21,9 +21,7 @@ unsafe fn get_env<'a, 'b>(var: &'a CStr) -> Result<&'b OsStr, UnknownEnvVarError
     if val.is_null() {
         None
     } else {
-        Some(unsafe { CStr::from_ptr(val) })
-            .map(CStr::to_bytes)
-            .map(|bytes| unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
+        Some(unsafe { OsStr::from_encoded_bytes_unchecked(CStr::from_ptr(val).to_bytes()) })
     }
     .ok_or(UnknownEnvVarError(var))
 }
