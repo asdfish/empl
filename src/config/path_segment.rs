@@ -40,7 +40,7 @@ unsafe fn get_env<'a, 'b>(var: &'a CStr) -> Result<Cow<'b, OsStr>, UnknownEnvVar
     cfg_if! {
         if #[cfg(windows)] {
             // On windows you need to allocate so we can just use the standard library.
-            std::env::var_os(var).map(Cow::Owned).map_err(|_| UnknownEnvVarError(var))
+            std::env::var_os(var).map(Cow::Owned).ok_or(UnknownEnvVarError(var))
         } else {
             use libc::getenv;
             let val = unsafe { getenv(var.as_ptr()) };
