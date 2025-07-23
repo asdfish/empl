@@ -20,14 +20,14 @@ use {crate::config::path_segment::PathSegment, cfg_if::cfg_if};
 
 cfg_if! {
     if #[cfg(windows)] {
-        const DEFAULT_PATHS: &[&[PathSegment]] = &[&[
+        const _DEFAULT_PATHS: &[&[PathSegment]] = &[&[
             PathSegment::EnvVar(c"%APPDATA%"),
             PathSegment::Segment("empl"),
             PathSegment::Segment("config"),
             PathSegment::Segment("main.scm"),
         ]];
     } else if #[cfg(target_os = "macos")] {
-        const DEFAULT_PATHS: &[&[PathSegment]] = &[&[
+        const _DEFAULT_PATHS: &[&[PathSegment]] = &[&[
             PathSegment::HomeDir,
             PathSegment::Segment("Library"),
             PathSegment::Segment("Application Support"),
@@ -35,7 +35,7 @@ cfg_if! {
             PathSegment::Segment("main.scm"),
         ]];
     } else if #[cfg(unix)] {
-        const DEFAULT_PATHS: &[&[PathSegment]] = &[
+        const _DEFAULT_PATHS: &[&[PathSegment]] = &[
             &[
                 PathSegment::EnvVar(c"XDG_CONFIG_HOME"),
                 PathSegment::Segment("empl"),
