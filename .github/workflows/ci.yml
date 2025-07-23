@@ -9,7 +9,7 @@ jobs:
           - build
           - test
           - fmt --check
-          - clippy
+          - clippy --no-deps
         hosts: [ubuntu-latest, windows-latest]
 
     runs-on: ${{matrix.hosts}}
