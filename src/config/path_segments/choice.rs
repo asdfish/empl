@@ -35,7 +35,7 @@ impl FormatMarker for Choice<'_> {
 impl<'a> Choice<'a> {
     /// Create a new choice list.
     ///
-    /// This will return [None] if [<[_]>::len] is less than 1.
+    /// This will return [None] if `items.len()` is less than 1.
     pub const fn new(items: &'a [PathSegments<'a>]) -> Option<Self> {
         if items.is_empty() {
             None

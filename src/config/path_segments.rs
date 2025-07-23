@@ -49,7 +49,7 @@ impl<'a> PathSegments<'a> {
 
     /// # Safety
     ///
-    /// See [PathSeparator::to_path]'s section on safety.
+    /// See [PathSegment::to_path]'s section on safety.
     pub unsafe fn to_path_buf(&self) -> Result<PathBuf, GetPathSegmentError<'a>> {
         self.0.iter().try_fold(
             PathBuf::with_capacity(self.size_hint()),

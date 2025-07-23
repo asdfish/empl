@@ -186,7 +186,9 @@ impl PartialEq for GetPathSegmentError<'_> {
 
 #[cfg(test)]
 mod tests {
-    use {super::*, const_format::formatc};
+    use {
+        super::*, crate::tests::ENV_VAR_LOCK, arrayvec::ArrayVec, const_format::formatc, std::env,
+    };
 
     #[test]
     fn path_segment_display() {
@@ -200,10 +202,6 @@ mod tests {
 
     #[test]
     fn env_vars() {
-        use crate::tests::ENV_VAR_LOCK;
-        use arrayvec::ArrayVec;
-        use std::env;
-
         let _lock = ENV_VAR_LOCK.write().unwrap();
         unsafe { env::set_var("HOME", "/home/foo") };
 

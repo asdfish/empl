@@ -67,6 +67,7 @@ mod tests {
 
         DEFAULT_PATHS
             .iter()
+            // SAFETY: we have a lock on environment variables
             .find_map(|path| unsafe { path.to_path_buf() }.ok())
             .unwrap();
     }
