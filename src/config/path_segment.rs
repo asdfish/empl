@@ -81,24 +81,21 @@ impl<'a> PathSegment<'a> {
                 .map(Path::new)
                 .map_err(GetPathSegmentError::UnknownEnvVar)
                 .or_else(|_| {
-                    use libc::{__errno_location, getpwuid, getuid};
+                    use {
+                        errno::{Errno, errno, set_errno},
+                        libc::{getpwuid, getuid},
+                    };
 
                     // SAFETY: this never fails
                     let uid = unsafe { getuid() };
 
-                    // SAFETY: we don't read it yet
-                    let errno = unsafe { __errno_location() };
-                    // SAFETY: precondition is in contract
-                    if let Some(errno) = unsafe { __errno_location().as_mut() } {
-                        *errno = 0;
-                    }
+                    set_errno(Errno(0));
 
                     // SAFETY: we check errors
                     let pwd = unsafe { getpwuid(uid) };
                     // SAFETY: pointer should be convertible to a reference
                     if let Some(pwd) = unsafe { pwd.as_ref() }
-                    // SAFETY: nothing should mutate errno in this seciton
-                    && unsafe { errno.as_ref() }.map(|errno| *errno == 0).unwrap_or(true)
+                        && errno() != Errno(0)
                         && !pwd.pw_dir.is_null()
                     {
                         Ok(pwd.pw_dir)
