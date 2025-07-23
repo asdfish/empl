@@ -18,33 +18,47 @@
 
 use {
     bstr::BStr,
+    cfg_if::cfg_if,
     const_format::{
         self as cfmt,
         marker_traits::{FormatMarker, IsNotStdKind},
         writec,
     },
-    libc::getenv,
     std::{
+        borrow::Cow,
         error::Error,
         ffi::{CStr, OsStr},
         fmt::{self, Display, Formatter},
-        path::Path,
+        path::{Path, PathBuf},
     },
 };
 
-/// Get an environment variable in a way safer than [getenv] thanks to its type signature.
-///
 /// # Safety
 ///
 /// - No other threads can modify environment variables.
-unsafe fn get_env<'a, 'b>(var: &'a CStr) -> Result<&'b OsStr, UnknownEnvVarError<'a>> {
-    let val = unsafe { getenv(var.as_ptr()) };
-    if val.is_null() {
-        None
-    } else {
-        Some(unsafe { OsStr::from_encoded_bytes_unchecked(CStr::from_ptr(val).to_bytes()) })
+unsafe fn get_env<'a, 'b>(var: &'a CStr) -> Result<Cow<'b, OsStr>, UnknownEnvVarError<'a>> {
+    cfg_if! {
+        if #[cfg(windows)] {
+            std::env::var(var)
+        } else {
+            use libc::getenv;
+            let val = unsafe { getenv(var.as_ptr()) };
+            if val.is_null() {
+                None
+            } else {
+                Some(unsafe { OsStr::from_encoded_bytes_unchecked(CStr::from_ptr(val).to_bytes()) })
+            }
+            .map(Cow::Borrowed)
+            .ok_or(UnknownEnvVarError(var))
+        }
     }
-    .ok_or(UnknownEnvVarError(var))
+}
+
+fn os_str_to_path<'a>(os_str: Cow<'a, OsStr>) -> Cow<'a, Path> {
+    match os_str {
+        Cow::Borrowed(os_str) => Cow::Borrowed(Path::new(os_str)),
+        Cow::Owned(os_str) => Cow::Owned(PathBuf::from(os_str)),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -71,14 +85,14 @@ impl<'a> PathSegment<'a> {
     /// # Safety
     ///
     /// This cannot be called when other threads are modifying environment variables or errno.
-    pub unsafe fn to_path<'b>(self) -> Result<&'b Path, GetPathSegmentError<'a>>
+    pub unsafe fn to_path<'b>(self) -> Result<Cow<'b, Path>, GetPathSegmentError<'a>>
     where
         'a: 'b,
     {
         match self {
             #[cfg(unix)]
             Self::HomeDir => unsafe { get_env(c"HOME") }
-                .map(Path::new)
+                .map(os_str_to_path)
                 .map_err(GetPathSegmentError::UnknownEnvVar)
                 .or_else(|_| {
                     use {
@@ -105,14 +119,15 @@ impl<'a> PathSegment<'a> {
                             // SAFETY: [CStr]s should be converible into an [OsStr]
                             .map(|bytes| unsafe { OsStr::from_encoded_bytes_unchecked(bytes) })
                             .map(Path::new)
+                            .map(Cow::Borrowed)
                     } else {
                         Err(GetPathSegmentError::ReadPwd(std::io::Error::last_os_error()))
                     }
                 }),
             Self::EnvVar(var) => unsafe { get_env(var) }
-                .map(Path::new)
+                .map(os_str_to_path)
                 .map_err(GetPathSegmentError::UnknownEnvVar),
-            Self::Segment(segment) => Ok(Path::new(segment)),
+            Self::Segment(segment) => Ok(Cow::Borrowed(Path::new(segment))),
         }
     }
 }
@@ -181,7 +196,12 @@ mod tests {
 
         let mut homes = ArrayVec::<_, 3>::new();
 
-        homes.push(unsafe { get_env(c"HOME") }.ok().map(Path::new).unwrap());
+        homes.push(
+            unsafe { get_env(c"HOME") }
+                .ok()
+                .map(os_str_to_path)
+                .unwrap(),
+        );
         #[cfg(unix)]
         {
             homes.push(unsafe { PathSegment::HomeDir.to_path() }.unwrap());
