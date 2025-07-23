@@ -15,7 +15,6 @@ use {
 /// # Safety
 ///
 /// - No other threads can modify environment variables.
-#[cfg(unix)]
 unsafe fn get_env<'a, 'b>(var: &'a CStr) -> Result<&'b OsStr, UnknownEnvVarError<'a>> {
     let val = unsafe { getenv(var.as_ptr()) };
     if val.is_null() {
