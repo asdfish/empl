@@ -62,7 +62,6 @@ impl<'a> Config<'a> {
         let mut output = Self::default();
         let mut opts = Options::new(iter.into_iter());
 
-        #[expect(clippy::never_loop)]
         while let Some(opt) = opts.next_opt()? {
             match opt {
                 Opt::Short(b'h') | Opt::Long(b"help") => {
