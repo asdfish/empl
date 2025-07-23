@@ -9,7 +9,7 @@ jobs:
         cargo_arguments:
           - build
           - fmt --check
-          - clippy --no-deps -- -Dwarnings
+          - clippy --no-deps
           - miri test
           - test
         hosts: [macos-latest, ubuntu-latest, windows-latest]
@@ -30,4 +30,7 @@ jobs:
         run: rustup component add `echo ${{matrix.cargo_arguments}} | awk '{ print $1; }'`
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo
+        env:
+          RUSTFLAGS: -D warning
+          RUSTDOCFLAGS: -D warning
         run: cargo ${{matrix.cargo_arguments}}
