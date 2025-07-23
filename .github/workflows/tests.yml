@@ -10,7 +10,7 @@ jobs:
           - test
           - fmt --check
           - clippy
-          hosts: [ubuntu-latest, windows-latest]
+        hosts: [ubuntu-latest, windows-latest]
 
     runs-on: ${{matrix.hosts}}
     steps:
