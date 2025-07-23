@@ -23,7 +23,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Install nightly toolchain
         if: ${{matrix.nightly}}
-        run: rustup toolchain install nightly && rustup default nightly
+        run: rustup toolchain install nightly --profile minimal && rustup default nightly
       - name: Install rustup component
         if: ${{matrix.rustup_component}}
         shell: bash
