@@ -156,6 +156,7 @@ impl PathSegment<'_> {
         match self {
             #[cfg(unix)]
             Self::HomeDir => writec!(f, "${{HOME}}"),
+            // Reading environment variables depends on the shell, and there is no way to reliably determine the shell so we default to posix shell.
             Self::EnvVar(var) => match str::from_utf8(var.to_bytes()) {
                 Ok(var) => writec!(f, "${{{}}}", var),
                 Err(_) => panic!(),
@@ -197,14 +198,13 @@ mod tests {
         assert_eq!(formatc!("{}", PathSegment::Segment("bar")), "bar");
     }
 
-    /// # Safety
-    ///
-    /// No other test can modify environment variables since those can be ran in parallel.
     #[test]
     fn env_vars() {
+        use crate::tests::ENV_VAR_LOCK;
         use arrayvec::ArrayVec;
         use std::env;
 
+        let _lock = ENV_VAR_LOCK.write().unwrap();
         unsafe { env::set_var("HOME", "/home/foo") };
 
         let mut homes = ArrayVec::<_, 3>::new();

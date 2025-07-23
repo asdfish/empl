@@ -83,10 +83,12 @@ impl PathSegments<'_> {
 
 #[cfg(test)]
 mod tests {
-    use {super::*, const_format::formatc};
+    use {super::*, crate::tests::ENV_VAR_LOCK, const_format::formatc};
 
     #[test]
     fn path_segments_display() {
+        let _lock = ENV_VAR_LOCK.read().unwrap();
+
         macro_rules! test_path_segments_display {
             ($segments:expr, $output:expr $(,)?) => {
                 $segments.0.iter().for_each(|segment| {

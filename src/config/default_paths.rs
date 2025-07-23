@@ -55,3 +55,19 @@ cfg_if! {
         compile_error!("unsupported platform");
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use {super::*, crate::tests::ENV_VAR_LOCK};
+
+    #[test]
+    #[ignore = "this test may fail on weird configurations"]
+    fn platform_support() {
+        let _lock = ENV_VAR_LOCK.read().unwrap();
+
+        DEFAULT_PATHS
+            .iter()
+            .find_map(|path| unsafe { path.to_path_buf() }.ok())
+            .unwrap();
+    }
+}

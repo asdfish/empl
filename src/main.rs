@@ -33,6 +33,13 @@ use {
 pub mod cli;
 pub mod config;
 pub mod display;
+#[cfg(test)]
+mod tests {
+    use std::sync::RwLock;
+
+    /// Lock used to signal that environment variables are being written to during tests.
+    pub static ENV_VAR_LOCK: RwLock<()> = RwLock::new(());
+}
 
 // SAFETY: Every c program has done this since the dawn of time.
 #[cfg_attr(not(test), unsafe(no_mangle))]

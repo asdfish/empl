@@ -10,8 +10,8 @@ jobs:
           - build
           - fmt --check
           - clippy --no-deps -- -Dwarnings
-          - miri test
-          - test
+          - miri test -- --include-ignored
+          - test -- --include-ignored
         hosts: [macos-latest, ubuntu-latest, windows-latest]
         include:
           - cargo_arguments: miri test
