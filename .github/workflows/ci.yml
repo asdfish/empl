@@ -8,13 +8,20 @@ jobs:
       matrix:
         cargo_arguments:
           - build
-          - test
           - fmt --check
           - clippy --no-deps -- -Dwarnings
+          - miri test
         hosts: [macos-latest, ubuntu-latest, windows-latest]
+        include:
+          - cargo_arguments: miri test
+            rustup_component: true
 
     runs-on: ${{matrix.hosts}}
     steps:
       - uses: actions/checkout@v4
+      - name: Install rustup component
+        if: ${{matrix.rustup_component}}
+        shell: bash
+        run: rustup component add `echo ${{matrix.cargo_arguments}} | awk '{ print $1; }'`
       - name: Run cargo
         run: cargo ${{matrix.cargo_arguments}}
