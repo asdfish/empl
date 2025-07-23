@@ -4,12 +4,13 @@ on:
 jobs:
   build:
     strategy:
-      cargo_arguments:
-        - build
-        - test
-        - fmt --check
-        - clippy
-      hosts: [ubuntu-latest, windows-latest]
+      matrix:
+        cargo_arguments:
+          - build
+          - test
+          - fmt --check
+          - clippy
+          hosts: [ubuntu-latest, windows-latest]
 
     runs-on: ${{matrix.hosts}}
     steps:
