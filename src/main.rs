@@ -49,13 +49,12 @@ extern "C" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
         &mut io::stdout().lock(),
     )
     .map_err(|error| match error {
-        ParseCliArgumentsError::PrintStdout(_) => todo!(),
+        ParseCliArgumentsError::PrintStdout(_) => exitcode::IOERR,
         error => {
             eprintln!("{error}");
-            1
+            exitcode::USAGE
         }
     })
-    .and_then(|config| config.ok_or(0))
-    .inspect(|config| println!("{config:?}"))
-    .map_or_else(identity, |_| 0)
+    .and_then(|config| config.ok_or(exitcode::OK))
+    .map_or_else(identity, |_| exitcode::OK)
 }
