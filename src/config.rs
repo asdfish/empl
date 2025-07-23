@@ -16,4 +16,6 @@
 // You should have received a copy of the GNU General Public License
 // along with empl.  If not, see <http://www.gnu.org/licenses/>.
 
+pub mod default_paths;
 pub mod path_segment;
+pub mod path_segments;

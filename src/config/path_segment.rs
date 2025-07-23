@@ -18,6 +18,11 @@
 
 use {
     bstr::BStr,
+    const_format::{
+        self as cfmt,
+        marker_traits::{FormatMarker, IsNotStdKind},
+        writec,
+    },
     libc::getenv,
     std::{
         error::Error,
@@ -61,16 +66,6 @@ pub enum PathSegment<'a> {
     HomeDir,
     EnvVar(&'a CStr),
     Segment(&'a str),
-}
-impl Display for PathSegment<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-        match self {
-            #[cfg(unix)]
-            Self::HomeDir => "${HOME}".fmt(f),
-            Self::EnvVar(var) => write!(f, "${{{}}}", BStr::new(var.to_bytes())),
-            Self::Segment(segment) => segment.fmt(f),
-        }
-    }
 }
 impl<'a> PathSegment<'a> {
     /// # Safety
@@ -124,6 +119,26 @@ impl<'a> PathSegment<'a> {
         }
     }
 }
+impl FormatMarker for PathSegment<'_> {
+    type Kind = IsNotStdKind;
+    type This = Self;
+}
+impl PathSegment<'_> {
+    /// # Panics
+    ///
+    ///  - This function sill panic if `Self::EnvVar(var)` is not a valid utf8 string.
+    pub const fn const_display_fmt(&self, f: &mut cfmt::Formatter<'_>) -> Result<(), cfmt::Error> {
+        match self {
+            #[cfg(unix)]
+            Self::HomeDir => writec!(f, "${{HOME}}"),
+            Self::EnvVar(var) => match str::from_utf8(var.to_bytes()) {
+                Ok(var) => writec!(f, "${{{}}}", var),
+                Err(_) => panic!(),
+            },
+            Self::Segment(segment) => writec!(f, "{}", segment),
+        }
+    }
+}
 
 #[derive(Debug)]
 pub enum GetPathSegmentError<'a> {
@@ -145,16 +160,16 @@ impl PartialEq for GetPathSegmentError<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {super::*, const_format::formatc};
 
     #[test]
     fn path_segment_display() {
         #[cfg(unix)]
         {
-            assert_eq!(PathSegment::HomeDir.to_string(), "${HOME}");
+            assert_eq!(formatc!("{}", PathSegment::HomeDir), "${HOME}");
         }
-        assert_eq!(PathSegment::EnvVar(c"foo").to_string(), "${foo}");
-        assert_eq!(PathSegment::Segment("bar").to_string(), "bar");
+        assert_eq!(formatc!("{}", PathSegment::EnvVar(c"foo")), "${foo}");
+        assert_eq!(formatc!("{}", PathSegment::Segment("bar")), "bar");
     }
 
     /// # Safety
