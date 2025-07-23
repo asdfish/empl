@@ -26,6 +26,7 @@ use {
     std::{
         convert::identity,
         ffi::{c_char, c_int},
+        io,
     },
 };
 
@@ -36,14 +37,17 @@ pub mod display;
 // SAFETY: Every c program has done this since the dawn of time.
 #[cfg_attr(not(test), unsafe(no_mangle))]
 extern "C" fn main(argc: c_int, argv: *const *const c_char) -> c_int {
-    Config::new(unsafe { Argv::new(argc, argv) }.skip(1))
-        .map_err(|error| match error {
-            ParseCliArgumentsError::PrintStdout(_) => todo!(),
-            error => {
-                eprintln!("{error}");
-                1
-            }
-        })
-        .and_then(|config| config.ok_or(0))
-        .map_or_else(identity, |_| 0)
+    Config::new(
+        unsafe { Argv::new(argc, argv) }.skip(1),
+        &mut io::stdout().lock(),
+    )
+    .map_err(|error| match error {
+        ParseCliArgumentsError::PrintStdout(_) => todo!(),
+        error => {
+            eprintln!("{error}");
+            1
+        }
+    })
+    .and_then(|config| config.ok_or(0))
+    .map_or_else(identity, |_| 0)
 }
