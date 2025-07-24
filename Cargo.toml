@@ -9,6 +9,7 @@ cfg-if = { version = "1.0.1", default-features = false }
 const_format = { version = "0.2.34", default-features = false, features = ["fmt"] }
 exitcode = { version = "1.1.2", default-features = false }
 getargs = { version = "0.5.0", default-features = false }
+guile-rs = { version = "0.1.1", default-features = false }
 itertools = { version = "0.14.0", default-features = false }
 
 [dev-dependencies]
