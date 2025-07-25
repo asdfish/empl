@@ -25,6 +25,9 @@ jobs:
             nightly: true
 
     runs-on: ${{matrix.host}}
+    defaults:
+      run:
+        shell: ${{matrix.shell}}
     steps:
       - uses: actions/checkout@v4
       - uses: amitie10g/install-package@v1
@@ -42,7 +45,6 @@ jobs:
         run: rustup component add `echo ${{matrix.cargo-arguments}} | awk '{ print $1; }'`
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo
-        shell: ${{matrix.shell}}
         env:
           RUSTFLAGS: -D warnings
           RUSTDOCFLAGS: -D warnings
