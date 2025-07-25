@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
-        run: sudo apt update && sudo apt upgrade && sudo apt install -y guile-3.0 libclang-dev
+        run: sudo apt update && sudo apt upgrade && sudo apt install -y guile-3.0-dev libclang-dev
       - name: Install nightly toolchain
         if: ${{matrix.nightly}}
         run: rustup toolchain install nightly --profile minimal && rustup default nightly

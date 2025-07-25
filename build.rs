@@ -30,7 +30,7 @@ use {
 };
 
 fn guile_config(subcommand: &str) -> Result<Vec<u8>, io::Error> {
-    Command::new("guile-config")
+    Command::new("guile-config-3.0")
         .arg(subcommand)
         .output()
         .map(|process::Output { stdout, .. }| stdout)

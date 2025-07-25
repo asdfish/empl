@@ -1,5 +1,5 @@
 use {
-    crate::guile::{self, GuileFn, guile_fn},
+    crate::guile::{self, GuileFn},
     std::ffi::c_int,
 };
 
@@ -24,7 +24,7 @@ impl guile::Api {
 mod tests {
     use {
         super::*,
-        crate::guile::Scm,
+        crate::guile::{Scm, guile_fn},
         std::sync::atomic::{self, AtomicBool},
     };
 
