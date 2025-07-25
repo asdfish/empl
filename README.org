@@ -1,0 +1,15 @@
+* empl
+
+** Building
+
+In theory, empl can be built on any platform with dependencies installed, but only linux has been tested.
+
+#+begin_src shell
+  git clone https://github.com/asdish/empl --depth 1
+  cd empl
+  cargo install --path .
+#+end_src
+
+*** Dependencies
+ - guile-3.0
+ - libclang
