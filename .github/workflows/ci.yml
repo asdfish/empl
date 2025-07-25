@@ -17,7 +17,7 @@ jobs:
           - host: ubuntu-latest
             shell: bash
           - host: windows-latest
-            shell: msys2
+            shell: msys2 {0}
           - cargo-arguments: fmt --check
             skip-dependencies: true
           - cargo-arguments: miri test
