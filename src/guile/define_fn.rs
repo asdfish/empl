@@ -28,6 +28,7 @@ mod tests {
         std::sync::atomic::{self, AtomicBool},
     };
 
+    #[cfg_attr(miri, ignore)]
     #[test]
     fn define_fn() {
         static EXECUTED: AtomicBool = AtomicBool::new(false);
