@@ -26,7 +26,7 @@ jobs:
       - uses: amitie10g/install-package@v1
         if: ${{ ! matrix.skip-dependencies }}
         with:
-          brew: guile clang
+          brew: guile
           apt: guile-3.0-dev libclang-dev
           # choco: graphviz less
       # - name: Linux dependencies
