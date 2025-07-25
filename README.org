@@ -13,3 +13,5 @@ In theory, empl can be built on any platform with dependencies installed, but on
 *** Dependencies
  - guile-3.0
  - libclang
+ - a c compiler
+ - a rust compiler
