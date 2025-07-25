@@ -24,16 +24,30 @@ use {
         fmt::{self, Display, Formatter},
         io::{self, Write, stdout},
         path::{self, Path, PathBuf},
-        process::{self, Command, ExitCode},
+        process::{Command, ExitCode},
         str,
     },
 };
 
+const GUILE_CONFIG_COMMANDS: &[&str] = &["guile-config", "guile-config-3.0"];
+
 fn guile_config(subcommand: &str) -> Result<Vec<u8>, io::Error> {
-    Command::new("guile-config-3.0")
-        .arg(subcommand)
-        .output()
-        .map(|process::Output { stdout, .. }| stdout)
+    let mut last_error = None;
+
+    for command in GUILE_CONFIG_COMMANDS {
+        match Command::new(command)
+            .arg(subcommand)
+            .output()
+            .map(|output| output.stdout)
+        {
+            Ok(output) => return Ok(output),
+            Err(error) => {
+                last_error = Some(error);
+            }
+        }
+    }
+
+    Err(last_error.unwrap())
 }
 
 fn main() -> ExitCode {
