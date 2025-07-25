@@ -102,8 +102,8 @@ impl From<Config> for TokenStream2 {
 
 #[derive(Default)]
 struct ConfigBuilder {
-    struct_ident: Option<Ident>,
-    guile_ident: Option<Ident>,
+    struct_ident: Option<String>,
+    guile_ident: Option<String>,
 }
 impl ConfigBuilder {
     pub fn build(
@@ -118,12 +118,15 @@ impl ConfigBuilder {
                 .unwrap_or_else(|| RenameRule::KebabCase.apply_to_field(fn_ident.to_string())),
         )
         .map(|guile_ident| Config {
-            struct_ident: self.struct_ident.unwrap_or_else(|| {
-                Ident::new(
-                    &RenameRule::PascalCase.apply_to_field(fn_ident.to_string()),
-                    Span::call_site(),
-                )
-            }),
+            struct_ident: self
+                .struct_ident
+                .map(|ident| Ident::new(&ident, Span::call_site()))
+                .unwrap_or_else(|| {
+                    Ident::new(
+                        &RenameRule::PascalCase.apply_to_field(fn_ident.to_string()),
+                        Span::call_site(),
+                    )
+                }),
             guile_ident,
             inputs,
             fn_ident,
@@ -161,7 +164,7 @@ impl Parse for ConfigBuilder {
                         format!("Unknown argument `{}`. Available arguments are: `struct_ident`, and `guile_ident`.", path.get_ident().map(<_>::to_string).unwrap_or_else(|| "<??>".to_string()))
                     ));
                 };
-                *ident = Some(Ident::new(&value.value(), Span::call_site()));
+                *ident = Some(value.value());
 
                 Ok(accum)
             })

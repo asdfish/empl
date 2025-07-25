@@ -22,5 +22,10 @@
 
 #include "reexports.h"
 
+_Bool reexports_scm_equal_p(SCM x, SCM y) {
+  return scm_equal_p(x, y);
+}
+
+const SCM REEXPORTS_SCM_BOOL_F = SCM_BOOL_F;
 const SCM REEXPORTS_SCM_BOOL_T = SCM_BOOL_T;
 const SCM REEXPORTS_SCM_UNDEFINED = SCM_UNDEFINED;

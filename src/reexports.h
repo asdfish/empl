@@ -23,6 +23,9 @@
 
 #include <libguile.h>
 
+extern _Bool reexports_scm_equal_p(SCM, SCM);
+
+extern const SCM REEXPORTS_SCM_BOOL_F;
 extern const SCM REEXPORTS_SCM_BOOL_T;
 extern const SCM REEXPORTS_SCM_UNDEFINED;
 

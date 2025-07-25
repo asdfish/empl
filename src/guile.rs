@@ -80,6 +80,9 @@ impl Api {
         let string = string.as_ref();
         Scm::new(unsafe { guile::sys::scm_from_utf8_stringn(string.as_ptr().cast(), string.len()) })
     }
+    pub const fn make_false(&self) -> Scm {
+        Scm(unsafe { sys::REEXPORTS_SCM_BOOL_F })
+    }
     pub const fn make_true(&self) -> Scm {
         Scm(unsafe { sys::REEXPORTS_SCM_BOOL_T })
     }
@@ -214,6 +217,11 @@ impl Scm {
         self.0 == unsafe { sys::REEXPORTS_SCM_BOOL_T }
     }
 }
+impl PartialEq for Scm {
+    fn eq(&self, r: &Self) -> bool {
+        unsafe { sys::reexports_scm_equal_p(self.0, r.0) }
+    }
+}
 
 pub trait GuileFn {
     const REQUIRED: usize;
@@ -309,15 +317,15 @@ mod tests {
 
         static EXECUTED: AtomicBool = AtomicBool::new(false);
 
-        #[guile_fn]
-        fn set_executed(_: &mut Api, [x]: [Scm; 1], _: [Option<Scm>; 0]) -> Scm {
+        #[guile_fn(guile_ident = "set-executed!")]
+        fn set_executed(api: &mut Api, _: [Scm; 0], _: [Option<Scm>; 0]) -> Scm {
             EXECUTED.store(true, atomic::Ordering::Release);
-            x
+            api.make_true()
         }
 
         guile::with_guile(|api| {
             api.define_fn::<SetExecuted>();
-            api.eval_cstring(c"(set-executed 1)");
+            api.eval_cstring(c"(set-executed!)");
         });
 
         assert!(EXECUTED.load(atomic::Ordering::Acquire));
