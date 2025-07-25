@@ -20,6 +20,11 @@
 
 #include <libguile.h>
 
+#ifndef WRAPPER_H
+#define WRAPPER_H
+
 static SCM scm_undefined(void) {
   return SCM_UNDEFINED;
 }
+
+#endif // WRAPPER_H
