@@ -30,6 +30,7 @@ use {
 };
 
 const GUILE_CONFIG_COMMANDS: &[&str] = &["guile-config", "guile-config-3.0"];
+const _: () = assert!(!GUILE_CONFIG_COMMANDS.is_empty());
 
 fn guile_config(subcommand: &str) -> Result<Vec<u8>, io::Error> {
     let mut last_error = None;
