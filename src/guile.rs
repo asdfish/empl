@@ -25,9 +25,11 @@ use {
     },
 };
 
+mod define_fn;
 mod with_guile;
-pub use with_guile::with_guile;
 mod without_guile;
+
+pub use {crate::guile::with_guile::with_guile, proc_macros::guile_fn};
 
 /// Lock for thread initialization
 static INIT_LOCK: Mutex<()> = const { Mutex::new(()) };
@@ -90,7 +92,7 @@ trait GuileModeToggle<F, O> {
 }
 
 #[derive(Clone, Copy, Debug)]
-#[expect(dead_code)]
+#[repr(C)]
 pub struct Scm(sys::SCM);
 impl Scm {
     pub const fn new(scm: sys::SCM) -> Self {
@@ -103,8 +105,8 @@ pub trait GuileFn {
     const OPTIONAL: usize;
     const REST: bool;
 
-    const ADDR: sys::scm_t_subr;
     const NAME: &CStr;
+    const DRIVER: sys::scm_t_subr;
 }
 
 pub mod sys {
@@ -115,4 +117,39 @@ pub mod sys {
     #![expect(clippy::upper_case_acronyms)]
 
     include!(concat!(env!("OUT_DIR"), "/libguile.rs"));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn guile_fn_impl() {
+        #[guile_fn]
+        fn foo([input]: [Scm; 1], _: [Option<Scm>; 1]) -> Scm {
+            input
+        }
+        assert_eq!(Foo::REQUIRED, 1);
+        assert_eq!(Foo::OPTIONAL, 1);
+        assert_eq!(Foo::REST, false);
+        assert_eq!(Foo::NAME, c"foo");
+
+        #[guile_fn]
+        fn bar(_: [Scm; 0], _: [Option<Scm>; 1]) -> Scm {
+            unimplemented!()
+        }
+        assert_eq!(Bar::REQUIRED, 0);
+        assert_eq!(Bar::OPTIONAL, 1);
+        assert_eq!(Bar::REST, false);
+        assert_eq!(Bar::NAME, c"bar");
+
+        #[guile_fn]
+        fn baz(_: [Scm; 0], _: [Option<Scm>; 0], _: Scm) -> Scm {
+            unimplemented!()
+        }
+        assert_eq!(Baz::REQUIRED, 0);
+        assert_eq!(Baz::OPTIONAL, 0);
+        assert_eq!(Baz::REST, true);
+        assert_eq!(Baz::NAME, c"baz");
+    }
 }

@@ -39,7 +39,10 @@ fn guile_config(subcommand: &str) -> Result<Vec<u8>, io::Error> {
 fn main() -> ExitCode {
     let mut stdout = stdout().lock();
     stdout
-        .write_all(b"cargo:rerun-if-changed=build.rs\n")
+        .write_all(
+            b"cargo:rerun-if-changed=build.rs
+cargo:rerun-if-changed=wrapper.h\n",
+        )
         .and_then(|_| guile_config("link"))
         .and_then(|linker_args| {
             linker_args
@@ -76,6 +79,8 @@ fn main() -> ExitCode {
                     builder.clang_arg(compile_arg)
                 })
                 .header(libguile.expect("failed to find `libguile.h`"))
+                .header_contents("wrapper.h", include_str!("wrapper.h"))
+                .wrap_static_fns(true)
         })
         .map_err(BuildError::Io)
         .and_then(|bindings| bindings.generate().map_err(BuildError::Bindgen))

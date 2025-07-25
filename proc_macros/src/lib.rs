@@ -23,9 +23,9 @@ use {
     quote::quote,
     std::ffi::{CString, NulError},
     syn::{
-        Abi, AngleBracketedGenericArguments, Expr, ExprLit, FnArg, GenericArgument, Ident, ItemFn,
-        Lit, MetaNameValue, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType,
-        Signature, Token, Type, TypePath, Visibility,
+        AngleBracketedGenericArguments, Expr, ExprLit, FnArg, GenericArgument, Ident, ItemFn, Lit,
+        MetaNameValue, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature,
+        Token, Type, TypeArray, TypePath, Visibility,
         parse::{Parse, ParseStream},
         punctuated::Punctuated,
     },
@@ -53,6 +53,13 @@ impl From<Config> for TokenStream2 {
             vis,
         }: Config,
     ) -> TokenStream2 {
+        let make_args = |arg_count, name| {
+            (0..arg_count).map(move |i| Ident::new(&format!("{name}_{i}"), Span::call_site()))
+        };
+        let required_args = make_args(required, "required").collect::<Vec<_>>();
+        let optional_args = make_args(optional, "optional").collect::<Vec<_>>();
+        let rest_arg = make_args(rest.into(), "rest").collect::<Vec<_>>();
+
         quote! {
             #vis struct #struct_ident;
 
@@ -62,7 +69,30 @@ impl From<Config> for TokenStream2 {
                 const REST: ::core::primitive::bool = #rest;
 
                 const NAME: &::core::ffi::CStr = #guile_ident;
-                const ADDR: crate::guile::sys::scm_t_subr = { #fn_ident as crate::guile::sys::scm_t_subr };
+                const DRIVER: crate::guile::sys::scm_t_subr = {
+                    assert!(Self::REQUIRED <= ::core::ffi::c_int::MAX as usize, "array lengths must be less than `i32::MAX`");
+                    assert!(Self::OPTIONAL <= ::core::ffi::c_int::MAX as usize, "array lengths must be less than `i32::MAX`");
+
+                    extern "C" fn driver(
+                        #(#required_args: crate::guile::sys::SCM,)*
+                        #(#optional_args: crate::guile::sys::SCM,)*
+                        #(#rest_arg: crate::guile::sys::SCM),*
+                    ) -> crate::guile::Scm {
+                        #fn_ident(
+                            [#(crate::guile::Scm::new(#required_args)),*],
+                            [#({
+                                if #optional_args == unsafe { crate::guile::sys::scm_undefined() } {
+                                    ::core::option::Option::None
+                                } else {
+                                    ::core::option::Option::Some(crate::guile::Scm::new(#optional_args))
+                                }
+                            }),*],
+                            #(crate::guile::Scm::new(#rest_arg),)*
+                        )
+                    }
+
+                    driver as crate::guile::sys::scm_t_subr
+                };
             }
         }
     }
@@ -169,6 +199,27 @@ fn is_option_scm(ty: &Type) -> bool {
         _ => false,
     }
 }
+/// Return the length expression if the type is an array that passes `predicate`
+fn is_array<F>(ty: Type, predicate: F) -> Option<Expr>
+where
+    F: FnOnce(&Type) -> bool,
+{
+    match ty {
+        Type::Array(TypeArray { elem, len, .. }) if predicate(&elem) => Some(len),
+        _ => None,
+    }
+}
+fn expr_to_usize(expr: Expr) -> Result<usize, syn::Error> {
+    match expr {
+        Expr::Lit(ExprLit {
+            lit: Lit::Int(int), ..
+        }) => int.base10_parse::<usize>().map(Some),
+        _ => Ok(None),
+    }
+    .and_then(|len| {
+        len.ok_or_else(|| syn::Error::new(Span::call_site(), "expressions must be static integers"))
+    })
+}
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct Inputs {
@@ -180,21 +231,47 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
     type Error = syn::Error;
 
     fn try_from(args: Punctuated<FnArg, Token![,]>) -> Result<Self, Self::Error> {
-        let mut iter = args.into_iter().map(get_type);
-
-        let output = Self {
-            required: iter.by_ref().take_while(|ty| is_scm(ty)).count(),
-            optional: iter.by_ref().take_while(|ty| is_option_scm(ty)).count(),
-            rest: iter.next().filter(|ty| is_scm(ty)).is_some(),
-        };
-        if let Some(arg) = iter.next() {
-            Err(syn::Error::new(
-                Span::call_site(),
-                format!("Unexpected type `{arg:?}`. Allowed types are: `Scm` and `Option<Scm>.`"),
-            ))
-        } else {
-            Ok(output)
-        }
+        let mut args = args.into_iter().map(get_type);
+        args.next()
+            .and_then(|ty| is_array(*ty, is_scm))
+            .ok_or_else(|| {
+                syn::Error::new(
+                    Span::call_site(),
+                    "the first argument must be of the `[Scm; LEN]`",
+                )
+            })
+            .and_then(expr_to_usize)
+            .and_then(|required| {
+                args.next()
+                    .and_then(|ty| is_array(*ty, is_option_scm))
+                    .ok_or_else(|| {
+                        syn::Error::new(
+                            Span::call_site(),
+                            "the second argument must be of type `[Option<Scm>; LEN]`",
+                        )
+                    })
+                    .and_then(expr_to_usize)
+                    .map(|optional| (required, optional))
+            })
+            .and_then(|(required, optional)| {
+                args.next()
+                    .map(|arg| {
+                        if is_scm(&arg) {
+                            Ok(true)
+                        } else {
+                            Err(syn::Error::new(
+                                Span::call_site(),
+                                "the optional third argument must be of type `Scm`",
+                            ))
+                        }
+                    })
+                    .unwrap_or(Ok(false))
+                    .map(|rest| Inputs {
+                        required,
+                        optional,
+                        rest,
+                    })
+            })
     }
 }
 
@@ -209,7 +286,7 @@ fn assert_none<T>(option: Option<T>, token: &str) -> Result<(), syn::Error> {
 }
 
 #[proc_macro_attribute]
-pub fn raw_subr(config: TokenStream, input: TokenStream) -> TokenStream {
+pub fn guile_fn(config: TokenStream, input: TokenStream) -> TokenStream {
     syn::parse::<ItemFn>(input.clone())
         .and_then(
             |ItemFn {
@@ -219,7 +296,6 @@ pub fn raw_subr(config: TokenStream, input: TokenStream) -> TokenStream {
                          constness,
                          asyncness,
                          unsafety,
-                         abi,
                          variadic,
                          generics,
                          ident: fn_ident,
@@ -241,15 +317,6 @@ pub fn raw_subr(config: TokenStream, input: TokenStream) -> TokenStream {
                         _ => Err(syn::Error::new(
                             Span::call_site(),
                             "return type must be `Scm`",
-                        )),
-                    })
-                    .and_then(|_| match abi {
-                        Some(Abi {
-                            name: Some(name), ..
-                        }) if name.value() == "C" => Ok(()),
-                        _ => Err(syn::Error::new(
-                            Span::call_site(),
-                            "abi must be `extern \"C\"`",
                         )),
                     })
                     .and_then(|_| syn::parse::<ConfigBuilder>(config))
