@@ -18,10 +18,10 @@
  * along with empl.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <libguile.h>
-
 #ifndef WRAPPER_H
 #define WRAPPER_H
+
+#include <libguile.h>
 
 static SCM scm_undefined(void) {
   return SCM_UNDEFINED;
