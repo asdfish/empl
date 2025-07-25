@@ -25,7 +25,7 @@ use {
     syn::{
         AngleBracketedGenericArguments, Expr, ExprLit, FnArg, GenericArgument, Ident, ItemFn, Lit,
         MetaNameValue, PatType, Path, PathArguments, PathSegment, Receiver, ReturnType, Signature,
-        Token, Type, TypeArray, TypePath, Visibility,
+        Token, Type, TypeArray, TypePath, TypeReference, Visibility,
         parse::{Parse, ParseStream},
         punctuated::Punctuated,
     },
@@ -78,7 +78,9 @@ impl From<Config> for TokenStream2 {
                         #(#optional_args: crate::guile::sys::SCM,)*
                         #(#rest_arg: crate::guile::sys::SCM),*
                     ) -> crate::guile::Scm {
+                        let mut api = unsafe { crate::guile::Api::new_unchecked() };
                         #fn_ident(
+                            &mut api,
                             [#(crate::guile::Scm::new(#required_args)),*],
                             [#({
                                 if #optional_args == unsafe { crate::guile::sys::REEXPORTS_SCM_UNDEFINED } {
@@ -172,9 +174,31 @@ fn get_type(arg: FnArg) -> Box<Type> {
         FnArg::Receiver(Receiver { ty, .. }) | FnArg::Typed(PatType { ty, .. }) => ty,
     }
 }
-fn is_scm(ty: &Type) -> bool {
+fn is_path<S>(ty: &Type, ident: &S) -> bool
+where
+    S: AsRef<str> + ?Sized,
+{
     match ty {
-        Type::Path(TypePath { qself: None, path }) => path.is_ident("Scm"),
+        Type::Path(TypePath { qself: None, path }) => path.is_ident(ident.as_ref()),
+        _ => false,
+    }
+}
+fn is_api(ty: &Type) -> bool {
+    is_path(ty, "Api")
+}
+fn is_scm(ty: &Type) -> bool {
+    is_path(ty, "Scm")
+}
+fn is_ref_mut<F>(ty: &Type, inner: F) -> bool
+where
+    F: FnOnce(&Type) -> bool,
+{
+    match ty {
+        Type::Reference(TypeReference {
+            mutability: Some(_),
+            elem,
+            ..
+        }) => inner(&elem),
         _ => false,
     }
 }
@@ -233,12 +257,22 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
     fn try_from(args: Punctuated<FnArg, Token![,]>) -> Result<Self, Self::Error> {
         let mut args = args.into_iter().map(get_type);
         args.next()
-            .and_then(|ty| is_array(*ty, is_scm))
+            .and_then(|arg| is_ref_mut(&arg, is_api).then_some(()))
             .ok_or_else(|| {
                 syn::Error::new(
                     Span::call_site(),
-                    "the first argument must be of the `[Scm; LEN]`",
+                    "the first argument must be of type `&mut Api`",
                 )
+            })
+            .and_then(|_| {
+                args.next()
+                    .and_then(|ty| is_array(*ty, is_scm))
+                    .ok_or_else(|| {
+                        syn::Error::new(
+                            Span::call_site(),
+                            "the second argument must be of type `[Scm; LEN]`",
+                        )
+                    })
             })
             .and_then(expr_to_usize)
             .and_then(|required| {
@@ -247,7 +281,7 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
                     .ok_or_else(|| {
                         syn::Error::new(
                             Span::call_site(),
-                            "the second argument must be of type `[Option<Scm>; LEN]`",
+                            "the third argument must be of type `[Option<Scm>; LEN]`",
                         )
                     })
                     .and_then(expr_to_usize)

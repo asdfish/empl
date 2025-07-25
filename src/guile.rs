@@ -41,6 +41,13 @@ thread_local! {
 
 pub struct Api(());
 impl Api {
+    /// # Safety
+    ///
+    /// You must ensure that the current thread is in guile mode.
+    pub const unsafe fn new_unchecked() -> Self {
+        Self(())
+    }
+
     pub fn define_fn<F>(&self)
     where
         F: GuileFn,
@@ -72,6 +79,9 @@ impl Api {
     {
         let string = string.as_ref();
         Scm::new(unsafe { guile::sys::scm_from_utf8_stringn(string.as_ptr().cast(), string.len()) })
+    }
+    pub const fn make_true(&self) -> Scm {
+        Scm(unsafe { sys::REEXPORTS_SCM_BOOL_T })
     }
 }
 
@@ -237,7 +247,7 @@ mod tests {
     #[test]
     fn guile_fn_impl() {
         #[guile_fn]
-        fn foo([input]: [Scm; 1], _: [Option<Scm>; 1]) -> Scm {
+        fn foo(_: &mut Api, [input]: [Scm; 1], _: [Option<Scm>; 1]) -> Scm {
             input
         }
         assert_eq!(Foo::REQUIRED, 1);
@@ -246,7 +256,7 @@ mod tests {
         assert_eq!(Foo::NAME, c"foo");
 
         #[guile_fn]
-        fn bar(_: [Scm; 0], _: [Option<Scm>; 1]) -> Scm {
+        fn bar(_: &mut Api, _: [Scm; 0], _: [Option<Scm>; 1]) -> Scm {
             unimplemented!()
         }
         assert_eq!(Bar::REQUIRED, 0);
@@ -255,7 +265,7 @@ mod tests {
         assert_eq!(Bar::NAME, c"bar");
 
         #[guile_fn]
-        fn baz(_: [Scm; 0], _: [Option<Scm>; 0], _: Scm) -> Scm {
+        fn baz(_: &mut Api, _: [Scm; 0], _: [Option<Scm>; 0], _: Scm) -> Scm {
             unimplemented!()
         }
         assert_eq!(Baz::REQUIRED, 0);
@@ -266,13 +276,41 @@ mod tests {
 
     #[cfg_attr(miri, ignore)]
     #[test]
+    fn optional() {
+        let _lock = ENV_VAR_LOCK.read();
+
+        #[guile_fn]
+        fn assert_is_none(api: &mut Api, _: [Scm; 0], [i]: [Option<Scm>; 1]) -> Scm {
+            assert!(i.is_none());
+
+            api.make_true()
+        }
+
+        #[guile_fn]
+        fn assert_is_some(api: &mut Api, _: [Scm; 0], [i]: [Option<Scm>; 1]) -> Scm {
+            assert!(i.is_some());
+
+            api.make_true()
+        }
+
+        guile::with_guile(|api| {
+            api.define_fn::<AssertIsNone>();
+            api.define_fn::<AssertIsSome>();
+
+            api.eval_cstring(c"(assert-is-none)");
+            api.eval_cstring(c"(assert-is-some 1)");
+        });
+    }
+
+    #[cfg_attr(miri, ignore)]
+    #[test]
     fn define_fn() {
         let _lock = ENV_VAR_LOCK.read();
 
         static EXECUTED: AtomicBool = AtomicBool::new(false);
 
         #[guile_fn]
-        fn set_executed([x]: [Scm; 1], _: [Option<Scm>; 0]) -> Scm {
+        fn set_executed(_: &mut Api, [x]: [Scm; 1], _: [Option<Scm>; 0]) -> Scm {
             EXECUTED.store(true, atomic::Ordering::Release);
             x
         }
