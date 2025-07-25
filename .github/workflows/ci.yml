@@ -29,13 +29,18 @@ jobs:
       run:
         shell: ${{matrix.shell}}
     steps:
+      - uses: msys2/setup-msys2@v2
+        if: ${{ runner.os == 'Windows' }}
       - uses: actions/checkout@v4
-      - uses: amitie10g/install-package@v1
-        if: ${{ ! matrix.skip-dependencies }}
-        with:
-          apt: guile-3.0-dev libclang-dev
-          # choco: graphviz less
-          pacman: guile clang
+      - name: Install windows dependencies
+        if: ${{ runner.os == 'Windows' && ! matrix.skip-dependencies }}
+        run: pacman -S guile clang
+      - name: Install linux dependencies
+        if: ${{ runner.os == 'Linux' && ! matrix.skip-dependencies }}
+        run: |
+          sudo apt update
+          sudo apt upgrade
+          sudo apt install -y guile-3.0-dev
       - name: Install nightly toolchain
         if: ${{matrix.nightly}}
         run: rustup toolchain install nightly --profile minimal && rustup default nightly
