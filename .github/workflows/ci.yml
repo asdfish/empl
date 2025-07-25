@@ -47,7 +47,7 @@ jobs:
         if: ${{matrix.nightly}}
         run: rustup toolchain install nightly --profile minimal && rustup default nightly
       - name: Install rustup component
-        if: ${{matrix.rustup-component}}
+        if: ${{ matrix.rustup-component && ! matrix.skip-dependencies }}
         shell: bash
         run: rustup component add `echo ${{matrix.cargo-arguments}} | awk '{ print $1; }'`
       - uses: Swatinem/rust-cache@v2
