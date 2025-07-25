@@ -14,6 +14,10 @@ jobs:
           - miri test
           - test
         include:
+          - host: ubuntu-latest
+            shell: bash
+          - host: windows-latest
+            shell: msys2
           - cargo-arguments: fmt --check
             skip-dependencies: true
           - cargo-arguments: miri test
@@ -38,6 +42,7 @@ jobs:
         run: rustup component add `echo ${{matrix.cargo-arguments}} | awk '{ print $1; }'`
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo
+        shell: ${{matrix.shell}}
         env:
           RUSTFLAGS: -D warnings
           RUSTDOCFLAGS: -D warnings
