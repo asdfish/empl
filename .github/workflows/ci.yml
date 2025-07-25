@@ -6,7 +6,6 @@ jobs:
   build:
     strategy:
       matrix:
-        host: [ubuntu-latest, windows-latest]
         cargo-arguments:
           - build
           - fmt --check
@@ -16,27 +15,15 @@ jobs:
         include:
           - host: ubuntu-latest
             shell: bash
-          - host: windows-latest
-            shell: msys2 {0}
           - cargo-arguments: fmt --check
             skip-dependencies: true
           - cargo-arguments: miri test
             rustup-component: true
             nightly: true
 
-    runs-on: ${{matrix.host}}
-    defaults:
-      run:
-        shell: ${{matrix.shell}}
+    runs-on: ubuntu-latest
     steps:
-      - uses: msys2/setup-msys2@v2
-        if: ${{ runner.os == 'Windows' }}
-        with:
-          path-type: inherit
       - uses: actions/checkout@v4
-      - name: Install windows dependencies
-        if: ${{ runner.os == 'Windows' && ! matrix.skip-dependencies }}
-        run: pacman -S --noconfirm guile clang
       - name: Install linux dependencies
         if: ${{ runner.os == 'Linux' && ! matrix.skip-dependencies }}
         run: |
