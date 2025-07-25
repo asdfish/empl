@@ -6,32 +6,35 @@ jobs:
   build:
     strategy:
       matrix:
-        cargo_arguments:
+        cargo-arguments:
           - build
           - fmt --check
           - clippy --no-deps
           - miri test
           - test
         include:
-          - cargo_arguments: miri test
-            rustup_component: true
+          - cargo-arguments: fmt --check
+            skip-dependencies: true
+          - cargo-arguments: miri test
+            rustup-component: true
             nightly: true
 
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Install dependencies
+        if: ${{ ! matrix.skip-dependencies }}
         run: sudo apt update && sudo apt upgrade && sudo apt install -y guile-3.0-dev libclang-dev
       - name: Install nightly toolchain
         if: ${{matrix.nightly}}
         run: rustup toolchain install nightly --profile minimal && rustup default nightly
       - name: Install rustup component
-        if: ${{matrix.rustup_component}}
+        if: ${{matrix.rustup-component}}
         shell: bash
-        run: rustup component add `echo ${{matrix.cargo_arguments}} | awk '{ print $1; }'`
+        run: rustup component add `echo ${{matrix.cargo-arguments}} | awk '{ print $1; }'`
       - uses: Swatinem/rust-cache@v2
       - name: Run cargo
         env:
           RUSTFLAGS: -D warnings
           RUSTDOCFLAGS: -D warnings
-        run: cargo ${{matrix.cargo_arguments}}
+        run: cargo ${{matrix.cargo-arguments}}
