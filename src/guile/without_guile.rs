@@ -53,11 +53,12 @@ impl guile::Api {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {super::*, crate::tests::ENV_VAR_LOCK};
 
     #[cfg_attr(miri, ignore)]
     #[test]
     fn nesting() {
+        let _lock = ENV_VAR_LOCK.read();
         assert!(guile::with_guile(
             |api| api.without_guile(|| guile::with_guile(|_| true))
         ));

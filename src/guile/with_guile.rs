@@ -62,17 +62,19 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use {super::*, crate::tests::ENV_VAR_LOCK};
 
     #[cfg_attr(miri, ignore)]
     #[test]
     fn nesting() {
+        let _lock = ENV_VAR_LOCK.read();
         assert!(with_guile(|_| with_guile(|_| true)));
     }
 
     #[cfg_attr(miri, ignore)]
     #[test]
     fn multi_threading() {
+        let _lock = ENV_VAR_LOCK.read();
         let spawn = || std::thread::spawn(|| with_guile(|_| {}));
         [(); 2]
             .map(|_| spawn())

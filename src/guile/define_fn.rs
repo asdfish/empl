@@ -24,13 +24,18 @@ impl guile::Api {
 mod tests {
     use {
         super::*,
-        crate::guile::{Scm, guile_fn},
+        crate::{
+            guile::{Scm, guile_fn},
+            tests::ENV_VAR_LOCK,
+        },
         std::sync::atomic::{self, AtomicBool},
     };
 
     #[cfg_attr(miri, ignore)]
     #[test]
     fn define_fn() {
+        let _lock = ENV_VAR_LOCK.read();
+
         static EXECUTED: AtomicBool = AtomicBool::new(false);
 
         #[guile_fn]
