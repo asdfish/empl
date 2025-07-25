@@ -114,7 +114,6 @@ pub mod sys {
     #![expect(non_camel_case_types)]
     #![expect(non_snake_case)]
     #![expect(non_upper_case_globals)]
-    #![expect(clippy::upper_case_acronyms)]
 
     include!(concat!(env!("OUT_DIR"), "/libguile.rs"));
 }
