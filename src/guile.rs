@@ -110,7 +110,7 @@ pub trait GuileFn {
 }
 
 pub mod sys {
-    #![expect(improper_ctypes)]
+    #![allow(improper_ctypes)]
     #![expect(non_camel_case_types)]
     #![expect(non_snake_case)]
     #![expect(non_upper_case_globals)]
