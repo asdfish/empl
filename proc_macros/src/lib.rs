@@ -81,7 +81,7 @@ impl From<Config> for TokenStream2 {
                         #fn_ident(
                             [#(crate::guile::Scm::new(#required_args)),*],
                             [#({
-                                if #optional_args == unsafe { crate::guile::sys::scm_undefined() } {
+                                if #optional_args == unsafe { crate::guile::sys::REEXPORTS_SCM_UNDEFINED } {
                                     ::core::option::Option::None
                                 } else {
                                     ::core::option::Option::Some(crate::guile::Scm::new(#optional_args))

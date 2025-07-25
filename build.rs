@@ -56,7 +56,8 @@ fn main() -> ExitCode {
     stdout
         .write_all(
             b"cargo:rerun-if-changed=build.rs
-cargo:rerun-if-changed=wrapper.h\n",
+cargo:rerun-if-changed=./src/reexports.c
+cargo:rerun-if-changed=./src/reexports.h\n",
         )
         .and_then(|_| guile_config("link"))
         .and_then(|linker_args| {
@@ -75,26 +76,34 @@ cargo:rerun-if-changed=wrapper.h\n",
         .map(|compile_args| {
             let mut libguile = None;
 
-            compile_args
+            let (mut cc, bindgen) = compile_args
                 .split(u8::is_ascii_whitespace)
                 .flat_map(str::from_utf8)
-                .fold(bindgen::Builder::default(), |builder, compile_arg| {
-                    if let Some(include_dir) = compile_arg.strip_prefix("-I") {
-                        let mut path = include_dir.to_string();
-                        if !path.ends_with(path::MAIN_SEPARATOR) {
-                            path.push(path::MAIN_SEPARATOR);
-                        }
-                        path.push_str("libguile.h");
+                .filter(|arg| !arg.is_empty())
+                .fold(
+                    (cc::Build::new(), bindgen::Builder::default()),
+                    |(mut cc, bindgen), compile_arg| {
+                        if let Some(include_dir) = compile_arg.strip_prefix("-I") {
+                            let mut path = include_dir.to_string();
+                            if !path.ends_with(path::MAIN_SEPARATOR) {
+                                path.push(path::MAIN_SEPARATOR);
+                            }
+                            path.push_str("libguile.h");
 
-                        if Path::new(&path).is_file() {
-                            libguile = Some(path);
+                            if Path::new(&path).is_file() {
+                                libguile = Some(path);
+                            }
                         }
-                    }
 
-                    builder.clang_arg(compile_arg)
-                })
+                        cc.flag(compile_arg);
+                        (cc, bindgen.clang_arg(compile_arg))
+                    },
+                );
+
+            cc.file("src/reexports.c").compile("reexports");
+            bindgen
                 .header(libguile.expect("failed to find `libguile.h`"))
-                .header_contents("wrapper.h", include_str!("wrapper.h"))
+                .header_contents("src/reexports.h", include_str!("src/reexports.h"))
                 .wrap_static_fns(true)
         })
         .map_err(BuildError::Io)

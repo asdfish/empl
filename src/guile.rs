@@ -56,7 +56,17 @@ impl Api {
         }
     }
 
-    pub fn make_string<S>(string: &S) -> Scm
+    pub fn eval_cstring<S>(&self, string: &S) -> Scm
+    where
+        S: AsRef<CStr> + ?Sized,
+    {
+        Scm::new(unsafe { sys::scm_c_eval_string(string.as_ref().as_ptr()) })
+    }
+    pub fn eval_string(&self, Scm(string): Scm) -> Scm {
+        Scm::new(unsafe { sys::scm_eval_string(string) })
+    }
+
+    pub fn make_string<S>(&self, string: &S) -> Scm
     where
         S: AsRef<str> + ?Sized,
     {
@@ -189,6 +199,10 @@ impl Scm {
     pub const fn new(scm: sys::SCM) -> Self {
         Self(scm)
     }
+
+    pub fn is_true(&self) -> bool {
+        self.0 == unsafe { sys::REEXPORTS_SCM_BOOL_T }
+    }
 }
 
 pub trait GuileFn {
@@ -265,12 +279,7 @@ mod tests {
 
         guile::with_guile(|api| {
             api.define_fn::<SetExecuted>();
-            // TODO: implement and use a wrapper for scm_eval_string
-            unsafe {
-                guile::sys::scm_eval_string(guile::sys::scm_from_utf8_string(
-                    c"(set-executed 1)".as_ptr(),
-                ));
-            }
+            api.eval_cstring(c"(set-executed 1)");
         });
 
         assert!(EXECUTED.load(atomic::Ordering::Acquire));

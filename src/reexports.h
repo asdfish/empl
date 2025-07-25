@@ -18,13 +18,12 @@
  * along with empl.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef WRAPPER_H
-#define WRAPPER_H
+#ifndef REEXPORTS_H
+#define REEXPORTS_H
 
 #include <libguile.h>
 
-static SCM scm_undefined(void) {
-  return SCM_UNDEFINED;
-}
+extern const SCM REEXPORTS_SCM_BOOL_T;
+extern const SCM REEXPORTS_SCM_UNDEFINED;
 
-#endif // WRAPPER_H
+#endif // REEXPORTS_H
