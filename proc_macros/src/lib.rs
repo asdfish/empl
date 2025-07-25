@@ -28,6 +28,7 @@ use {
         Token, Type, TypeArray, TypePath, TypeReference, Visibility,
         parse::{Parse, ParseStream},
         punctuated::Punctuated,
+        spanned::Spanned,
     },
 };
 
@@ -120,11 +121,11 @@ impl ConfigBuilder {
         .map(|guile_ident| Config {
             struct_ident: self
                 .struct_ident
-                .map(|ident| Ident::new(&ident, Span::call_site()))
+                .map(|ident| Ident::new(&ident, ident.span()))
                 .unwrap_or_else(|| {
                     Ident::new(
                         &RenameRule::PascalCase.apply_to_field(fn_ident.to_string()),
-                        Span::call_site(),
+                        guile_ident.span(),
                     )
                 }),
             guile_ident,
@@ -149,7 +150,7 @@ impl Parse for ConfigBuilder {
                 } = value
                 else {
                     return Err(syn::Error::new(
-                        Span::call_site(),
+                        value.span(),
                         "arguments may only be string literals",
                     ));
                 };
@@ -160,7 +161,7 @@ impl Parse for ConfigBuilder {
                     &mut accum.guile_ident
                 } else {
                     return Err(syn::Error::new(
-                        Span::call_site(),
+                        path.get_ident().map(|ident| ident.span()).unwrap_or_else(Span::call_site),
                         format!("Unknown argument `{}`. Available arguments are: `struct_ident`, and `guile_ident`.", path.get_ident().map(<_>::to_string).unwrap_or_else(|| "<??>".to_string()))
                     ));
                 };
@@ -237,14 +238,14 @@ where
     }
 }
 fn expr_to_usize(expr: Expr) -> Result<usize, syn::Error> {
-    match expr {
+    match &expr {
         Expr::Lit(ExprLit {
             lit: Lit::Int(int), ..
         }) => int.base10_parse::<usize>().map(Some),
         _ => Ok(None),
     }
     .and_then(|len| {
-        len.ok_or_else(|| syn::Error::new(Span::call_site(), "expressions must be static integers"))
+        len.ok_or_else(|| syn::Error::new(expr.span(), "expressions must be static integers"))
     })
 }
 
@@ -258,35 +259,39 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
     type Error = syn::Error;
 
     fn try_from(args: Punctuated<FnArg, Token![,]>) -> Result<Self, Self::Error> {
+        let args_span = args.span();
         let mut args = args.into_iter().map(get_type);
         args.next()
-            .and_then(|arg| is_ref_mut(&arg, is_api).then_some(()))
-            .ok_or_else(|| {
-                syn::Error::new(
-                    Span::call_site(),
-                    "the first argument must be of type `&mut Api`",
-                )
-            })
-            .and_then(|_| {
-                args.next()
-                    .and_then(|ty| is_array(*ty, is_scm))
-                    .ok_or_else(|| {
-                        syn::Error::new(
-                            Span::call_site(),
-                            "the second argument must be of type `[Scm; LEN]`",
-                        )
+            .map_or_else(
+                || Ok(()),
+                |arg| {
+                    is_ref_mut(&arg, is_api).then_some(()).ok_or_else(|| {
+                        syn::Error::new(arg.span(), "the first argument must be of type `&mut Api`")
                     })
+                },
+            )
+            .and_then(|_| {
+                const ERROR: &str = "the second argument must be of type `[Scm; LEN]`";
+                args.next().map_or_else(
+                    || Err(syn::Error::new(args_span, ERROR)),
+                    |ty| {
+                        let ty_span = ty.span();
+                        is_array(*ty, is_scm).ok_or_else(|| syn::Error::new(ty_span, ERROR))
+                    },
+                )
             })
             .and_then(expr_to_usize)
             .and_then(|required| {
+                const ERROR: &str = "the third argument must be of type `[Option<Scm>; LEN]`";
                 args.next()
-                    .and_then(|ty| is_array(*ty, is_option_scm))
-                    .ok_or_else(|| {
-                        syn::Error::new(
-                            Span::call_site(),
-                            "the third argument must be of type `[Option<Scm>; LEN]`",
-                        )
-                    })
+                    .map_or_else(
+                        || Err(syn::Error::new(args_span, ERROR)),
+                        |ty| {
+                            let ty_span = ty.span();
+                            is_array(*ty, is_option_scm)
+                                .ok_or_else(|| syn::Error::new(ty_span, ERROR))
+                        },
+                    )
                     .and_then(expr_to_usize)
                     .map(|optional| (required, optional))
             })
@@ -297,7 +302,7 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
                             Ok(true)
                         } else {
                             Err(syn::Error::new(
-                                Span::call_site(),
+                                arg.span(),
                                 "the optional third argument must be of type `Scm`",
                             ))
                         }
@@ -312,10 +317,13 @@ impl TryFrom<Punctuated<FnArg, Token![,]>> for Inputs {
     }
 }
 
-fn assert_none<T>(option: Option<T>, token: &str) -> Result<(), syn::Error> {
+fn assert_none<T>(option: Option<T>, token: &str) -> Result<(), syn::Error>
+where
+    T: Spanned,
+{
     match option {
-        Some(_) => Err(syn::Error::new(
-            Span::call_site(),
+        Some(item) => Err(syn::Error::new(
+            item.span(),
             format!("function cannot be {token}"),
         )),
         None => Ok(()),
@@ -347,21 +355,22 @@ pub fn guile_fn(config: TokenStream, input: TokenStream) -> TokenStream {
                     .and_then(|_| assert_none(unsafety, "unsafe"))
                     .and_then(|_| assert_none(variadic, "variadic"))
                     .and_then(|_| {
-                        assert_none((generics != Default::default()).then_some(()), "generic")
+                        assert_none(
+                            (generics != Default::default()).then_some(generics),
+                            "generic",
+                        )
                     })
                     .and_then(|_| match output {
                         ReturnType::Type(_, ty) if is_scm(&ty) => Ok(()),
-                        _ => Err(syn::Error::new(
-                            Span::call_site(),
-                            "return type must be `Scm`",
-                        )),
+                        _ => Err(syn::Error::new(output.span(), "return type must be `Scm`")),
                     })
                     .and_then(|_| syn::parse::<ConfigBuilder>(config))
                     .and_then(|builder| Inputs::try_from(inputs).map(|inputs| (builder, inputs)))
                     .and_then(|(builder, inputs)| {
+                        let fn_ident_span = fn_ident.span();
                         builder.build(vis, fn_ident, inputs).map_err(|error| {
                             syn::Error::new(
-                                Span::call_site(),
+                                fn_ident_span,
                                 format!("identifiers cannot have nul bytes: {error}"),
                             )
                         })
