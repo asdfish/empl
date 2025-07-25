@@ -19,7 +19,7 @@
 #![cfg_attr(not(test), no_main)]
 
 use {
-    cli::{
+    crate::cli::{
         argv::Argv,
         parser::{Config, ParseCliArgumentsError},
     },
@@ -33,6 +33,7 @@ use {
 pub mod cli;
 pub mod config;
 pub mod display;
+pub mod guile;
 #[cfg(test)]
 mod tests {
     use std::sync::RwLock;
